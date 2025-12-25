@@ -1,1 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Our Private Space 💖</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background-color: #fff5f7; } /* Soft pink background */
+        .chat-bubble { border-radius: 20px; }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
 
+    <header class="p-4 bg-white shadow-sm flex justify-between items-center">
+        <h1 class="text-pink-500 font-bold text-xl">Us 🔒</h1>
+        <div id="status" class="text-xs text-gray-400 font-mono">Connecting...</div>
+    </header>
+
+    <div id="chat-box" class="flex-1 overflow-y-auto p-4 space-y-4">
+        <div class="text-center text-gray-400 text-sm">Welcome to our secret spot!</div>
+    </div>
+
+    <form id="chat-form" class="p-4 bg-white border-t flex gap-2">
+        <input type="text" id="message-input" placeholder="Type a message..." 
+               class="flex-1 p-2 border rounded-full focus:outline-none focus:border-pink-300 px-4">
+        <button type="submit" class="bg-pink-500 text-white px-6 py-2 rounded-full hover:bg-pink-600 transition">
+            Send
+        </button>
+    </form>
+
+    <script>
+        // 1. YOUR SETUP - Replace with your actual Supabase keys
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE';
+        const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE';
+        const supabase = supabase.createClient("https://jwfgaulakwiwextmqbov.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4");
+
+        const chatBox = document.getElementById('chat-box');
+        const chatForm = document.getElementById('chat-form');
+        const messageInput = document.getElementById('message-input');
+        const status = document.getElementById('status');
+
+        // 2. LOAD EXISTING MESSAGES
+        async function fetchMessages() {
+            const { data, error } = await supabase
+                .from('messages')
+                .select('*')
+                .order('created_at', { ascending: true });
+
+            if (data) {
+                chatBox.innerHTML = '';
+                data.forEach(msg => appendMessage(msg));
+                scrollToBottom();
+            }
+        }
+
+        // 3. SEND A MESSAGE
+        chatForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const content = messageInput.value.trim();
+            if (!content) return;
+
+            const { error } = await supabase.from('messages').insert([
+                { 
+                    content: content, 
+                    sender_name: 'Me' // You can customize this later with Auth
+                }
+            ]);
+
+            if (error) console.error(error);
+            messageInput.value = '';
+        };
+
+        // 4. REALTIME LISTENING (The "Magic")
+        supabase
+            .channel('public:messages')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+                appendMessage(payload.new);
+                scrollToBottom();
+            })
+            .subscribe();
+
+        // 5. HELPER FUNCTIONS
+        function appendMessage(msg) {
+            const div = document.createElement('div');
+            div.className = "flex flex-col";
+            // Simple logic: if sender is "Me", align right
+            const align = msg.sender_name === 'Me' ? 'items-end' : 'items-start';
+            const color = msg.sender_name === 'Me' ? 'bg-pink-500 text-white' : 'bg-white text-gray-800 shadow-sm';
+            
+            div.innerHTML = `
+                <div class="${align} flex flex-col max-w-[80%]">
+                    <span class="text-[10px] text-gray-400 px-2">${msg.sender_name}</span>
+                    <div class="px-4 py-2 chat-bubble ${color}">${msg.content}</div>
+                </div>
+            `;
+            chatBox.appendChild(div);
+            status.innerText = "Online ✨";
+        }
+
+        function scrollToBottom() {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        fetchMessages();
+    </script>
+</body>
+</html>
