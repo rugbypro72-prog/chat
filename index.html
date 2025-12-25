@@ -3,100 +3,108 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
-    <title>Hey lyv</title>
+    <title>ChatApp</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* Prevents the 'bounce' effect on iOS */
-html, body {
-    position: fixed;
-    overflow: hidden;
-    width: 100%;
-    height: 100%;
-}
-
-/* Fixes the height for mobile browsers with bottom bars */
-main#messages {
-    flex: 1;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch; /* Smooth scrolling for iOS */
-    padding-bottom: env(safe-area-inset-bottom);
-}
-
-/* Makes tap targets bigger for fingers */
-#messageInput {
-    font-size: 16px !important; /* Prevents iOS auto-zoom */
-}
-
-#chat-form {
-    padding-bottom: calc(10px + env(safe-area-inset-bottom));
-}
         :root { --bg: #0a0f1a; --panel: #101426; --accent: #0b78e3; --card: #1c2335; }
-        body { background: var(--bg); color: #fff; height: 100vh; display: flex; flex-direction: column; margin: 0; font-family: sans-serif; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .msg { max-width: 80%; padding: 10px 15px; border-radius: 18px; font-size: 0.95rem; line-height: 1.4; }
+        body { 
+            background: var(--bg); color: #fff; height: 100vh; 
+            display: flex; flex-direction: column; margin: 0; 
+            font-family: system-ui, -apple-system, sans-serif;
+            position: fixed; overflow: hidden; width: 100%;
+        }
+        #messages { 
+            flex: 1; overflow-y: auto; padding: 20px; 
+            display: flex; flex-direction: column; gap: 12px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .msg { max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 1rem; position: relative; }
         .self { align-self: flex-end; background: var(--accent); border-bottom-right-radius: 4px; }
         .other { align-self: flex-start; background: var(--card); border-bottom-left-radius: 4px; }
-        .meta { font-size: 0.7rem; opacity: 0.5; margin-top: 4px; display: block; }
-        .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 100; }
+        .meta { font-size: 0.65rem; opacity: 0.6; margin-top: 4px; display: block; text-align: right; }
+        .seen-status { font-size: 0.6rem; color: #60a5fa; text-align: right; display: block; font-weight: bold; }
+        #chat-form { padding-bottom: calc(15px + env(safe-area-inset-bottom)); }
+        .modal-backdrop { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 100; }
+        input { font-size: 16px !important; } /* Prevents iOS zoom */
     </style>
 </head>
 <body>
 
-    <header class="p-4 bg-[#0f1524] border-b border-[#1c2335] flex justify-between items-center">
-        <strong class="text-blue-400">Locked Chat 🔒</strong>
-        <span id="userDisplay" class="text-sm opacity-50"></span>
+    <header class="p-4 bg-[#0f1524] border-b border-[#1c2335] flex justify-between items-center shadow-md">
+        <strong class="text-blue-400 text-lg">Us 🔒</strong>
+        <span id="userDisplay" class="text-xs opacity-50 font-mono"></span>
     </header>
 
     <main id="messages"></main>
 
-    <form id="chat-form" class="p-4 bg-[#141a2c] flex gap-2">
+    <form id="chat-form" class="p-4 bg-[#141a2c] flex gap-2 border-t border-[#1c2335]">
         <input id="messageInput" placeholder="Type a message..." autocomplete="off" 
-               class="flex-1 bg-[#101426] border-none rounded-full px-4 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500">
-        <button type="submit" class="bg-blue-600 px-6 py-2 rounded-full font-bold">Send</button>
+               class="flex-1 bg-[#101426] text-white border-none rounded-full px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <button type="submit" class="bg-blue-600 px-6 py-2 rounded-full font-bold active:scale-95 transition">Send</button>
     </form>
 
-    <div id="authModal" class="modal-backdrop">
-        <div class="bg-[#101426] p-8 rounded-2xl w-80 shadow-2xl">
-            <h2 class="text-xl mb-4 font-bold">Enter Secret Code</h2>
-            <input id="codeInput" type="password" placeholder="Code" class="w-full p-2 mb-4 bg-gray-800 rounded border-none">
-            <button id="loginBtn" class="w-full bg-blue-600 py-2 rounded font-bold">Enter Chat</button>
+    <div id="authModal" class="modal-backdrop" style="display: none;">
+        <div class="bg-[#101426] p-8 rounded-2xl w-80 border border-[#1c2335]">
+            <h2 class="text-xl mb-4 font-bold text-center">Secret Code</h2>
+            <input id="codeInput" type="password" placeholder="Enter Code" class="w-full p-3 mb-4 bg-gray-800 rounded-xl border-none text-white text-center">
+            <button id="loginBtn" class="w-full bg-blue-600 py-3 rounded-xl font-bold">Enter Chat</button>
         </div>
     </div>
 
     <script>
-        const SUPABASE_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4'; // Use your real key here
+        const SUPABASE_URL = 'https://azpgwbxillscpwrraprl.supabase.co';
+        const SUPABASE_KEY = 'YOUR_ANON_KEY_HERE';
         const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let currentUser = null;
         let partnerUser = null;
+        let unreadCount = 0;
+        const originalTitle = "Our Space ❤️";
 
         const messagesEl = document.getElementById('messages');
         const messageInput = document.getElementById('messageInput');
         const authModal = document.getElementById('authModal');
+        const userDisplay = document.getElementById('userDisplay');
 
-        // 1. LOGIN LOGIC
-        async function login() {
-            const code = document.getElementById('codeInput').value;
-            const { data, error } = await client.from('chat_codes').select('username').eq('code', code).single();
-            
-            if (error || !data) return alert("Invalid Code");
-
-            currentUser = data.username;
-            // Logic: If I am Boyfriend, partner is Girlfriend. Vice-versa.
-            partnerUser = (currentUser === 'Boyfriend') ? 'Girlfriend' : 'Boyfriend';
-
-            document.getElementById('userDisplay').textContent = `Logged in as ${currentUser}`;
-            authModal.style.display = 'none';
-            
-            loadMessages();
-            subscribeRealtime();
+        // --- AUTH & PERSISTENCE ---
+        async function checkSession() {
+            const savedCode = localStorage.getItem('chat_secret_code');
+            if (savedCode) {
+                const success = await attemptLogin(savedCode);
+                if (!success) authModal.style.display = 'flex';
+            } else {
+                authModal.style.display = 'flex';
+            }
         }
 
-        document.getElementById('loginBtn').onclick = login;
+        async function attemptLogin(code) {
+            const { data, error } = await client.from('chat_codes').select('username').eq('code', code).single();
+            if (error || !data) return false;
 
-        // 2. FETCH MESSAGES
+            currentUser = data.username;
+            partnerUser = (currentUser === 'Boyfriend') ? 'Girlfriend' : 'Boyfriend';
+            localStorage.setItem('chat_secret_code', code);
+            
+            userDisplay.textContent = currentUser;
+            authModal.style.display = 'none';
+            
+            initChat();
+            return true;
+        }
+
+        document.getElementById('loginBtn').onclick = () => {
+            const code = document.getElementById('codeInput').value;
+            attemptLogin(code).then(success => { if(!success) alert("Wrong code!"); });
+        };
+
+        // --- CHAT LOGIC ---
+        function initChat() {
+            loadMessages();
+            subscribeRealtime();
+            markAsRead();
+        }
+
         async function loadMessages() {
             const { data } = await client.from('private_messages')
                 .select('*')
@@ -105,10 +113,24 @@ main#messages {
 
             messagesEl.innerHTML = '';
             data.forEach(appendMessage);
-            messagesEl.scrollTop = messagesEl.scrollHeight;
+            scrollToBottom();
         }
 
-        // 3. SEND MESSAGE
+        async function markAsRead() {
+            if (document.hasFocus() && currentUser && partnerUser) {
+                await client.from('private_messages')
+                    .update({ is_read: true })
+                    .eq('sender', partnerUser)
+                    .eq('receiver', currentUser)
+                    .eq('is_read', false);
+                
+                unreadCount = 0;
+                document.title = originalTitle;
+            }
+        }
+
+        window.onfocus = markAsRead;
+
         document.getElementById('chat-form').onsubmit = async (e) => {
             e.preventDefault();
             const text = messageInput.value.trim();
@@ -122,12 +144,23 @@ main#messages {
             }]);
         };
 
-        // 4. REALTIME
         function subscribeRealtime() {
-            client.channel('any')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, payload => {
-                    appendMessage(payload.new);
-                    messagesEl.scrollTop = messagesEl.scrollHeight;
+            client.channel('chat-room')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, payload => {
+                    if (payload.eventType === 'INSERT') {
+                        const msg = payload.new;
+                        if (msg.sender === currentUser || msg.receiver === currentUser) {
+                            appendMessage(msg);
+                            scrollToBottom();
+                            if (!document.hasFocus() && msg.sender === partnerUser) {
+                                unreadCount++;
+                                document.title = `(${unreadCount}) ${originalTitle}`;
+                            }
+                        }
+                    } else if (payload.eventType === 'UPDATE') {
+                        // Refresh to show "Seen" status
+                        loadMessages();
+                    }
                 })
                 .subscribe();
         }
@@ -136,18 +169,22 @@ main#messages {
             const isMe = msg.sender === currentUser;
             const div = document.createElement('div');
             div.className = `msg ${isMe ? 'self' : 'other'}`;
+            
+            const time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            const seen = (isMe && msg.is_read) ? '<span class="seen-status">Seen</span>' : '';
+
             div.innerHTML = `
                 ${escapeHtml(msg.message)}
-                <span class="meta">${new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                <span class="meta">${time}</span>
+                ${seen}
             `;
             messagesEl.appendChild(div);
         }
 
-        function escapeHtml(str) {
-            const p = document.createElement('p');
-            p.textContent = str;
-            return p.innerHTML;
-        }
+        function scrollToBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
+        function escapeHtml(str) { const p = document.createElement('p'); p.textContent = str; return p.innerHTML; }
+
+        checkSession();
     </script>
 </body>
 </html>
