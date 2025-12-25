@@ -2,11 +2,35 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
     <title>Our Private Space</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
+        /* Prevents the 'bounce' effect on iOS */
+html, body {
+    position: fixed;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+}
+
+/* Fixes the height for mobile browsers with bottom bars */
+main#messages {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling for iOS */
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Makes tap targets bigger for fingers */
+#messageInput {
+    font-size: 16px !important; /* Prevents iOS auto-zoom */
+}
+
+#chat-form {
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+}
         :root { --bg: #0a0f1a; --panel: #101426; --accent: #0b78e3; --card: #1c2335; }
         body { background: var(--bg); color: #fff; height: 100vh; display: flex; flex-direction: column; margin: 0; font-family: sans-serif; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
