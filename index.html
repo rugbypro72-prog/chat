@@ -8,78 +8,118 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --bg: #0a0f1a; --panel: #101426; --accent: #0b78e3; --card: #1c2335; }
-        body { 
-            background: var(--bg); color: #fff; height: 100vh; 
-            display: flex; flex-direction: column; margin: 0; 
+        
+        /* Mobile-First Layout Fixes */
+        html, body { 
+            position: fixed; 
+            overflow: hidden; 
+            width: 100%; 
+            height: 100%; 
+            background: var(--bg);
+            margin: 0;
             font-family: system-ui, -apple-system, sans-serif;
-            position: fixed; overflow: hidden; width: 100%;
         }
+
+        body { display: flex; flex-direction: column; color: #fff; }
+
+        /* Smooth Chat Scroller */
         #messages { 
-            flex: 1; overflow-y: auto; padding: 20px; 
-            display: flex; flex-direction: column; gap: 12px;
+            flex: 1; 
+            overflow-y: auto; 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px;
             -webkit-overflow-scrolling: touch;
         }
-        .msg { max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 1rem; position: relative; }
+
+        /* Message Bubbles */
+        .msg { max-width: 85%; padding: 12px 16px; border-radius: 20px; font-size: 1rem; position: relative; word-wrap: break-word; }
         .self { align-self: flex-end; background: var(--accent); border-bottom-right-radius: 4px; }
         .other { align-self: flex-start; background: var(--card); border-bottom-left-radius: 4px; }
+        
         .meta { font-size: 0.65rem; opacity: 0.6; margin-top: 4px; display: block; text-align: right; }
-        .seen-status { font-size: 0.6rem; color: #60a5fa; text-align: right; display: block; font-weight: bold; }
-        #chat-form { padding-bottom: calc(15px + env(safe-area-inset-bottom)); }
-        .modal-backdrop { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 100; }
-        input { font-size: 16px !important; } /* Prevents iOS zoom */
+        .seen-status { font-size: 0.65rem; color: #60a5fa; text-align: right; display: block; font-weight: bold; margin-top: 2px; }
+
+        /* Input Area Fixes for Mobile */
+        #chat-form { 
+            background: #141a2c; 
+            padding: 12px;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom));
+            display: flex;
+            gap: 8px;
+            border-top: 1px solid #1c2335;
+        }
+
+        input { font-size: 16px !important; } /* Prevents iOS auto-zoom */
+
+        .modal-backdrop { 
+            position: fixed; 
+            inset: 0; 
+            background: var(--bg); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            z-index: 100; 
+        }
     </style>
 </head>
 <body>
 
-    <header class="p-4 bg-[#0f1524] border-b border-[#1c2335] flex justify-between items-center shadow-md">
-        <strong class="text-blue-400 text-lg">Us 🔒</strong>
-        <span id="userDisplay" class="text-xs opacity-50 font-mono"></span>
+    <header class="p-4 bg-[#0f1524] border-b border-[#1c2335] flex justify-between items-center shadow-lg">
+        <strong class="text-blue-400 text-lg tracking-tight">Locked Chat 🔒</strong>
+        <span id="userDisplay" class="text-[10px] opacity-50 font-mono uppercase tracking-widest"></span>
     </header>
 
     <main id="messages"></main>
 
-    <form id="chat-form" class="p-4 bg-[#141a2c] flex gap-2 border-t border-[#1c2335]">
+    <form id="chat-form">
         <input id="messageInput" placeholder="Type a message..." autocomplete="off" 
-               class="flex-1 bg-[#101426] text-white border-none rounded-full px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <button type="submit" class="bg-blue-600 px-6 py-2 rounded-full font-bold active:scale-95 transition">Send</button>
+               class="flex-1 bg-[#101426] text-white border-none rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+        <button type="submit" class="bg-blue-600 px-6 py-2 rounded-2xl font-bold active:scale-90 transition-transform">Send</button>
     </form>
 
     <div id="authModal" class="modal-backdrop" style="display: none;">
-        <div class="bg-[#101426] p-8 rounded-2xl w-80 border border-[#1c2335]">
-            <h2 class="text-xl mb-4 font-bold text-center">Secret Code</h2>
-            <input id="codeInput" type="password" placeholder="Enter Code" class="w-full p-3 mb-4 bg-gray-800 rounded-xl border-none text-white text-center">
-            <button id="loginBtn" class="w-full bg-blue-600 py-3 rounded-xl font-bold">Enter Chat</button>
+        <div class="bg-[#101426] p-8 rounded-3xl w-80 border border-[#1c2335] shadow-2xl">
+            <h2 class="text-xl mb-6 font-bold text-center">Secret Code</h2>
+            <input id="codeInput" type="password" placeholder="Enter Code" 
+                   class="w-full p-4 mb-4 bg-gray-800 rounded-2xl border-none text-white text-center focus:ring-2 focus:ring-blue-500">
+            <button id="loginBtn" class="w-full bg-blue-600 py-4 rounded-2xl font-bold hover:bg-blue-500 transition">Enter Chat</button>
         </div>
     </div>
 
     <script>
+        // --- 1. CONFIGURATION ---
         const SUPABASE_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
-        const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const _client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let currentUser = null;
         let partnerUser = null;
         let unreadCount = 0;
-        const originalTitle = "ChatApp";
+        const originalTitle = "Chatapp";
 
         const messagesEl = document.getElementById('messages');
         const messageInput = document.getElementById('messageInput');
         const authModal = document.getElementById('authModal');
         const userDisplay = document.getElementById('userDisplay');
 
-        // --- AUTH & PERSISTENCE ---
+        // --- 2. AUTHENTICATION & PERSISTENCE ---
         async function checkSession() {
             const savedCode = localStorage.getItem('chat_secret_code');
             if (savedCode) {
                 const success = await attemptLogin(savedCode);
-                if (!success) authModal.style.display = 'flex';
+                if (!success) {
+                    localStorage.removeItem('chat_secret_code');
+                    authModal.style.display = 'flex';
+                }
             } else {
                 authModal.style.display = 'flex';
             }
         }
 
         async function attemptLogin(code) {
-            const { data, error } = await client.from('chat_codes').select('username').eq('code', code).single();
+            const { data, error } = await _client.from('chat_codes').select('username').eq('code', code).single();
             if (error || !data) return false;
 
             currentUser = data.username;
@@ -98,29 +138,28 @@
             attemptLogin(code).then(success => { if(!success) alert("Wrong code!"); });
         };
 
-        // --- CHAT LOGIC ---
+        // --- 3. CHAT OPERATIONS ---
         function initChat() {
             loadMessages();
             subscribeRealtime();
-            markAsRead();
         }
 
         async function loadMessages() {
-            const { data } = await client.from('private_messages')
+            const { data, error } = await _client.from('private_messages')
                 .select('*')
-                .or(`sender.eq.${currentUser},receiver.eq.${currentUser}`)
                 .order('created_at', { ascending: true });
 
+            if (error) console.error("History Error:", error);
             messagesEl.innerHTML = '';
-            data.forEach(appendMessage);
+            if (data) data.forEach(msg => appendMessage(msg, false));
             scrollToBottom();
+            markAllAsRead();
         }
 
-        async function markAsRead() {
-            if (document.hasFocus() && currentUser && partnerUser) {
-                await client.from('private_messages')
+        async function markAllAsRead() {
+            if (document.hasFocus() && currentUser) {
+                await _client.from('private_messages')
                     .update({ is_read: true })
-                    .eq('sender', partnerUser)
                     .eq('receiver', currentUser)
                     .eq('is_read', false);
                 
@@ -129,45 +168,60 @@
             }
         }
 
-        window.onfocus = markAsRead;
+        // Detect when user returns to tab
+        window.onfocus = markAllAsRead;
 
         document.getElementById('chat-form').onsubmit = async (e) => {
             e.preventDefault();
             const text = messageInput.value.trim();
-            if (!text) return;
+            if (!text || !currentUser) return;
 
             messageInput.value = '';
-            await client.from('private_messages').insert([{
+            const { error } = await _client.from('private_messages').insert([{
                 sender: currentUser,
                 receiver: partnerUser,
                 message: text
             }]);
+            if (error) console.error("Send Error:", error);
         };
 
+        // --- 4. REALTIME ENGINE ---
         function subscribeRealtime() {
-            client.channel('chat-room')
+            _client.channel('chat-room')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, payload => {
                     if (payload.eventType === 'INSERT') {
                         const msg = payload.new;
-                        if (msg.sender === currentUser || msg.receiver === currentUser) {
-                            appendMessage(msg);
-                            scrollToBottom();
-                            if (!document.hasFocus() && msg.sender === partnerUser) {
-                                unreadCount++;
-                                document.title = `(${unreadCount}) ${originalTitle}`;
-                            }
+                        // Always append new messages
+                        appendMessage(msg, true);
+                        scrollToBottom();
+                        
+                        // If we are NOT looking at the tab, update the title
+                        if (!document.hasFocus() && msg.sender === partnerUser) {
+                            unreadCount++;
+                            document.title = `(${unreadCount}) ${originalTitle}`;
+                        } else if (document.hasFocus() && msg.sender === partnerUser) {
+                            markAllAsRead();
                         }
                     } else if (payload.eventType === 'UPDATE') {
-                        // Refresh to show "Seen" status
-                        loadMessages();
+                        // When a message is marked as "read", we need to update the UI
+                        // To keep it simple and avoid flickering, we just reload the history
+                        loadMessages(); 
                     }
                 })
-                .subscribe();
+                .subscribe((status) => {
+                    userDisplay.textContent = `${currentUser} (${status})`;
+                });
         }
 
-        function appendMessage(msg) {
+        function appendMessage(msg, isNew) {
             const isMe = msg.sender === currentUser;
+            
+            // Check if message already exists to prevent duplicates on reload
+            const existing = document.getElementById(`msg-${msg.id}`);
+            if (existing) return;
+
             const div = document.createElement('div');
+            div.id = `msg-${msg.id}`;
             div.className = `msg ${isMe ? 'self' : 'other'}`;
             
             const time = new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
@@ -181,8 +235,14 @@
             messagesEl.appendChild(div);
         }
 
+        // --- 5. HELPERS ---
         function scrollToBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
-        function escapeHtml(str) { const p = document.createElement('p'); p.textContent = str; return p.innerHTML; }
+        
+        function escapeHtml(str) { 
+            const p = document.createElement('p'); 
+            p.textContent = str; 
+            return p.innerHTML; 
+        }
 
         checkSession();
     </script>
