@@ -20,40 +20,34 @@
         #chat-form { background: #141a2c; padding: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); display: flex; gap: 8px; border-top: 1px solid #1c2335; align-items: center; }
         input { font-size: 16px !important; }
         .media-content { max-width: 100%; border-radius: 12px; margin-top: 4px; border: 1px solid rgba(255,255,255,0.1); }
-        .hidden-input { display: none; }
     </style>
 </head>
 <body>
 
     <header class="p-4 bg-[#0f1524] border-b border-[#1c2335] flex justify-between items-center shadow-lg">
-        <strong class="text-blue-400 text-lg tracking-tight">Locked Chat 🔒</strong>
+        <strong class="text-blue-400 text-lg">Locked Chat 🔒</strong>
         <span id="userDisplay" class="text-[10px] opacity-50 font-mono uppercase tracking-widest"></span>
     </header>
 
     <main id="messages"></main>
-
     <div id="typing-indicator"></div>
 
     <form id="chat-form">
-        <label for="fileInput" class="cursor-pointer p-2 bg-gray-800 rounded-full hover:bg-gray-700 transition">
+        <label class="cursor-pointer p-2 bg-gray-800 rounded-full">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
+            <input type="file" id="fileInput" class="hidden" accept="image/*,video/*">
         </label>
-        <input type="file" id="fileInput" class="hidden-input" accept="image/*,video/*">
-
-        <input id="messageInput" placeholder="Type a message..." autocomplete="off" 
-               class="flex-1 bg-[#101426] text-white border-none rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
-        
-        <button type="submit" id="sendBtn" class="bg-blue-600 px-6 py-2 rounded-2xl font-bold active:scale-90 transition-transform">Send</button>
+        <input id="messageInput" placeholder="Type a message..." autocomplete="off" class="flex-1 bg-[#101426] text-white border-none rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <button type="submit" id="sendBtn" class="bg-blue-600 px-6 py-2 rounded-2xl font-bold active:scale-90 transition">Send</button>
     </form>
 
-    <div id="authModal" class="modal-backdrop" style="display: none;">
-        <div class="bg-[#101426] p-8 rounded-3xl w-80 border border-[#1c2335] shadow-2xl">
-            <h2 class="text-xl mb-6 font-bold text-center">Secret Code</h2>
-            <input id="codeInput" type="password" placeholder="Enter Code" 
-                   class="w-full p-4 mb-4 bg-gray-800 rounded-2xl border-none text-white text-center focus:ring-2 focus:ring-blue-500">
-            <button id="loginBtn" class="w-full bg-blue-600 py-4 rounded-2xl font-bold hover:bg-blue-500 transition">Enter Chat</button>
+    <div id="authModal" class="modal-backdrop fixed inset-0 bg-black flex items-center justify-center z-[200]" style="display: none;">
+        <div class="bg-[#101426] p-8 rounded-3xl w-80 border border-[#1c2335] text-center">
+            <h2 class="text-xl mb-6 font-bold">Secret Code</h2>
+            <input id="codeInput" type="password" placeholder="Enter Code" class="w-full p-4 mb-4 bg-gray-800 rounded-2xl text-white text-center">
+            <button id="loginBtn" class="w-full bg-blue-600 py-4 rounded-2xl font-bold">Enter Chat</button>
         </div>
     </div>
 
@@ -63,24 +57,14 @@
         const _client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let currentUser = null, partnerUser = null, unreadCount = 0;
-        const originalTitle = "Chatapp";
         let typingTimeout;
 
-        const messagesEl = document.getElementById('messages');
-        const messageInput = document.getElementById('messageInput');
-        const fileInput = document.getElementById('fileInput');
-        const typingEl = document.getElementById('typing-indicator');
-
-        // --- AUTH ---
-        async function checkSession() {
-            const savedCode = localStorage.getItem('chat_secret_code');
-            if (savedCode) attemptLogin(savedCode);
-            else document.getElementById('authModal').style.display = 'flex';
-        }
+        // Ask for notification permission
+        if (Notification.permission !== "granted") Notification.requestPermission();
 
         async function attemptLogin(code) {
-            const { data, error } = await _client.from('chat_codes').select('username').eq('code', code).single();
-            if (error || !data) return false;
+            const { data } = await _client.from('chat_codes').select('username').eq('code', code).single();
+            if (!data) return false;
             currentUser = data.username;
             partnerUser = (currentUser === 'Boyfriend') ? 'Girlfriend' : 'Boyfriend';
             localStorage.setItem('chat_secret_code', code);
@@ -90,9 +74,6 @@
             return true;
         }
 
-        document.getElementById('loginBtn').onclick = () => attemptLogin(document.getElementById('codeInput').value);
-
-        // --- CHAT ---
         function initChat() {
             loadMessages();
             subscribeRealtime();
@@ -100,59 +81,40 @@
 
         async function loadMessages() {
             const { data } = await _client.from('private_messages').select('*').order('created_at', { ascending: true });
-            messagesEl.innerHTML = '';
-            if (data) data.forEach(msg => appendMessage(msg));
-            scrollToBottom();
-            markAllAsRead();
+            document.getElementById('messages').innerHTML = '';
+            if (data) data.forEach(appendMessage);
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
         }
 
-        async function markAllAsRead() {
-            if (document.hasFocus() && currentUser) {
-                await _client.from('private_messages').update({ is_read: true }).eq('receiver', currentUser).eq('is_read', false);
-                unreadCount = 0; document.title = originalTitle;
-            }
-        }
-
-        // --- TYPING STATUS ---
-        messageInput.oninput = () => {
-            _client.from('typing_status').upsert({ username: currentUser, is_typing: true, updated_at: new Date() });
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
-                _client.from('typing_status').upsert({ username: currentUser, is_typing: false });
-            }, 2000);
-        };
-
-        // --- SENDING ---
+        // --- THE FIXED SEND FUNCTION ---
         document.getElementById('chat-form').onsubmit = async (e) => {
             e.preventDefault();
-            const text = messageInput.value.trim();
-            const file = fileInput.files[0];
+            const text = document.getElementById('messageInput').value.trim();
+            const file = document.getElementById('fileInput').files[0];
             if (!text && !file) return;
 
-            const sendBtn = document.getElementById('sendBtn');
-            sendBtn.disabled = true;
-            sendBtn.innerText = "...";
+            const btn = document.getElementById('sendBtn');
+            btn.disabled = true; btn.textContent = "...";
 
-            let fileUrl = null, fileType = null;
-
+            let fUrl = null, fType = null;
             if (file) {
-                const fExt = file.name.split('.').pop();
-                const fPath = `${Date.now()}.${fExt}`;
-                const { data, error } = await _client.storage.from('chat-files').upload(fPath, file);
+                const fName = `${Date.now()}-${file.name}`;
+                const { data } = await _client.storage.from('chat-files').upload(fName, file);
                 if (data) {
-                    fileUrl = _client.storage.from('chat-files').getPublicUrl(fPath).data.publicUrl;
-                    fileType = file.type.startsWith('image') ? 'image' : 'video';
+                    fUrl = _client.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
+                    fType = file.type.startsWith('image') ? 'image' : 'video';
                 }
             }
 
-            await _client.from('private_messages').insert([{
-                sender: currentUser, receiver: partnerUser, message: text, file_url: fileUrl, file_type: fileType
+            const { error } = await _client.from('private_messages').insert([{
+                sender: currentUser, receiver: partnerUser, message: text, file_url: fUrl, file_type: fType
             }]);
 
-            messageInput.value = '';
-            fileInput.value = '';
-            sendBtn.disabled = false;
-            sendBtn.innerText = "Send";
+            if (error) alert("Error sending: " + error.message);
+            
+            document.getElementById('messageInput').value = '';
+            document.getElementById('fileInput').value = '';
+            btn.disabled = false; btn.textContent = "Send";
             _client.from('typing_status').upsert({ username: currentUser, is_typing: false });
         };
 
@@ -160,15 +122,21 @@
             _client.channel('chat-room')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, p => {
                     if (p.eventType === 'INSERT') {
-                        appendMessage(p.new); scrollToBottom();
-                        if (!document.hasFocus() && p.new.sender === partnerUser) {
-                            unreadCount++; document.title = `(${unreadCount}) ${originalTitle}`;
+                        appendMessage(p.new);
+                        document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+                        
+                        if (p.new.sender === partnerUser) {
+                            if (!document.hasFocus()) {
+                                unreadCount++;
+                                document.title = `(${unreadCount}) Chatapp`;
+                                new Notification(`New message from ${partnerUser}`, { body: p.new.message });
+                            }
                         }
                     } else loadMessages();
                 })
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'typing_status' }, p => {
                     if (p.new.username === partnerUser) {
-                        typingEl.textContent = p.new.is_typing ? `${partnerUser} is typing...` : "";
+                        document.getElementById('typing-indicator').textContent = p.new.is_typing ? `${partnerUser} is typing...` : "";
                     }
                 })
                 .subscribe();
@@ -181,25 +149,31 @@
             div.id = `msg-${msg.id}`;
             div.className = `msg ${isMe ? 'self' : 'other'}`;
             
-            let mediaHtml = '';
+            let media = '';
             if (msg.file_url) {
-                if (msg.file_type === 'image') mediaHtml = `<img src="${msg.file_url}" class="media-content" loading="lazy">`;
-                else mediaHtml = `<video src="${msg.file_url}" class="media-content" controls></video>`;
+                media = msg.file_type === 'image' 
+                    ? `<img src="${msg.file_url}" class="media-content">` 
+                    : `<video src="${msg.file_url}" class="media-content" controls></video>`;
             }
 
-            div.innerHTML = `
-                ${mediaHtml}
-                <div class="mt-1">${escapeHtml(msg.message)}</div>
-                <span class="meta">${new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                ${(isMe && msg.is_read) ? '<span class="seen-status">Seen</span>' : ''}
-            `;
-            messagesEl.appendChild(div);
+            div.innerHTML = `${media} <div class="mt-1">${msg.message}</div>
+                <span class="meta">${new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                ${(isMe && msg.is_read) ? '<span class="seen-status">Seen</span>' : ''}`;
+            document.getElementById('messages').appendChild(div);
         }
 
-        function scrollToBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
-        function escapeHtml(str) { const p = document.createElement('p'); p.textContent = str; return p.innerHTML; }
-        window.onfocus = markAllAsRead;
-        checkSession();
+        document.getElementById('loginBtn').onclick = () => attemptLogin(document.getElementById('codeInput').value);
+        window.onfocus = () => { unreadCount = 0; document.title = "Chatapp"; };
+        
+        // Typing Status Logic
+        document.getElementById('messageInput').oninput = () => {
+            _client.from('typing_status').upsert({ username: currentUser, is_typing: true });
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => _client.from('typing_status').upsert({ username: currentUser, is_typing: false }), 2000);
+        };
+
+        const savedCode = localStorage.getItem('chat_secret_code');
+        if (savedCode) attemptLogin(savedCode); else document.getElementById('authModal').style.display = 'flex';
     </script>
 </body>
 </html>
