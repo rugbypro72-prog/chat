@@ -2,55 +2,45 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
-    <title>Chatapp</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
+    <title>ChaAppx</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --bg: #0a0f1a; --panel: #101426; --accent: #0b78e3; --card: #1c2335; }
-        html, body { position: fixed; overflow: hidden; width: 100%; height: 100%; background: var(--bg); margin: 0; font-family: system-ui, sans-serif; color: #fff; }
+        :root { --bg: #0a0f1a; --accent: #0b78e3; --card: #1c2335; }
+        html, body { position: fixed; overflow: hidden; width: 100%; height: 100%; background: var(--bg); color: #fff; margin: 0; font-family: sans-serif; }
         body { display: flex; flex-direction: column; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; -webkit-overflow-scrolling: touch; }
-        .msg { max-width: 85%; padding: 12px 16px; border-radius: 20px; font-size: 1rem; position: relative; }
+        #messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; -webkit-overflow-scrolling: touch; }
+        .msg { max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 1rem; position: relative; word-wrap: break-word; }
         .self { align-self: flex-end; background: var(--accent); border-bottom-right-radius: 4px; }
         .other { align-self: flex-start; background: var(--card); border-bottom-left-radius: 4px; }
-        .reply-container { background: rgba(0,0,0,0.2); border-left: 3px solid #60a5fa; padding: 4px 8px; margin-bottom: 8px; border-radius: 4px; font-size: 0.8rem; }
-        #reply-preview { display: none; background: #1c2335; padding: 10px; border-left: 4px solid var(--accent); align-items: center; justify-content: space-between; }
-        .reaction-badge { position: absolute; bottom: -10px; right: 10px; background: #2d3748; border-radius: 12px; padding: 2px 6px; font-size: 12px; border: 2px solid var(--bg); }
-        .meta-row { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 4px; }
-        .timestamp { font-size: 0.65rem; opacity: 0.6; }
-        .status-label { font-size: 0.65rem; font-weight: bold; }
-        .status-read { color: #60a5fa; }
-        #typing-indicator { font-size: 0.75rem; color: #60a5fa; padding: 4px 16px; height: 24px; font-style: italic; }
-        #chat-form { background: #141a2c; padding: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); display: flex; gap: 8px; border-top: 1px solid #1c2335; align-items: center; }
-        .media-content { max-width: 100%; border-radius: 12px; }
+        #typing-indicator { font-size: 0.75rem; color: #60a5fa; padding: 5px 15px; height: 25px; font-style: italic; }
+        #chat-form { background: #141a2c; padding: 10px; display: flex; gap: 8px; border-top: 1px solid #1c2335; }
+        input { flex: 1; bg: #101426; border: none; border-radius: 20px; padding: 10px 15px; color: #fff; outline: none; background: #101426; }
+        button { background: #0b78e3; padding: 10px 20px; border-radius: 20px; font-weight: bold; }
+        .status { font-size: 0.6rem; opacity: 0.5; margin-top: 4px; text-align: right; }
+        .read { color: #60a5fa; opacity: 1; }
     </style>
 </head>
 <body>
 
-    <header class="p-4 bg-[#0f1524] border-b border-[#1c2335] flex justify-between items-center shadow-lg">
-        <strong class="text-blue-400 text-lg">Us 🔒</strong>
-        <span id="userDisplay" class="text-[10px] opacity-50 font-mono"></span>
+    <header class="p-4 bg-[#0f1524] border-b border-[#1c2335] flex justify-between">
+        <strong class="text-blue-400">am trying to fix it btw lyvvy</strong>
+        <span id="userDisplay" class="text-[10px] opacity-50 uppercase"></span>
     </header>
 
     <main id="messages"></main>
     <div id="typing-indicator"></div>
 
-    <div id="reply-preview">
-        <div class="truncate pr-4"><small class="text-blue-400 block">Replying to...</small><span id="reply-text" class="text-xs opacity-70"></span></div>
-        <button onclick="cancelReply()" class="text-gray-400 text-xl">&times;</button>
-    </div>
-
     <form id="chat-form">
-        <label class="cursor-pointer p-2 bg-gray-800 rounded-full"><input type="file" id="fileInput" class="hidden" accept="image/*,video/*">📎</label>
-        <input id="messageInput" placeholder="Type a message..." autocomplete="off" class="flex-1 bg-[#101426] text-white border-none rounded-2xl px-4 py-3 focus:outline-none">
-        <button type="submit" id="sendBtn" class="bg-blue-600 px-6 py-2 rounded-2xl font-bold">Send</button>
+        <input id="messageInput" placeholder="Message..." autocomplete="off">
+        <button type="submit" id="sendBtn">Send</button>
     </form>
 
     <div id="authModal" class="fixed inset-0 bg-black flex items-center justify-center z-[200]" style="display: none;">
         <div class="bg-[#101426] p-8 rounded-3xl w-80 text-center">
-            <input id="codeInput" type="password" placeholder="Enter Code" class="w-full p-4 mb-4 bg-gray-800 rounded-2xl text-white text-center">
-            <button id="loginBtn" class="w-full bg-blue-600 py-4 rounded-2xl font-bold">Enter</button>
+            <input id="codeInput" type="password" placeholder="Code" class="w-full mb-4 text-center">
+            <button id="loginBtn" class="w-full">Enter</button>
         </div>
     </div>
 
@@ -59,82 +49,80 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
         const _client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        let currentUser = null, partnerUser = null, currentReplyId = null;
+        let currentUser = null, partnerUser = null;
 
-        async function attemptLogin(code) {
+        async function login(code) {
             const { data } = await _client.from('chat_codes').select('username').eq('code', code).single();
-            if (!data) return false;
+            if (!data) return alert("Wrong Code");
             currentUser = data.username;
             partnerUser = (currentUser === 'Boyfriend') ? 'Girlfriend' : 'Boyfriend';
             localStorage.setItem('chat_secret_code', code);
             document.getElementById('userDisplay').textContent = currentUser;
             document.getElementById('authModal').style.display = 'none';
-            initChat();
-            return true;
+            startChat();
         }
 
-        function initChat() {
-            loadMessages();
-            _client.channel('chat-room').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages()).subscribe();
-            _client.channel('chat-room').on('postgres_changes', { event: '*', schema: 'public', table: 'typing_status' }, p => {
+        function startChat() {
+            refreshMessages();
+            // Listen for NEW messages
+            _client.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => refreshMessages()).subscribe();
+            // Listen for TYPING
+            _client.channel('type').on('postgres_changes', { event: '*', schema: 'public', table: 'typing_status' }, p => {
                 if (p.new.username === partnerUser) document.getElementById('typing-indicator').textContent = p.new.is_typing ? `${partnerUser} is typing...` : "";
             }).subscribe();
         }
 
-        async function loadMessages() {
-            const { data } = await _client.from('private_messages').select('*').order('created_at', { ascending: true });
-            if (!data) return;
+        async function refreshMessages() {
+            const { data, error } = await _client.from('private_messages').select('*').order('created_at', { ascending: true });
+            if (error) return console.error(error);
             const container = document.getElementById('messages');
             container.innerHTML = '';
             data.forEach(msg => {
                 const isMe = msg.sender === currentUser;
                 const div = document.createElement('div');
                 div.className = `msg ${isMe ? 'self' : 'other'}`;
-                div.onclick = () => setReply(msg.id, msg.message);
-                div.ondblclick = () => _client.from('private_messages').update({ reaction: '❤️' }).eq('id', msg.id);
+                const time = new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                const statusHtml = isMe ? `<span class="status ${msg.is_read ? 'read' : ''}">${msg.is_read ? 'Read' : 'Delivered'}</span>` : '';
                 
-                let content = '';
-                if (msg.is_deleted) content = '<span class="italic opacity-50 text-xs">Deleted</span>';
-                else {
-                    if (msg.reply_to_id) content += `<div class="reply-container text-xs">Replying...</div>`;
-                    if (msg.file_url) content += msg.file_type === 'image' ? `<img src="${msg.file_url}" class="media-content">` : `<video src="${msg.file_url}" controls class="media-content"></video>`;
-                    content += `<div>${msg.message || ''}</div>`;
-                }
-                const status = isMe ? `<span class="status-label ${msg.is_read ? 'status-read' : ''}">${msg.is_read ? 'Read' : 'Delivered'}</span>` : '';
-                div.innerHTML = `${content} ${msg.reaction ? `<span class="reaction-badge">${msg.reaction}</span>` : ''} <div class="meta-row"><span class="timestamp">${new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>${status}</div>`;
+                div.innerHTML = `<div>${msg.message || ''}</div>${statusHtml} <span class="text-[10px] opacity-30">${time}</span>`;
                 container.appendChild(div);
             });
             container.scrollTop = container.scrollHeight;
-            markRead();
+            if (document.hasFocus()) markAsRead();
         }
 
-        async function markRead() {
-            if (document.hasFocus() && currentUser) await _client.from('private_messages').update({ is_read: true }).eq('receiver', currentUser).eq('is_read', false);
+        async function markAsRead() {
+            await _client.from('private_messages').update({ is_read: true }).eq('receiver', currentUser).eq('is_read', false);
         }
-
-        function setReply(id, text) { currentReplyId = id; document.getElementById('reply-preview').style.display = 'flex'; document.getElementById('reply-text').textContent = text; }
-        function cancelReply() { currentReplyId = null; document.getElementById('reply-preview').style.display = 'none'; }
 
         document.getElementById('chat-form').onsubmit = async (e) => {
             e.preventDefault();
             const input = document.getElementById('messageInput');
-            const file = document.getElementById('fileInput').files[0];
-            if (!input.value && !file) return;
+            const val = input.value.trim();
+            if (!val) return;
 
-            let fUrl = null, fType = null;
-            if (file) {
-                const fName = `${Date.now()}-${file.name}`;
-                await _client.storage.from('chat-files').upload(fName, file);
-                fUrl = _client.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
-                fType = file.type.startsWith('image') ? 'image' : 'video';
-            }
-            await _client.from('private_messages').insert([{ sender: currentUser, receiver: partnerUser, message: input.value, file_url: fUrl, file_type: fType, reply_to_id: currentReplyId }]);
-            input.value = ''; cancelReply();
+            const { error } = await _client.from('private_messages').insert([{ 
+                sender: currentUser, 
+                receiver: partnerUser, 
+                message: val 
+            }]);
+
+            if (error) alert("FAILED TO SEND: " + error.message);
+            else input.value = '';
         };
 
-        const savedCode = localStorage.getItem('chat_secret_code');
-        if (savedCode) attemptLogin(savedCode); else document.getElementById('authModal').style.display = 'flex';
-        document.getElementById('loginBtn').onclick = () => attemptLogin(document.getElementById('codeInput').value);
+        // Typing logic
+        let tto;
+        document.getElementById('messageInput').oninput = () => {
+            _client.from('typing_status').upsert({ username: currentUser, is_typing: true });
+            clearTimeout(tto);
+            tto = setTimeout(() => _client.from('typing_status').upsert({ username: currentUser, is_typing: false }), 2000);
+        };
+
+        const sc = localStorage.getItem('chat_secret_code');
+        if (sc) login(sc); else document.getElementById('authModal').style.display = 'flex';
+        document.getElementById('loginBtn').onclick = () => login(document.getElementById('codeInput').value);
+        window.onfocus = refreshMessages;
     </script>
 </body>
 </html>
