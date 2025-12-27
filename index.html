@@ -2,127 +2,105 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>ChaAppx</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
+    <title>Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --bg: #0a0f1a; --accent: #0b78e3; --card: #1c2335; }
-        html, body { position: fixed; overflow: hidden; width: 100%; height: 100%; background: var(--bg); color: #fff; margin: 0; font-family: sans-serif; }
-        body { display: flex; flex-direction: column; }
-        #messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; -webkit-overflow-scrolling: touch; }
-        .msg { max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 1rem; position: relative; word-wrap: break-word; }
-        .self { align-self: flex-end; background: var(--accent); border-bottom-right-radius: 4px; }
-        .other { align-self: flex-start; background: var(--card); border-bottom-left-radius: 4px; }
-        #typing-indicator { font-size: 0.75rem; color: #60a5fa; padding: 5px 15px; height: 25px; font-style: italic; }
-        #chat-form { background: #141a2c; padding: 10px; display: flex; gap: 8px; border-top: 1px solid #1c2335; }
-        input { flex: 1; bg: #101426; border: none; border-radius: 20px; padding: 10px 15px; color: #fff; outline: none; background: #101426; }
-        button { background: #0b78e3; padding: 10px 20px; border-radius: 20px; font-weight: bold; }
-        .status { font-size: 0.6rem; opacity: 0.5; margin-top: 4px; text-align: right; }
-        .read { color: #60a5fa; opacity: 1; }
+        body { background: #0a0f1a; color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; font-family: sans-serif; }
+        #messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .msg { max-width: 80%; padding: 10px 15px; border-radius: 18px; position: relative; line-height: 1.4; word-wrap: break-word; }
+        .self { align-self: flex-end; background: #0b78e3; border-bottom-right-radius: 4px; }
+        .other { align-self: flex-start; background: #1c2335; border-bottom-left-radius: 4px; }
+        .meta { font-size: 10px; opacity: 0.5; margin-top: 4px; display: flex; justify-content: space-between; gap: 10px; }
+        .read-check { color: #60a5fa; font-weight: bold; }
+        #chat-form { background: #141a2c; padding: 15px; display: flex; gap: 10px; border-top: 1px solid #1c2335; }
+        input { flex: 1; background: #101426; border: none; border-radius: 20px; padding: 10px 15px; color: white; outline: none; }
+        button { background: #0b78e3; color: white; font-weight: bold; border-radius: 20px; padding: 0 20px; }
     </style>
 </head>
 <body>
 
-    <header class="p-4 bg-[#0f1524] border-b border-[#1c2335] flex justify-between">
-        <strong class="text-blue-400">am trying to fix it btw lyvvy</strong>
-        <span id="userDisplay" class="text-[10px] opacity-50 uppercase"></span>
-    </header>
+    <header class="p-4 bg-[#0f1524] border-b border-[#1c2335] text-blue-400 font-bold">still tryna fix baby</header>
 
     <main id="messages"></main>
-    <div id="typing-indicator"></div>
+    <div id="typing" class="px-4 text-xs text-blue-400 italic h-5"></div>
 
     <form id="chat-form">
-        <input id="messageInput" placeholder="Message..." autocomplete="off">
-        <button type="submit" id="sendBtn">Send</button>
+        <input id="msgInput" placeholder="Type here..." autocomplete="off">
+        <button type="submit">Send</button>
     </form>
 
-    <div id="authModal" class="fixed inset-0 bg-black flex items-center justify-center z-[200]" style="display: none;">
-        <div class="bg-[#101426] p-8 rounded-3xl w-80 text-center">
-            <input id="codeInput" type="password" placeholder="Code" class="w-full mb-4 text-center">
-            <button id="loginBtn" class="w-full">Enter</button>
+    <div id="auth" class="fixed inset-0 bg-black z-[999] flex items-center justify-center" style="display:none">
+        <div class="bg-[#101426] p-10 rounded-3xl text-center">
+            <input id="authCode" type="password" placeholder="Code" class="mb-4 text-center">
+            <button id="authBtn" class="w-full py-2">Enter</button>
         </div>
     </div>
 
     <script>
-        const SUPABASE_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
-        const _client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
+        const _db = supabase.createClient(SB_URL, SB_KEY);
 
-        let currentUser = null, partnerUser = null;
+        let me = null, you = null;
 
-        async function login(code) {
-            const { data } = await _client.from('chat_codes').select('username').eq('code', code).single();
-            if (!data) return alert("Wrong Code");
-            currentUser = data.username;
-            partnerUser = (currentUser === 'Boyfriend') ? 'Girlfriend' : 'Boyfriend';
-            localStorage.setItem('chat_secret_code', code);
-            document.getElementById('userDisplay').textContent = currentUser;
-            document.getElementById('authModal').style.display = 'none';
-            startChat();
-        }
-
-        function startChat() {
-            refreshMessages();
-            // Listen for NEW messages
-            _client.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => refreshMessages()).subscribe();
-            // Listen for TYPING
-            _client.channel('type').on('postgres_changes', { event: '*', schema: 'public', table: 'typing_status' }, p => {
-                if (p.new.username === partnerUser) document.getElementById('typing-indicator').textContent = p.new.is_typing ? `${partnerUser} is typing...` : "";
+        async function init(code) {
+            const { data } = await _db.from('chat_codes').select('username').eq('code', code).single();
+            if(!data) return alert("Invalid code");
+            me = data.username;
+            you = (me === 'Boyfriend') ? 'Girlfriend' : 'Boyfriend';
+            document.getElementById('auth').style.display = 'none';
+            localStorage.setItem('chat_code', code);
+            
+            load();
+            _db.channel('room1').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => load()).subscribe();
+            _db.channel('room2').on('postgres_changes', { event: '*', schema: 'public', table: 'typing_status' }, p => {
+                if(p.new.username === you) document.getElementById('typing').innerText = p.new.is_typing ? you + " is typing..." : "";
             }).subscribe();
         }
 
-        async function refreshMessages() {
-            const { data, error } = await _client.from('private_messages').select('*').order('created_at', { ascending: true });
-            if (error) return console.error(error);
-            const container = document.getElementById('messages');
-            container.innerHTML = '';
-            data.forEach(msg => {
-                const isMe = msg.sender === currentUser;
-                const div = document.createElement('div');
-                div.className = `msg ${isMe ? 'self' : 'other'}`;
-                const time = new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-                const statusHtml = isMe ? `<span class="status ${msg.is_read ? 'read' : ''}">${msg.is_read ? 'Read' : 'Delivered'}</span>` : '';
-                
-                div.innerHTML = `<div>${msg.message || ''}</div>${statusHtml} <span class="text-[10px] opacity-30">${time}</span>`;
-                container.appendChild(div);
-            });
-            container.scrollTop = container.scrollHeight;
-            if (document.hasFocus()) markAsRead();
+        async function load() {
+            const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: true });
+            if(!data) return;
+            const view = document.getElementById('messages');
+            view.innerHTML = data.map(m => {
+                const isMe = m.sender === me;
+                const time = new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                const status = isMe ? (m.is_read ? '<span class="read-check">Read</span>' : 'Delivered') : '';
+                return `<div class="msg ${isMe ? 'self' : 'other'}">
+                    <div>${m.message}</div>
+                    <div class="meta"><span>${time}</span>${status}</div>
+                </div>`;
+            }).join('');
+            view.scrollTop = view.scrollHeight;
+            if(document.hasFocus()) markRead();
         }
 
-        async function markAsRead() {
-            await _client.from('private_messages').update({ is_read: true }).eq('receiver', currentUser).eq('is_read', false);
+        async function markRead() {
+            await _db.from('private_messages').update({ is_read: true }).eq('receiver', me).eq('is_read', false);
         }
 
         document.getElementById('chat-form').onsubmit = async (e) => {
             e.preventDefault();
-            const input = document.getElementById('messageInput');
+            const input = document.getElementById('msgInput');
             const val = input.value.trim();
-            if (!val) return;
-
-            const { error } = await _client.from('private_messages').insert([{ 
-                sender: currentUser, 
-                receiver: partnerUser, 
-                message: val 
-            }]);
-
-            if (error) alert("FAILED TO SEND: " + error.message);
-            else input.value = '';
+            if(!val) return;
+            input.value = '';
+            const { error } = await _db.from('private_messages').insert([{ sender: me, receiver: you, message: val }]);
+            if(error) alert("Send failed: " + error.message);
         };
 
-        // Typing logic
-        let tto;
-        document.getElementById('messageInput').oninput = () => {
-            _client.from('typing_status').upsert({ username: currentUser, is_typing: true });
-            clearTimeout(tto);
-            tto = setTimeout(() => _client.from('typing_status').upsert({ username: currentUser, is_typing: false }), 2000);
+        document.getElementById('msgInput').oninput = () => {
+            _db.from('typing_status').upsert({ username: me, is_typing: true });
+            clearTimeout(window.t_timeout);
+            window.t_timeout = setTimeout(() => _db.from('typing_status').upsert({ username: me, is_typing: false }), 2000);
         };
 
-        const sc = localStorage.getItem('chat_secret_code');
-        if (sc) login(sc); else document.getElementById('authModal').style.display = 'flex';
-        document.getElementById('loginBtn').onclick = () => login(document.getElementById('codeInput').value);
-        window.onfocus = refreshMessages;
+        const saved = localStorage.getItem('chat_code');
+        if(saved) init(saved); else document.getElementById('auth').style.display = 'flex';
+        document.getElementById('authBtn').onclick = () => init(document.getElementById('authCode').value);
+        window.onfocus = load;
     </script>
 </body>
 </html>
