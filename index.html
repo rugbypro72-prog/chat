@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
-    <title>chatapp</title>
+    <title>chatweb</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -41,7 +41,7 @@
 </div>
 
 <header class="p-4 bg-[#0f1524] text-center font-bold text-blue-400 border-b border-[#1c2335] flex justify-between items-center shadow-md">
-    <span>tryna fix</span>
+    <span>im tryna fix it mb</span>
     <span id="meDisplay" class="text-[10px] opacity-50 uppercase tracking-widest"></span>
 </header>
 
@@ -71,8 +71,8 @@
 
     window.login = async function() {
         const code = document.getElementById('codeIn').value;
-        const { data } = await _db.from('chat_codes').select('username').eq('code', code).single();
-        if (!data) return alert("Wrong code!");
+        const { data, error } = await _db.from('chat_codes').select('username').eq('code', code).single();
+        if (error || !data) return alert("Wrong code!");
 
         me = data.username;
         you = (me === 'Boyfriend') ? 'Girlfriend' : 'Boyfriend';
@@ -85,7 +85,6 @@
 
     function startChat() {
         loadMessages();
-        // Subscribe to all changes (Insert, Update, Delete)
         _db.channel('chat-room')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => {
                 loadMessages();
@@ -94,20 +93,27 @@
     }
 
     async function loadMessages() {
+        // We select everything to ensure we aren't filtering out the messages accidentally
         const { data, error } = await _db.from('private_messages').select('*').order('created_at', { ascending: true });
-        if (error) return;
+        
+        if (error) {
+            console.error("Fetch Error:", error.message);
+            return;
+        }
+
+        if (!data || data.length === 0) {
+            console.log("No messages found in database.");
+        }
 
         const box = document.getElementById('messages');
-        
-        // Render data
-        box.innerHTML = (data || []).map(m => {
+        box.innerHTML = data.map(m => {
             const isMe = m.sender === me;
             const time = new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
             
             let replyHtml = '';
             if (m.reply_to_id) {
                 const parent = data.find(x => x.id === m.reply_to_id);
-                replyHtml = `<div class="reply-box">${parent ? (parent.message || 'Media') : 'Deleted Message'}</div>`;
+                replyHtml = `<div class="reply-box">${parent ? (parent.message || 'Media') : 'Original Message'}</div>`;
             }
 
             let mediaHtml = m.file_url ? (m.file_type === 'image' ? `<img src="${m.file_url}" class="media-content">` : `<video src="${m.file_url}" class="media-content" controls></video>`) : '';
@@ -124,7 +130,6 @@
             `;
         }).join('');
         
-        // Scroll only if new message arrived
         if (data.length > currentMessageCount) {
             box.scrollTop = box.scrollHeight;
         }
@@ -148,6 +153,7 @@
         if (!isMe) return;
         if (confirm("Delete this message?")) {
             await _db.from('private_messages').delete().eq('id', id);
+            loadMessages(); // Refresh UI after delete
         }
     };
 
@@ -165,26 +171,37 @@
         let fileUrl = null, fileType = null;
 
         if (file) {
-            const path = `${Date.now()}_${file.name}`;
-            const { data: uploadData } = await _db.storage.from('chat-files').upload(path, file);
-            if (uploadData) {
+            try {
+                const path = `${Date.now()}_${file.name}`;
+                const { data: uploadData, error: uploadError } = await _db.storage.from('chat-files').upload(path, file);
+                if (uploadError) throw uploadError;
+                
                 fileUrl = _db.storage.from('chat-files').getPublicUrl(path).data.publicUrl;
                 fileType = file.type.startsWith('image') ? 'image' : 'video';
+            } catch (err) {
+                console.error("Upload error:", err.message);
             }
         }
 
         const { error } = await _db.from('private_messages').insert([{
-            sender: me, receiver: you, message: text,
-            file_url: fileUrl, file_type: fileType, reply_to_id: replyId
+            sender: me, 
+            receiver: you, 
+            message: text,
+            file_url: fileUrl, 
+            file_type: fileType, 
+            reply_to_id: replyId
         }]);
 
-        if (error) alert("Send failed!");
-        
-        msgInput.value = '';
-        fileInput.value = '';
-        cancelReply();
+        if (error) {
+            alert("Send failed: " + error.message);
+        } else {
+            msgInput.value = '';
+            fileInput.value = '';
+            cancelReply();
+            // We manually trigger loadMessages here just in case Realtime is slow
+            loadMessages();
+        }
         btn.disabled = false;
-        // loadMessages() will be triggered automatically by the realtime subscription
     };
 
     const saved = localStorage.getItem('chat_secret_code');
