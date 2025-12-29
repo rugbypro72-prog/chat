@@ -3,57 +3,53 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
-    <title>ChatWebb</title>
+    <title>Chatformalove</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --bg: #0a0f1a; --accent: #0b78e3; --card: #1c2335; }
         body { background: var(--bg); color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; margin: 0; }
+        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
         
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; -webkit-overflow-scrolling: touch; }
-        
-        .msg { max-width: 85%; padding: 10px 14px; border-radius: 18px; position: relative; word-wrap: break-word; cursor: pointer; transition: all 0.1s ease; }
+        /* Message Styles */
+        .msg { max-width: 85%; padding: 10px 14px; border-radius: 18px; position: relative; word-wrap: break-word; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .self { align-self: flex-end; background: var(--accent); border-bottom-right-radius: 2px; }
         .other { align-self: flex-start; background: var(--card); border-bottom-left-radius: 2px; }
         
-        .reply-box { background: rgba(0,0,0,0.3); border-left: 3px solid #60a5fa; padding: 5px 8px; margin-bottom: 6px; border-radius: 4px; font-size: 0.8rem; opacity: 0.8; pointer-events: none; color: #93c5fd; }
-        .media-content { max-width: 100%; border-radius: 10px; margin-top: 4px; display: block; max-height: 300px; object-fit: cover; }
-        
-        .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 4px; font-size: 10px; opacity: 0.6; pointer-events: none; }
-        
+        /* Reply UI */
+        .reply-box { background: rgba(0,0,0,0.3); border-left: 3px solid #60a5fa; padding: 5px 8px; margin-bottom: 6px; border-radius: 4px; font-size: 0.75rem; color: #93c5fd; pointer-events: none; }
         #reply-preview { display: none; background: #161b2e; padding: 10px 15px; border-left: 4px solid var(--accent); align-items: center; justify-content: space-between; border-top: 1px solid #1c2335; }
-        #typing-indicator { padding: 5px 20px; font-size: 12px; color: #60a5fa; font-style: italic; height: 24px; }
-
-        #chat-form { background: #101426; padding: 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #1c2335; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+        
+        /* Media */
+        .media-content { max-width: 100%; border-radius: 10px; margin-top: 4px; display: block; max-height: 250px; }
+        
+        .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 4px; font-size: 10px; opacity: 0.5; }
+        #chat-form { background: #101426; padding: 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #1c2335; }
         input#msgIn { flex: 1; background: #1c2335; border: none; padding: 12px; border-radius: 20px; color: white; outline: none; }
         
         #auth { position: fixed; inset: 0; background: #0a0f1a; z-index: 100; display: flex; align-items: center; justify-content: center; }
-        
-        .spinner { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s linear infinite; display: none; }
+        .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 0.8s linear infinite; display: none; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .is-loading #sendBtnText { display: none; }
         .is-loading .spinner { display: block; }
-        .msg { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+        .is-loading #sendBtnText { display: none; }
     </style>
 </head>
 <body>
 
 <div id="auth">
-    <div class="bg-[#101426] p-8 rounded-2xl border border-gray-800 text-center w-80 shadow-2xl">
+    <div class="bg-[#101426] p-8 rounded-2xl border border-gray-800 text-center w-80">
         <h2 class="mb-4 text-xl font-bold text-blue-400">Secure Access</h2>
-        <input id="codeIn" type="password" placeholder="Chat Code" class="w-full mb-4 text-center p-3 rounded bg-gray-800 border-none text-white outline-none">
-        <button onclick="login()" class="w-full bg-blue-600 py-3 rounded-xl font-bold active:scale-95 transition">Enter Chat</button>
+        <input id="codeIn" type="password" placeholder="Chat Code" class="w-full mb-4 text-center p-3 rounded bg-gray-800 text-white outline-none">
+        <button onclick="login()" class="w-full bg-blue-600 py-3 rounded-xl font-bold">Enter Chat</button>
     </div>
 </div>
 
-<header class="p-4 bg-[#0f1524] text-center font-bold text-blue-400 border-b border-[#1c2335] flex justify-between items-center">
-    <span>stuff</span>
-    <span id="meDisplay" class="text-[10px] opacity-50 tracking-widest uppercase"></span>
+<header class="p-4 bg-[#0f1524] flex justify-between items-center border-b border-[#1c2335]">
+    <span class="font-bold text-blue-400">coding replies</span>
+    <span id="meDisplay" class="text-[10px] opacity-50 uppercase"></span>
 </header>
 
 <main id="messages"></main>
-
-<div id="typing-indicator"></div>
 
 <div id="reply-preview">
     <div class="truncate text-sm"><small class="text-blue-400 font-bold">Replying to:</small> <span id="reply-text" class="opacity-60"></span></div>
@@ -61,14 +57,12 @@
 </div>
 
 <form id="chat-form">
-    <label class="cursor-pointer active:scale-90 transition p-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
+    <label class="cursor-pointer p-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
         <input type="file" id="fileIn" class="hidden" accept="image/*,video/*">
     </label>
     <input id="msgIn" placeholder="Type a message..." autocomplete="off">
-    <button type="submit" id="sendBtn" class="bg-blue-600 px-5 py-2 rounded-full font-bold min-w-[80px] flex justify-center items-center active:scale-95 transition">
+    <button type="submit" id="sendBtn" class="bg-blue-600 px-5 py-2 rounded-full font-bold flex items-center justify-center min-w-[70px]">
         <span id="sendBtnText">Send</span>
         <div class="spinner"></div>
     </button>
@@ -79,7 +73,7 @@
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
 
-    let me = null, you = null, replyId = null, allMsgs = [], typingTimeout;
+    let me = null, you = null, replyId = null, allMsgs = [];
 
     window.login = async function() {
         const code = document.getElementById('codeIn').value;
@@ -88,8 +82,6 @@
 
         me = data.username;
         you = (me === 'RJ') ? 'Allyvia' : 'RJ';
-        
-        localStorage.setItem('chat_secret_code', code);
         document.getElementById('meDisplay').textContent = me;
         document.getElementById('auth').style.display = 'none';
         startChat();
@@ -97,38 +89,15 @@
 
     function startChat() {
         loadMessages();
-        
-        // Listen for message changes
-        _db.channel('messages').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, (payload) => {
-            // FORCE REFRESH COMMAND: if sender sends "/refresh", page reloads for everyone
-            if (payload.new && payload.new.message === '/refresh') {
-                window.location.reload();
-            }
+        // Subscribe to ALL changes (INSERT, DELETE, UPDATE)
+        _db.channel('room1').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, (payload) => {
+            console.log("Change type:", payload.eventType);
             loadMessages();
         }).subscribe();
-        
-        // Listen for typing status
-        _db.channel('typing').on('postgres_changes', { event: '*', schema: 'public', table: 'typing_status' }, (payload) => {
-            const indicator = document.getElementById('typing-indicator');
-            if (payload.new.username === you) {
-                indicator.textContent = payload.new.is_typing ? `${you} is typing...` : '';
-            }
-        }).subscribe();
     }
-
-    async function setTyping(status) {
-        await _db.from('typing_status').upsert({ username: me, is_typing: status }, { onConflict: 'username' });
-    }
-
-    document.getElementById('msgIn').addEventListener('input', () => {
-        setTyping(true);
-        clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(() => setTyping(false), 2000);
-    });
 
     async function loadMessages() {
-        // Limit to 50 to avoid the 1000 message block
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(200);
+        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(100);
         allMsgs = (data || []).reverse();
         render();
     }
@@ -139,15 +108,19 @@
             const isMe = m.sender === me;
             const time = new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
             
-            const repliedMsg = allMsgs.find(x => x.id === m.reply_to_id);
-            let replyHtml = m.reply_to_id ? `<div class="reply-box">${repliedMsg ? repliedMsg.message : 'Media Content'}</div>` : '';
+            // Logic to find the text of the message being replied to
+            const parentMsg = allMsgs.find(x => x.id === m.reply_to_id);
+            let replyHtml = m.reply_to_id ? `<div class="reply-box">⤴️ ${parentMsg ? (parentMsg.message || 'Media') : 'Deleted Message'}</div>` : '';
+            
             let mediaHtml = m.file_url ? (m.file_type === 'image' ? `<img src="${m.file_url}" class="media-content">` : `<video src="${m.file_url}" class="media-content" controls></video>`) : '';
 
+            // Note: Use backticks inside the onclick to handle special characters in text
             return `
                 <div class="msg ${isMe ? 'self' : 'other'}" 
-                     onclick="handleReply(${m.id}, '${(m.message || 'Media').replace(/'/g, "\\'")}')" 
+                     onclick="setupReply(${m.id}, '${(m.message || 'Media').replace(/'/g, "\\'")}')" 
                      oncontextmenu="handleDelete(event, ${m.id}, ${isMe})">
-                    ${replyHtml}${mediaHtml}
+                    ${replyHtml}
+                    ${mediaHtml}
                     <div>${m.message || ''}</div>
                     <div class="msg-meta">${time}</div>
                 </div>
@@ -166,49 +139,35 @@
         if (!text && !file) return;
 
         document.getElementById('chat-form').classList.add('is-loading');
-        const currentReply = replyId;
+        const activeReply = replyId; // Store current replyId locally
         
         msgIn.value = '';
         fileIn.value = '';
         cancelReply();
-        setTyping(false);
 
         let fileUrl = null, fileType = null;
         if (file) {
             const path = `uploads/${Date.now()}_${file.name}`;
-            const { data: uploadData } = await _db.storage.from('chat-files').upload(path, file);
-            if (uploadData) {
+            const { data: upData } = await _db.storage.from('chat-files').upload(path, file);
+            if (upData) {
                 fileUrl = _db.storage.from('chat-files').getPublicUrl(path).data.publicUrl;
                 fileType = file.type.startsWith('image') ? 'image' : 'video';
             }
         }
 
-        await _db.from('private_messages').insert([{ 
-            sender: me, 
-            receiver: you, 
-            message: text, 
-            file_url: fileUrl, 
-            file_type: fileType, 
-            reply_to_id: currentReply 
+        await _db.from('private_messages').insert([{
+            sender: me, receiver: you, message: text,
+            file_url: fileUrl, file_type: fileType, reply_to_id: activeReply
         }]);
 
         document.getElementById('chat-form').classList.remove('is-loading');
-        loadMessages();
     };
 
-    window.handleReply = (id, text) => {
+    window.setupReply = (id, text) => {
         replyId = id;
         document.getElementById('reply-text').textContent = text;
         document.getElementById('reply-preview').style.display = 'flex';
         document.getElementById('msgIn').focus();
-    };
-
-    window.handleDelete = async (e, id, isMe) => {
-        e.preventDefault();
-        if (isMe && confirm("Delete message?")) {
-            await _db.from('private_messages').delete().eq('id', id);
-            loadMessages();
-        }
     };
 
     window.cancelReply = () => {
@@ -216,8 +175,14 @@
         document.getElementById('reply-preview').style.display = 'none';
     };
 
-    const saved = localStorage.getItem('chat_secret_code');
-    if (saved) { document.getElementById('codeIn').value = saved; login(); }
+    window.handleDelete = async (e, id, isMe) => {
+        e.preventDefault();
+        if (!isMe) return;
+        if (confirm("Delete this message for everyone?")) {
+            const { error } = await _db.from('private_messages').delete().eq('id', id);
+            if (error) alert("Delete failed: " + error.message);
+        }
+    };
 </script>
 </body>
 </html>
