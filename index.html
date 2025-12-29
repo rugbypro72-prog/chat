@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
-    <title>Locked Chat 🔒</title>
+    <title>chatwebb</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -30,7 +30,7 @@
 </div>
 
 <header class="p-4 bg-[#0f1524] text-center font-bold text-blue-400 border-b border-[#1c2335]">
-    <span>Locked Chat 🔒</span>
+    <span>i think its fixed?</span>
 </header>
 
 <main id="messages"></main>
@@ -53,10 +53,8 @@
         if (error || !data) return alert("Wrong code!");
 
         me = data.username;
-        // Logic to determine partner - Ensure this matches your DB exactly
-        you = (me === 'Boyfriend') ? 'Girlfriend' : 'Boyfriend';
-        
-        console.log("Logged in as:", me, "Talking to:", you);
+        // FIXED: Using the names from your screenshot
+        you = (me === 'RJ') ? 'Allyvia' : 'RJ';
         
         localStorage.setItem('chat_secret_code', code);
         document.getElementById('auth').style.display = 'none';
@@ -66,37 +64,31 @@
     function startChat() {
         loadMessages();
         _db.channel('public:private_messages')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, (payload) => {
-                console.log("Change detected:", payload);
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, () => {
                 loadMessages(); 
             })
             .subscribe();
     }
 
     async function loadMessages() {
-        const { data, error } = await _db.from('private_messages').select('*').order('created_at', { ascending: true });
+        // FIXED: Sort by descending and limit to 50 to bypass the 1000-row cap
+        const { data, error } = await _db
+            .from('private_messages')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(50);
         
-        if (error) {
-            console.error("Database fetch error:", error.message);
-            return;
-        }
+        if (error) return;
 
-        console.log("Messages found in DB:");
-        console.table(data); // This will show you exactly what's inside the messages
+        // Reverse them so they appear in the right order on screen
+        const chatData = data.reverse();
 
         const box = document.getElementById('messages');
-        if (!data || data.length === 0) {
-            box.innerHTML = '<div class="text-center opacity-50 mt-10">No messages yet.</div>';
-            return;
-        }
-
-        box.innerHTML = data.map(m => {
-            // Using trim and lowercase for a safer comparison
-            const isMe = String(m.sender).trim().toLowerCase() === String(me).trim().toLowerCase();
+        box.innerHTML = chatData.map(m => {
+            const isMe = m.sender === me;
             const time = new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
             return `
                 <div class="msg ${isMe ? 'self' : 'other'}">
-                    <div class="text-[10px] opacity-40 mb-1">${m.sender}</div>
                     <div>${m.message || ''}</div>
                     <div class="msg-meta">${time}</div>
                 </div>
@@ -113,13 +105,11 @@
         if (!text) return;
 
         msgInput.value = '';
-        const { error } = await _db.from('private_messages').insert([{
+        await _db.from('private_messages').insert([{
             sender: me, 
             receiver: you, 
             message: text
         }]);
-
-        if (error) alert("Send failed: " + error.message);
     };
 
     const saved = localStorage.getItem('chat_secret_code');
