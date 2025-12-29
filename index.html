@@ -3,30 +3,22 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
-    <title>Chatformalove</title>
+    <title>ChatWebs</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --bg: #0a0f1a; --accent: #0b78e3; --card: #1c2335; }
         body { background: var(--bg); color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; margin: 0; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
-        
-        /* Message Styles */
         .msg { max-width: 85%; padding: 10px 14px; border-radius: 18px; position: relative; word-wrap: break-word; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .self { align-self: flex-end; background: var(--accent); border-bottom-right-radius: 2px; }
         .other { align-self: flex-start; background: var(--card); border-bottom-left-radius: 2px; }
-        
-        /* Reply UI */
         .reply-box { background: rgba(0,0,0,0.3); border-left: 3px solid #60a5fa; padding: 5px 8px; margin-bottom: 6px; border-radius: 4px; font-size: 0.75rem; color: #93c5fd; pointer-events: none; }
         #reply-preview { display: none; background: #161b2e; padding: 10px 15px; border-left: 4px solid var(--accent); align-items: center; justify-content: space-between; border-top: 1px solid #1c2335; }
-        
-        /* Media */
         .media-content { max-width: 100%; border-radius: 10px; margin-top: 4px; display: block; max-height: 250px; }
-        
         .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 4px; font-size: 10px; opacity: 0.5; }
         #chat-form { background: #101426; padding: 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #1c2335; }
         input#msgIn { flex: 1; background: #1c2335; border: none; padding: 12px; border-radius: 20px; color: white; outline: none; }
-        
         #auth { position: fixed; inset: 0; background: #0a0f1a; z-index: 100; display: flex; align-items: center; justify-content: center; }
         .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 0.8s linear infinite; display: none; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -89,9 +81,10 @@
 
     function startChat() {
         loadMessages();
-        // Subscribe to ALL changes (INSERT, DELETE, UPDATE)
         _db.channel('room1').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, (payload) => {
-            console.log("Change type:", payload.eventType);
+            if (payload.new && payload.new.message === '/refresh') {
+                window.location.reload();
+            }
             loadMessages();
         }).subscribe();
     }
@@ -107,20 +100,16 @@
         box.innerHTML = allMsgs.map(m => {
             const isMe = m.sender === me;
             const time = new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-            
-            // Logic to find the text of the message being replied to
             const parentMsg = allMsgs.find(x => x.id === m.reply_to_id);
             let replyHtml = m.reply_to_id ? `<div class="reply-box">⤴️ ${parentMsg ? (parentMsg.message || 'Media') : 'Deleted Message'}</div>` : '';
-            
             let mediaHtml = m.file_url ? (m.file_type === 'image' ? `<img src="${m.file_url}" class="media-content">` : `<video src="${m.file_url}" class="media-content" controls></video>`) : '';
 
-            // Note: Use backticks inside the onclick to handle special characters in text
+            // FIXED: Added extra quotes around '${m.id}' to support UUIDs
             return `
                 <div class="msg ${isMe ? 'self' : 'other'}" 
-                     onclick="setupReply(${m.id}, '${(m.message || 'Media').replace(/'/g, "\\'")}')" 
-                     oncontextmenu="handleDelete(event, ${m.id}, ${isMe})">
-                    ${replyHtml}
-                    ${mediaHtml}
+                     onclick="setupReply('${m.id}', '${(m.message || 'Media').replace(/'/g, "\\'")}')" 
+                     oncontextmenu="handleDelete(event, '${m.id}', ${isMe})">
+                    ${replyHtml}${mediaHtml}
                     <div>${m.message || ''}</div>
                     <div class="msg-meta">${time}</div>
                 </div>
@@ -135,12 +124,10 @@
         const fileIn = document.getElementById('fileIn');
         const text = msgIn.value.trim();
         const file = fileIn.files[0];
-
         if (!text && !file) return;
 
         document.getElementById('chat-form').classList.add('is-loading');
-        const activeReply = replyId; // Store current replyId locally
-        
+        const activeReply = replyId;
         msgIn.value = '';
         fileIn.value = '';
         cancelReply();
@@ -159,7 +146,6 @@
             sender: me, receiver: you, message: text,
             file_url: fileUrl, file_type: fileType, reply_to_id: activeReply
         }]);
-
         document.getElementById('chat-form').classList.remove('is-loading');
     };
 
@@ -170,18 +156,17 @@
         document.getElementById('msgIn').focus();
     };
 
-    window.cancelReply = () => {
-        replyId = null;
-        document.getElementById('reply-preview').style.display = 'none';
-    };
-
     window.handleDelete = async (e, id, isMe) => {
         e.preventDefault();
         if (!isMe) return;
-        if (confirm("Delete this message for everyone?")) {
-            const { error } = await _db.from('private_messages').delete().eq('id', id);
-            if (error) alert("Delete failed: " + error.message);
+        if (confirm("Delete this message?")) {
+            await _db.from('private_messages').delete().eq('id', id);
         }
+    };
+
+    window.cancelReply = () => {
+        replyId = null;
+        document.getElementById('reply-preview').style.display = 'none';
     };
 </script>
 </body>
