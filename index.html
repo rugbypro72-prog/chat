@@ -128,7 +128,7 @@
 
     async function loadMessages() {
         // Limit to 50 to avoid the 1000 message block
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(50);
+        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(200);
         allMsgs = (data || []).reverse();
         render();
     }
