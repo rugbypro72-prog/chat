@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"/>
-    <title>chatweb</title>
+    <title>Locked Chat 🔒</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -41,7 +41,7 @@
 </div>
 
 <header class="p-4 bg-[#0f1524] text-center font-bold text-blue-400 border-b border-[#1c2335] flex justify-between items-center shadow-md">
-    <span>im tryna fix it mb</span>
+    <span>Locked Chat 🔒</span>
     <span id="meDisplay" class="text-[10px] opacity-50 uppercase tracking-widest"></span>
 </header>
 
@@ -72,7 +72,11 @@
     window.login = async function() {
         const code = document.getElementById('codeIn').value;
         const { data, error } = await _db.from('chat_codes').select('username').eq('code', code).single();
-        if (error || !data) return alert("Wrong code!");
+        
+        if (error || !data) {
+            alert("Wrong code or Database Error!");
+            return;
+        }
 
         me = data.username;
         you = (me === 'Boyfriend') ? 'Girlfriend' : 'Boyfriend';
@@ -93,16 +97,11 @@
     }
 
     async function loadMessages() {
-        // We select everything to ensure we aren't filtering out the messages accidentally
         const { data, error } = await _db.from('private_messages').select('*').order('created_at', { ascending: true });
         
         if (error) {
             console.error("Fetch Error:", error.message);
             return;
-        }
-
-        if (!data || data.length === 0) {
-            console.log("No messages found in database.");
         }
 
         const box = document.getElementById('messages');
@@ -113,7 +112,7 @@
             let replyHtml = '';
             if (m.reply_to_id) {
                 const parent = data.find(x => x.id === m.reply_to_id);
-                replyHtml = `<div class="reply-box">${parent ? (parent.message || 'Media') : 'Original Message'}</div>`;
+                replyHtml = `<div class="reply-box">${parent ? (parent.message || 'Media') : 'Deleted Message'}</div>`;
             }
 
             let mediaHtml = m.file_url ? (m.file_type === 'image' ? `<img src="${m.file_url}" class="media-content">` : `<video src="${m.file_url}" class="media-content" controls></video>`) : '';
@@ -123,9 +122,7 @@
                     ${replyHtml}
                     ${mediaHtml}
                     <div>${m.message || ''}</div>
-                    <div class="msg-meta">
-                        ${time}
-                    </div>
+                    <div class="msg-meta">${time}</div>
                 </div>
             `;
         }).join('');
@@ -153,7 +150,7 @@
         if (!isMe) return;
         if (confirm("Delete this message?")) {
             await _db.from('private_messages').delete().eq('id', id);
-            loadMessages(); // Refresh UI after delete
+            loadMessages();
         }
     };
 
@@ -171,15 +168,11 @@
         let fileUrl = null, fileType = null;
 
         if (file) {
-            try {
-                const path = `${Date.now()}_${file.name}`;
-                const { data: uploadData, error: uploadError } = await _db.storage.from('chat-files').upload(path, file);
-                if (uploadError) throw uploadError;
-                
+            const path = `${Date.now()}_${file.name}`;
+            const { data: uploadData } = await _db.storage.from('chat-files').upload(path, file);
+            if (uploadData) {
                 fileUrl = _db.storage.from('chat-files').getPublicUrl(path).data.publicUrl;
                 fileType = file.type.startsWith('image') ? 'image' : 'video';
-            } catch (err) {
-                console.error("Upload error:", err.message);
             }
         }
 
@@ -193,12 +186,11 @@
         }]);
 
         if (error) {
-            alert("Send failed: " + error.message);
+            alert("Send failed!");
         } else {
             msgInput.value = '';
             fileInput.value = '';
             cancelReply();
-            // We manually trigger loadMessages here just in case Realtime is slow
             loadMessages();
         }
         btn.disabled = false;
