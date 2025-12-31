@@ -3,37 +3,42 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title id="page-title">Chat</title>
+    <title id="page-title">chat</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --bg: #0a0f1a; --accent: #0b78e3; --card: #1c2335; }
         body { background: var(--bg); color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; margin: 0; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+        
+        /* Message Containers */
         .msg-container { position: relative; width: 100%; display: flex; flex-direction: column; transition: transform 0.2s; touch-action: pan-y; }
-        .msg { max-width: 85%; padding: 10px 14px; border-radius: 18px; position: relative; word-wrap: break-word; }
+        .msg { max-width: 85%; padding: 10px 14px; border-radius: 18px; position: relative; word-wrap: break-word; cursor: pointer; }
         .self { align-self: flex-end; background: var(--accent); border-bottom-right-radius: 2px; }
         .other { align-self: flex-start; background: var(--card); border-bottom-left-radius: 2px; }
         
-        /* Checkmark Styles */
-        .checks { font-size: 10px; margin-left: 4px; }
-        .read { color: #38bdf8; } /* Blue checks */
-        .unread { opacity: 0.5; }
+        /* Flipped Checkmarks: Blue (Sent), Black (Read) */
+        .checks { font-size: 10px; margin-left: 4px; font-weight: bold; }
+        .unread { color: #38bdf8; } /* Blue when not read yet */
+        .read { color: #000000; }   /* Black when read */
 
-        /* Gallery Overlay */
         #gallery { display: none; position: fixed; inset: 0; background: #0a0f1a; z-index: 200; flex-direction: column; }
         .grid-img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; cursor: pointer; }
 
         #typing-box { padding: 0 25px 10px; font-size: 11px; color: #60a5fa; font-style: italic; min-height: 20px; }
         .live-preview { color: #facc15; font-weight: bold; }
+        
         .reply-box { background: rgba(0,0,0,0.3); border-left: 3px solid #60a5fa; padding: 5px 8px; margin-bottom: 6px; border-radius: 4px; font-size: 0.75rem; color: #93c5fd; }
         #reply-preview { display: none; background: #161b2e; padding: 10px 15px; border-left: 4px solid var(--accent); align-items: center; justify-content: space-between; border-top: 1px solid #1c2335; }
+        
         .media-content { max-width: 100%; border-radius: 10px; margin-top: 5px; display: block; max-height: 250px; }
-        .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 4px; font-size: 10px; opacity: 0.5; }
+        .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 4px; font-size: 10px; opacity: 0.6; }
         .del-btn { color: #ff4d4d; font-size: 14px; cursor: pointer; padding-left: 5px; }
+
         #chat-form { background: #101426; padding: 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #1c2335; padding-bottom: env(safe-area-inset-bottom); }
         input#msgIn { flex: 1; background: #1c2335; border: none; padding: 12px; border-radius: 20px; color: white; outline: none; }
         #auth { position: fixed; inset: 0; background: #0a0f1a; z-index: 300; display: flex; align-items: center; justify-content: center; }
+        .swipe-hint { position: absolute; left: -40px; top: 50%; transform: translateY(-50%); opacity: 0; color: #60a5fa; font-size: 20px; transition: opacity 0.1s; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -49,20 +54,18 @@
 <div id="gallery">
     <header class="p-4 flex justify-between items-center border-b border-gray-800">
         <span class="font-bold">Media Gallery</span>
-        <button onclick="toggleGallery()" class="text-xl">&times;</button>
+        <button onclick="toggleGallery()" class="text-xl px-2">&times;</button>
     </header>
     <div id="gallery-grid" class="grid grid-cols-3 gap-2 p-4 overflow-y-auto"></div>
 </div>
 
 <header class="p-4 bg-[#0f1524] flex justify-between items-center border-b border-[#1c2335]">
-    <div class="flex items-center gap-3">
-        <div>
-            <div class="font-bold text-blue-400 leading-none">Chat</div>
-            <div id="lastSeenDisplay" class="text-[10px] text-gray-500 mt-1"></div>
-        </div>
+    <div>
+        <div class="font-bold text-blue-400 leading-none">Chat</div>
+        <div id="lastSeenDisplay" class="text-[10px] text-gray-500 mt-1"></div>
     </div>
     <div class="flex items-center gap-4">
-        <button onclick="toggleGallery()" title="Gallery">🖼️</button>
+        <button onclick="toggleGallery()" class="text-xl">🖼️</button>
         <button onclick="logout()" id="meDisplay" class="text-[10px] opacity-50 uppercase underline"></button>
     </div>
 </header>
@@ -112,21 +115,20 @@
 
     window.logout = () => { localStorage.removeItem('chat_secret_code'); window.location.reload(); };
 
-    // --- ACTIVITY & READ RECEIPTS ---
     async function updateLastSeen() {
         if (!me) return;
         await _db.from('chat_codes').update({ last_seen: new Date().toISOString() }).eq('username', me);
-        // Mark all messages from 'you' as read
+        // Mark messages as read
         await _db.from('private_messages').update({ is_read: true }).eq('sender', you).eq('is_read', false);
     }
 
-    setInterval(updateLastSeen, 20000);
+    setInterval(updateLastSeen, 15000);
 
     async function fetchLastSeen() {
         const { data } = await _db.from('chat_codes').select('last_seen').eq('username', you).single();
         if (data && data.last_seen) {
             const diff = (new Date() - new Date(data.last_seen)) / 1000;
-            document.getElementById('lastSeenDisplay').textContent = diff < 40 ? `${you} is Online` : `${you} last seen ${new Date(data.last_seen).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+            document.getElementById('lastSeenDisplay').textContent = diff < 30 ? `${you} is Online` : `${you} last seen ${new Date(data.last_seen).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
         }
     }
 
@@ -137,9 +139,7 @@
         _db.channel('global').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, (p) => {
             if (p.eventType === 'INSERT' && p.new.sender === you && isPC) chime.play().catch(() => {});
             loadMessages();
-        }).on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, (p) => {
-            if (p.new.username === you) fetchLastSeen();
-        }).subscribe();
+        }).on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, () => fetchLastSeen()).subscribe();
         
         _db.channel('typing').on('postgres_changes', { event: '*', schema: 'public', table: 'typing_status' }, (p) => {
             if (p.new.username === you) {
@@ -165,19 +165,19 @@
             const parent = allMsgs.find(x => x.id === m.reply_to_id);
             const rHtml = m.reply_to_id ? `<div class="reply-box">⤴️ ${parent ? (parent.message || 'Media') : 'Deleted'}</div>` : '';
             const mHtml = m.file_url ? (m.file_type === 'image' ? `<img src="${m.file_url}" class="media-content">` : `<video src="${m.file_url}" class="media-content" controls></video>`) : '';
-            
-            // Checkmark logic
-            const checks = isMe ? `<span class="checks ${m.is_read ? 'read' : 'unread'}">✓✓</span>` : '';
+            const msgEscaped = (m.message || 'Media').replace(/'/g, "\\'");
 
             return `
-                <div class="msg-container" data-id="${m.id}" data-text="${(m.message || '').replace(/'/g, "\\'")}"
-                     ontouchstart="ts(event)" ontouchmove="tm(event)" ontouchend="te(event)" ondblclick="setupReply('${m.id}', '${(m.message || '').replace(/'/g, "\\'")}')">
+                <div class="msg-container" data-id="${m.id}" data-text="${msgEscaped}"
+                     ontouchstart="ts(event)" ontouchmove="tm(event)" ontouchend="te(event)"
+                     ondblclick="setupReply('${m.id}', '${msgEscaped}')">
+                    <div class="swipe-hint">⤴️</div>
                     <div class="msg ${isMe ? 'self' : 'other'}">
                         ${rHtml}${mHtml}
                         <div class="pt-1">${m.message || ''}</div>
                         <div class="msg-meta">
                             ${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
-                            ${checks}
+                            ${isMe ? `<span class="checks ${m.is_read ? 'read' : 'unread'}">✓✓</span>` : ''}
                             ${isMe ? `<span class="del-btn" onclick="handleDelete(event, '${m.id}')">🗑️</span>` : ''}
                         </div>
                     </div>
@@ -186,20 +186,45 @@
         box.scrollTop = box.scrollHeight;
     }
 
-    // --- GALLERY LOGIC ---
     window.toggleGallery = async () => {
         const g = document.getElementById('gallery');
         const grid = document.getElementById('gallery-grid');
-        if (g.style.display === 'flex') {
-            g.style.display = 'none';
-        } else {
+        if (g.style.display === 'flex') g.style.display = 'none';
+        else {
             g.style.display = 'flex';
             const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', { ascending: false });
-            grid.innerHTML = data.map(item => `<img src="${item.file_url}" class="grid-img" onclick="window.open('${item.file_url}')">`).join('');
+            grid.innerHTML = data.map(i => `<img src="${i.file_url}" class="grid-img" onclick="window.open('${i.file_url}')">`).join('');
         }
-    }
+    };
 
-    // --- SEND & TYPING ---
+    // --- REPLY & SWIPE LOGIC FIXED ---
+    let sx=0, cx=0, el=null;
+    window.ts = (e) => { sx = e.touches[0].clientX; el = e.currentTarget; };
+    window.tm = (e) => { 
+        if(!el) return; 
+        cx = e.touches[0].clientX - sx; 
+        if(cx > 0 && cx < 80) { 
+            el.style.transform = `translateX(${cx}px)`; 
+            const hint = el.querySelector('.swipe-hint');
+            if(hint) hint.style.opacity = cx/70;
+        } 
+    };
+    window.te = () => { 
+        if(cx > 45) setupReply(el.dataset.id, el.dataset.text); 
+        if(el) { el.style.transform = ''; const h = el.querySelector('.swipe-hint'); if(h) h.style.opacity = 0; }
+        el = null; cx = 0; 
+    };
+
+    window.setupReply = (id, text) => {
+        replyId = id;
+        document.getElementById('reply-text').textContent = text;
+        document.getElementById('reply-preview').style.display = 'flex';
+        document.getElementById('msgIn').focus();
+    };
+
+    window.cancelReply = () => { replyId = null; document.getElementById('reply-preview').style.display = 'none'; };
+
+    // --- SEND LOGIC ---
     async function updateTyping(text) {
         if (!me) return;
         await _db.from('typing_status').upsert({ username: me, is_typing: text.length > 0, live_text: text }, { onConflict: 'username' });
@@ -228,7 +253,6 @@
             }
         }
         await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text, file_url: fUrl, file_type: fType, reply_to_id: rid, is_read: false }]);
-        updateLastSeen();
     };
 
     window.handleDelete = async (e, id) => {
@@ -239,13 +263,6 @@
             await _db.from('private_messages').delete().eq('id', id);
         }
     };
-
-    let sx=0,cx=0,el=null;
-    window.ts=(e)=>{sx=e.touches[0].clientX;el=e.currentTarget;};
-    window.tm=(e)=>{if(!el)return;cx=e.touches[0].clientX-sx;if(cx>0&&cx<70)el.style.transform=`translateX(${cx}px)`;};
-    window.te=()=>{if(cx>40)setupReply(el.dataset.id,el.dataset.text);if(el)el.style.transform='';el=null;cx=0;};
-    window.setupReply=(id,text)=>{replyId=id;document.getElementById('reply-text').textContent=text;document.getElementById('reply-preview').style.display='flex';document.getElementById('msgIn').focus();};
-    window.cancelReply=()=>{replyId=null;document.getElementById('reply-preview').style.display='none';};
 
     checkAuth();
 </script>
