@@ -16,7 +16,7 @@
         
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
         
-        .msg-row { display: flex; align-items: flex-end; gap: 8px; width: 100%; position: relative; }
+        .msg-row { display: flex; align-items: flex-end; gap: 8px; width: 100%; position: relative; transition: transform 0.1s; }
         .row-self { flex-direction: row-reverse; }
         
         .avatar-mini { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-bottom: 2px; }
@@ -26,17 +26,23 @@
         .self { background: var(--accent); border-bottom-right-radius: 2px; }
         .other { background: var(--card); border-bottom-left-radius: 2px; }
         
+        .reply-box { background: rgba(0,0,0,0.2); border-left: 3px solid #60a5fa; padding: 5px 8px; margin-bottom: 6px; border-radius: 4px; font-size: 11px; color: #93c5fd; }
         .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 4px; font-size: 10px; opacity: 0.6; }
         .inner-trash { cursor: pointer; color: #ff8080; font-size: 12px; margin-left: 4px; }
 
         #chat-form-container { background: #101426; border-top: 1px solid #1c2335; padding-bottom: env(safe-area-inset-bottom); }
+        #reply-preview { display: none; background: #161b2e; padding: 10px; border-left: 4px solid #3b82f6; align-items: center; justify-content: space-between; }
+        
         #chat-form { padding: 12px; display: flex; align-items: center; gap: 10px; }
         input#msgIn { flex: 1; background: #1c2335; border: none; padding: 12px; border-radius: 20px; color: white; outline: none; }
         
-        /* The Reveal Area */
         #typing-reveal { padding: 8px 16px 2px 16px; font-size: 12px; color: #60a5fa; font-weight: 500; font-style: italic; min-height: 24px; }
+        
+        /* Gallery */
+        #gallery-overlay { display: none; position: fixed; inset: 0; background: #0a0f1a; z-index: 700; flex-direction: column; }
         .eyes-active { color: #fbbf24; font-weight: bold; margin-left: 5px; animation: blink 2s infinite; }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .media-content { border-radius: 12px; max-height: 250px; width: 100%; object-fit: cover; margin-top: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -48,6 +54,7 @@
         <div id="sideAv" class="w-10 h-10 rounded-full flex items-center justify-center font-bold avatar-placeholder"></div>
         <div class="font-bold text-lg" id="sideName">Settings</div>
     </div>
+    <button onclick="toggleGallery()" class="text-left p-3 bg-[#1c2335] rounded-lg">🖼️ Media Gallery</button>
     <button onclick="changeMood()" class="text-left p-3 bg-[#1c2335] rounded-lg">✨ Update Mood Emoji</button>
     <button onclick="document.getElementById('pfpIn').click()" class="text-left p-3 bg-[#1c2335] rounded-lg">📸 Change Profile Pic</button>
     <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadPFP(this)">
@@ -72,6 +79,10 @@
     <main id="messages"></main>
 
     <div id="chat-form-container">
+        <div id="reply-preview">
+            <div class="text-xs truncate">Replying to: <span id="reply-text" class="opacity-60"></span></div>
+            <button onclick="cancelReply()" class="px-2 text-xl">&times;</button>
+        </div>
         <div id="typing-reveal"></div>
         <form id="chat-form">
             <label class="cursor-pointer p-2 text-gray-400"><input type="file" id="fileIn" class="hidden" accept="image/*,video/*">📎</label>
@@ -81,12 +92,20 @@
     </div>
 </div>
 
+<div id="gallery-overlay">
+    <header class="p-4 flex justify-between items-center border-b border-gray-800">
+        <span class="font-bold">Media Gallery</span>
+        <button onclick="toggleGallery()" class="text-3xl">&times;</button>
+    </header>
+    <div id="gallery-grid" class="grid grid-cols-3 gap-1 p-1 overflow-y-auto"></div>
+</div>
+
 <script>
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
 
-    let me, you, profiles = {}, allMsgs = [];
+    let me, you, profiles = {}, allMsgs = [], replyId = null;
 
     async function login() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
@@ -100,22 +119,15 @@
     async function startChat() {
         await syncProfiles();
         loadMessages();
-        
-        _db.channel('sync-room')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, () => syncProfiles())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages())
-            .subscribe();
-
+        _db.channel('sync-room').on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, () => syncProfiles())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages()).subscribe();
         setInterval(updateHeartbeat, 10000);
         document.addEventListener('visibilitychange', updateHeartbeat);
     }
 
     async function updateHeartbeat() {
         const isWatching = document.visibilityState === 'visible';
-        await _db.from('chat_codes').update({ 
-            last_seen: new Date().toISOString(),
-            is_watching: isWatching 
-        }).eq('username', me);
+        await _db.from('chat_codes').update({ last_seen: new Date().toISOString(), is_watching: isWatching }).eq('username', me);
     }
 
     async function syncProfiles() {
@@ -127,20 +139,10 @@
                 const diff = (new Date() - new Date(u.last_seen)) / 1000;
                 document.getElementById('status').textContent = diff < 40 ? `Online` : `Last seen ${new Date(u.last_seen).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
                 document.getElementById('eye-indicator').classList.toggle('hidden', !u.is_watching || diff > 40);
-                
-                // THE POWER DYNAMIC LOGIC
                 const revealEl = document.getElementById('typing-reveal');
-                if (u.typing_text && u.typing_text.length > 0) {
-                    // RJ sees EVERYTHING she types
-                    // She only sees "RJ is typing..."
-                    if (me === 'RJ') {
-                        revealEl.textContent = `${you}: ${u.typing_text}`;
-                    } else {
-                        revealEl.textContent = `${you} is typing...`;
-                    }
-                } else {
-                    revealEl.textContent = '';
-                }
+                if (u.typing_text) {
+                    revealEl.textContent = (me === 'RJ') ? `${you}: ${u.typing_text}` : `${you} is typing...`;
+                } else { revealEl.textContent = ''; }
             }
         });
         const m = profiles[me];
@@ -148,9 +150,7 @@
         document.getElementById('sideName').textContent = me;
     }
 
-    async function updateTyping(val) {
-        await _db.from('chat_codes').update({ typing_text: val }).eq('username', me);
-    }
+    async function updateTyping(val) { await _db.from('chat_codes').update({ typing_text: val }).eq('username', me); }
 
     async function loadMessages() {
         const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(60);
@@ -162,16 +162,16 @@
         const box = document.getElementById('messages');
         box.innerHTML = allMsgs.map(m => {
             const isMe = m.sender === me;
-            const u = profiles[m.sender];
-            const pfpHtml = u?.avatar_url ? `<img src="${u.avatar_url}" class="avatar-mini">` : `<div class="avatar-mini avatar-placeholder">${m.sender.charAt(0)}</div>`;
+            const parent = allMsgs.find(x => x.id === m.reply_to_id);
+            const pfpHtml = profiles[m.sender]?.avatar_url ? `<img src="${profiles[m.sender].avatar_url}" class="avatar-mini">` : `<div class="avatar-mini avatar-placeholder">${m.sender.charAt(0)}</div>`;
             return `
-                <div class="msg-row ${isMe ? 'row-self' : ''}">
+                <div class="msg-row ${isMe ? 'row-self' : ''}" data-id="${m.id}" data-text="${(m.message || 'Media').replace(/'/g, "\\")}" ontouchstart="ts(event)" ontouchend="te(event)" ondblclick="setupReply('${m.id}', '${(m.message || '').replace(/'/g, "\\")}')">
                     ${!isMe ? pfpHtml : ''}
                     <div class="msg ${isMe ? 'self' : 'other'}">
-                        ${m.file_url ? `<img src="${m.file_url}" class="media-content" onclick="window.open('${m.file_url}')">` : ''}
+                        ${m.reply_to_id ? `<div class="reply-box">⤴️ ${parent ? (parent.message || 'Media') : 'Deleted'}</div>` : ''}
+                        ${m.file_url ? (m.file_type === 'image' ? `<img src="${m.file_url}" class="media-content" onclick="window.open('${m.file_url}')">` : `<video src="${m.file_url}" class="media-content" controls></video>`) : ''}
                         <div>${m.message || ''}</div>
-                        <div class="msg-meta">
-                            ${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                        <div class="msg-meta">${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
                             ${isMe ? `<span class="inner-trash" onclick="deleteMsg('${m.id}', '${(m.message || '').replace(/'/g, "\\")}')">🗑️</span>` : ''}
                         </div>
                     </div>
@@ -179,6 +179,9 @@
         }).join('');
         box.scrollTop = box.scrollHeight;
     }
+
+    window.setupReply = (id, text) => { replyId = id; document.getElementById('reply-text').textContent = text; document.getElementById('reply-preview').style.display = 'flex'; document.getElementById('msgIn').focus(); };
+    window.cancelReply = () => { replyId = null; document.getElementById('reply-preview').style.display = 'none'; };
 
     window.deleteMsg = async (id, originalText) => {
         if(!confirm("Log and delete?")) return;
@@ -188,15 +191,43 @@
 
     document.getElementById('chat-form').onsubmit = async (e) => {
         e.preventDefault();
-        const msgIn = document.getElementById('msgIn'), text = msgIn.value.trim();
-        if (!text) return;
-        msgIn.value = '';
-        updateTyping('');
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text }]);
+        const msgIn = document.getElementById('msgIn'), fileIn = document.getElementById('fileIn'), text = msgIn.value.trim(), file = fileIn.files[0], rid = replyId;
+        if (!text && !file) return;
+        msgIn.value = ''; fileIn.value = ''; updateTyping(''); cancelReply();
+        let fUrl = null, fType = null;
+        if (file) {
+            const fName = `${Date.now()}_${file.name}`;
+            const { data } = await _db.storage.from('chat-files').upload(fName, file);
+            if (data) { fUrl = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl; fType = file.type.startsWith('image') ? 'image' : 'video'; }
+        }
+        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text, file_url: fUrl, file_type: fType, reply_to_id: rid }]);
     };
 
-    window.toggleSidebar = () => { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = document.getElementById('sidebar').classList.contains('open') ? 'block' : 'none'; };
-    window.changeMood = async () => { const m = prompt("New Mood Emoji:"); if (m) await _db.from('chat_codes').update({ mood: m }).eq('username', me); };
+    window.toggleGallery = async () => {
+        const g = document.getElementById('gallery-overlay');
+        if (g.style.display === 'flex') g.style.display = 'none';
+        else {
+            g.style.display = 'flex';
+            const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', { ascending: false });
+            document.getElementById('gallery-grid').innerHTML = data.map(i => `<img src="${i.file_url}" class="aspect-square object-cover" onclick="window.open('${i.file_url}')">`).join('');
+        }
+    };
+
+    window.uploadPFP = async (input) => {
+        const file = input.files[0]; if (!file) return;
+        const fName = `pfp_${me}_${Date.now()}`;
+        const { data } = await _db.storage.from('chat-files').upload(fName, file);
+        if (data) {
+            const url = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
+            await _db.from('chat_codes').update({ avatar_url: url }).eq('username', me);
+        }
+    };
+
+    let sx=0;
+    window.ts = (e) => { sx = e.touches[0].clientX; };
+    window.te = (e) => { if(e.changedTouches[0].clientX - sx > 60) setupReply(e.currentTarget.dataset.id, e.currentTarget.dataset.text); };
+    window.toggleSidebar = () => { const s = document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = s ? 'block' : 'none'; };
+    window.changeMood = async () => { const m = prompt("Mood Emoji:"); if (m) await _db.from('chat_codes').update({ mood: m }).eq('username', me); };
     window.logout = () => { localStorage.removeItem('chat_secret_code'); window.location.reload(); };
     login();
 </script>
