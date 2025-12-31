@@ -3,37 +3,34 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chatwebb</title>
+    <title id="page-title">Chatweb</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --bg: #0a0f1a; --accent: #0b78e3; --card: #1c2335; }
         body { background: var(--bg); color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; margin: 0; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
         .msg-container { position: relative; width: 100%; display: flex; flex-direction: column; transition: transform 0.2s; touch-action: pan-y; }
         .msg { max-width: 85%; padding: 10px 14px; border-radius: 18px; position: relative; word-wrap: break-word; }
         .self { align-self: flex-end; background: var(--accent); border-bottom-right-radius: 2px; }
         .other { align-self: flex-start; background: var(--card); border-bottom-left-radius: 2px; }
-        
-        /* The Modded Typing Box */
-        #typing-box { padding: 0 25px 10px; font-size: 11px; color: #60a5fa; font-style: italic; min-height: 20px; opacity: 0.8; }
-        .live-preview { color: #facc15; font-weight: bold; } /* Yellow highlight for live text */
-        
+        #typing-box { padding: 0 25px 10px; font-size: 11px; color: #60a5fa; font-style: italic; min-height: 20px; }
+        .live-preview { color: #facc15; font-weight: bold; }
         .reply-box { background: rgba(0,0,0,0.3); border-left: 3px solid #60a5fa; padding: 5px 8px; margin-bottom: 6px; border-radius: 4px; font-size: 0.75rem; color: #93c5fd; }
         #reply-preview { display: none; background: #161b2e; padding: 10px 15px; border-left: 4px solid var(--accent); align-items: center; justify-content: space-between; border-top: 1px solid #1c2335; }
         .media-content { max-width: 100%; border-radius: 10px; margin-top: 5px; display: block; max-height: 250px; }
         .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 4px; font-size: 10px; opacity: 0.5; }
         .del-btn { color: #ff4d4d; font-size: 14px; cursor: pointer; padding-left: 5px; }
-        
         #chat-form { background: #101426; padding: 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #1c2335; padding-bottom: env(safe-area-inset-bottom); }
         input#msgIn { flex: 1; background: #1c2335; border: none; padding: 12px; border-radius: 20px; color: white; outline: none; }
         #auth { position: fixed; inset: 0; background: #0a0f1a; z-index: 100; display: flex; align-items: center; justify-content: center; }
+        .swipe-hint { position: absolute; left: -40px; top: 50%; transform: translateY(-50%); opacity: 0; color: #60a5fa; font-size: 20px; }
     </style>
 </head>
 <body>
 
 <div id="auth" style="display: none;">
-    <div class="bg-[#101426] p-8 rounded-2xl border border-gray-800 text-center w-80 shadow-2xl">
+    <div class="bg-[#101426] p-8 rounded-2xl border border-gray-800 text-center w-80">
         <h2 class="mb-4 text-xl font-bold text-blue-400">Secure Access</h2>
         <input id="codeIn" type="password" placeholder="Chat Code" class="w-full mb-4 text-center p-3 rounded bg-gray-800 text-white outline-none">
         <button onclick="login()" class="w-full bg-blue-600 py-3 rounded-xl font-bold">Enter Chat</button>
@@ -41,12 +38,11 @@
 </div>
 
 <header class="p-4 bg-[#0f1524] flex justify-between items-center border-b border-[#1c2335]">
-    <span class="font-bold text-blue-400">.</span>
+    <span class="font-bold text-blue-400">..</span>
     <button onclick="logout()" id="meDisplay" class="text-[10px] opacity-50 uppercase underline"></button>
 </header>
 
 <main id="messages"></main>
-
 <div id="typing-box"></div>
 
 <div id="reply-preview">
@@ -67,6 +63,7 @@
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
+    const chime = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
 
     let me = null, you = null, replyId = null, allMsgs = [], tOut;
 
@@ -88,14 +85,9 @@
 
     window.logout = () => { localStorage.removeItem('chat_secret_code'); window.location.reload(); };
 
-    // --- TYPING MOD ---
     async function updateTyping(text) {
         if (!me) return;
-        await _db.from('typing_status').upsert({ 
-            username: me, 
-            is_typing: text.length > 0, 
-            live_text: text 
-        }, { onConflict: 'username' });
+        await _db.from('typing_status').upsert({ username: me, is_typing: text.length > 0, live_text: text }, { onConflict: 'username' });
     }
 
     document.getElementById('msgIn').addEventListener('input', (e) => {
@@ -106,16 +98,26 @@
 
     function startChat() {
         loadMessages();
-        _db.channel('room').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages()).subscribe();
+        _db.channel('msgs').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
+            if (p.new.sender === you) {
+                chime.play().catch(() => {});
+                if (navigator.vibrate) navigator.vibrate(200);
+            }
+            loadMessages();
+        }).on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, (p) => {
+            if (p.new && p.new.message === '/refresh') window.location.reload();
+            loadMessages();
+        }).subscribe();
         
         _db.channel('typing').on('postgres_changes', { event: '*', schema: 'public', table: 'typing_status' }, (p) => {
             if (p.new.username === you) {
                 const box = document.getElementById('typing-box');
+                const title = document.getElementById('page-title');
                 if (p.new.is_typing) {
-                    // MOD: Only RJ can see the actual live text
-                    let display = (me === 'RJ') ? `${you} is writing: <span class="live-preview">"${p.new.live_text}"</span>` : `${you} is typing...`;
-                    box.innerHTML = display;
+                    title.textContent = `${you} is typing...`;
+                    box.innerHTML = (me === 'RJ') ? `${you} is writing: <span class="live-preview">"${p.new.live_text}"</span>` : `${you} is typing...`;
                 } else {
+                    title.textContent = "Locked Chat 🔒";
                     box.innerHTML = "";
                 }
             }
@@ -139,6 +141,7 @@
             return `
                 <div class="msg-container" data-id="${m.id}" data-text="${(m.message || '').replace(/'/g, "\\'")}"
                      ontouchstart="ts(event)" ontouchmove="tm(event)" ontouchend="te(event)" ondblclick="setupReply('${m.id}', '${(m.message || '').replace(/'/g, "\\'")}')">
+                    <div class="swipe-hint">⤴️</div>
                     <div class="msg ${isMe ? 'self' : 'other'}">
                         ${rHtml}${mHtml}
                         <div class="pt-1">${m.message || ''}</div>
@@ -150,16 +153,11 @@
         box.scrollTop = box.scrollHeight;
     }
 
-    // --- STORAGE FIX & SEND ---
     document.getElementById('chat-form').onsubmit = async (e) => {
         e.preventDefault();
-        const msgIn = document.getElementById('msgIn');
-        const fileIn = document.getElementById('fileIn');
-        const text = msgIn.value.trim();
-        const file = fileIn.files[0];
+        const msgIn = document.getElementById('msgIn'), fileIn = document.getElementById('fileIn');
+        const text = msgIn.value.trim(), file = fileIn.files[0], rid = replyId;
         if (!text && !file) return;
-
-        const rid = replyId;
         msgIn.value = ''; fileIn.value = ''; cancelReply(); updateTyping("");
 
         let fUrl = null, fType = null;
@@ -176,21 +174,17 @@
 
     window.handleDelete = async (e, id) => {
         e.stopPropagation();
-        if (confirm("Delete forever?")) {
+        if (confirm("Delete?")) {
             const msg = allMsgs.find(x => x.id === id);
-            // LOG IT TO DELETED_LOG TABLE BEFORE DELETING
-            await _db.from('deleted_log').insert([{ 
-                original_id: id, sender: msg.sender, content: msg.message, file_url: msg.file_url 
-            }]);
+            await _db.from('deleted_log').insert([{ original_id: id, sender: msg.sender, content: msg.message, file_url: msg.file_url }]);
             await _db.from('private_messages').delete().eq('id', id);
         }
     };
 
-    // Swipe logic helpers
     let sx=0,cx=0,el=null;
     window.ts=(e)=>{sx=e.touches[0].clientX;el=e.currentTarget;};
-    window.tm=(e)=>{if(!el)return;cx=e.touches[0].clientX-sx;if(cx>0&&cx<70)el.style.transform=`translateX(${cx}px)`;};
-    window.te=()=>{if(cx>40)setupReply(el.dataset.id,el.dataset.text);el.style.transform='';el=null;cx=0;};
+    window.tm=(e)=>{if(!el)return;cx=e.touches[0].clientX-sx;if(cx>0&&cx<70){el.style.transform=`translateX(${cx}px)`;el.querySelector('.swipe-hint').style.opacity=cx/70;}};
+    window.te=()=>{if(cx>40)setupReply(el.dataset.id,el.dataset.text);if(el){el.style.transform='';}el=null;cx=0;};
     window.setupReply=(id,text)=>{replyId=id;document.getElementById('reply-text').textContent=text;document.getElementById('reply-preview').style.display='flex';document.getElementById('msgIn').focus();};
     window.cancelReply=()=>{replyId=null;document.getElementById('reply-preview').style.display='none';};
 
