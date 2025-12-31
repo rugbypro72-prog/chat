@@ -3,42 +3,36 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title id="page-title">chat</title>
+    <title id="page-title">Chatwebb</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --bg: #0a0f1a; --accent: #0b78e3; --card: #1c2335; }
         body { background: var(--bg); color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; margin: 0; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
         
-        /* Message Containers */
-        .msg-container { position: relative; width: 100%; display: flex; flex-direction: column; transition: transform 0.2s; touch-action: pan-y; }
-        .msg { max-width: 85%; padding: 10px 14px; border-radius: 18px; position: relative; word-wrap: break-word; cursor: pointer; }
-        .self { align-self: flex-end; background: var(--accent); border-bottom-right-radius: 2px; }
-        .other { align-self: flex-start; background: var(--card); border-bottom-left-radius: 2px; }
+        /* Profile Picture & Bubble Styling */
+        .msg-row { display: flex; align-items: flex-end; gap: 8px; width: 100%; position: relative; }
+        .row-self { flex-direction: row-reverse; }
         
-        /* Flipped Checkmarks: Blue (Sent), Black (Read) */
+        .avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: #2d3748; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1); }
+        
+        .msg { max-width: 75%; padding: 10px 14px; border-radius: 18px; position: relative; word-wrap: break-word; }
+        .self { background: var(--accent); border-bottom-right-radius: 2px; }
+        .other { background: var(--card); border-bottom-left-radius: 2px; }
+        
+        /* Checkmarks & Meta */
         .checks { font-size: 10px; margin-left: 4px; font-weight: bold; }
-        .unread { color: #38bdf8; } /* Blue when not read yet */
-        .read { color: #000000; }   /* Black when read */
+        .unread { color: #38bdf8; } 
+        .read { color: #000000; }   
 
-        #gallery { display: none; position: fixed; inset: 0; background: #0a0f1a; z-index: 200; flex-direction: column; }
-        .grid-img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; cursor: pointer; }
-
+        #gallery { display: none; position: fixed; inset: 0; background: #0a0f1a; z-index: 400; flex-direction: column; }
         #typing-box { padding: 0 25px 10px; font-size: 11px; color: #60a5fa; font-style: italic; min-height: 20px; }
         .live-preview { color: #facc15; font-weight: bold; }
         
-        .reply-box { background: rgba(0,0,0,0.3); border-left: 3px solid #60a5fa; padding: 5px 8px; margin-bottom: 6px; border-radius: 4px; font-size: 0.75rem; color: #93c5fd; }
-        #reply-preview { display: none; background: #161b2e; padding: 10px 15px; border-left: 4px solid var(--accent); align-items: center; justify-content: space-between; border-top: 1px solid #1c2335; }
-        
-        .media-content { max-width: 100%; border-radius: 10px; margin-top: 5px; display: block; max-height: 250px; }
-        .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 4px; font-size: 10px; opacity: 0.6; }
-        .del-btn { color: #ff4d4d; font-size: 14px; cursor: pointer; padding-left: 5px; }
-
         #chat-form { background: #101426; padding: 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #1c2335; padding-bottom: env(safe-area-inset-bottom); }
         input#msgIn { flex: 1; background: #1c2335; border: none; padding: 12px; border-radius: 20px; color: white; outline: none; }
-        #auth { position: fixed; inset: 0; background: #0a0f1a; z-index: 300; display: flex; align-items: center; justify-content: center; }
-        .swipe-hint { position: absolute; left: -40px; top: 50%; transform: translateY(-50%); opacity: 0; color: #60a5fa; font-size: 20px; transition: opacity 0.1s; pointer-events: none; }
+        #auth { position: fixed; inset: 0; background: #0a0f1a; z-index: 500; display: flex; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
@@ -60,12 +54,20 @@
 </div>
 
 <header class="p-4 bg-[#0f1524] flex justify-between items-center border-b border-[#1c2335]">
-    <div>
-        <div class="font-bold text-blue-400 leading-none">Chat</div>
-        <div id="lastSeenDisplay" class="text-[10px] text-gray-500 mt-1"></div>
+    <div class="flex items-center gap-3">
+        <div class="relative cursor-pointer" onclick="document.getElementById('pfpIn').click()">
+            <img id="myAvatarHeader" src="" class="avatar">
+            <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadPFP(this)">
+        </div>
+        <div>
+            <div class="font-bold text-blue-400 leading-none flex items-center gap-2">
+             <span id="userMood" onclick="changeMood()" class="cursor-pointer text-sm"></span>
+            </div>
+            <div id="lastSeenDisplay" class="text-[10px] text-gray-500 mt-1"></div>
+        </div>
     </div>
     <div class="flex items-center gap-4">
-        <button onclick="toggleGallery()" class="text-xl">🖼️</button>
+        <button onclick="toggleGallery()" class="text-xl">Gallery 🖼️</button>
         <button onclick="logout()" id="meDisplay" class="text-[10px] opacity-50 uppercase underline"></button>
     </div>
 </header>
@@ -73,18 +75,15 @@
 <main id="messages"></main>
 <div id="typing-box"></div>
 
-<div id="reply-preview">
-    <div class="truncate text-sm"><small class="text-blue-400 font-bold">Replying to:</small> <span id="reply-text" class="opacity-60"></span></div>
+<div id="reply-preview" class="hidden bg-[#161b2e] p-3 border-l-4 border-blue-500 flex justify-between items-center">
+    <div class="truncate text-sm">Replying to: <span id="reply-text" class="opacity-60"></span></div>
     <button onclick="cancelReply()" class="text-xl px-2">&times;</button>
 </div>
 
 <form id="chat-form">
-    <label class="cursor-pointer p-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-width="2" /></svg>
-        <input type="file" id="fileIn" class="hidden" accept="image/*,video/*">
-    </label>
+    <label class="cursor-pointer p-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-width="2" /></svg><input type="file" id="fileIn" class="hidden" accept="image/*,video/*"></label>
     <input id="msgIn" placeholder="Type a message..." autocomplete="off">
-    <button type="submit" id="sendBtn" class="bg-blue-600 px-5 py-2 rounded-full font-bold">Send</button>
+    <button type="submit" class="bg-blue-600 px-5 py-2 rounded-full font-bold">Send</button>
 </form>
 
 <script>
@@ -93,7 +92,7 @@
     const _db = supabase.createClient(SB_URL, SB_KEY);
     const chime = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
 
-    let me = null, you = null, replyId = null, allMsgs = [], tOut;
+    let me = null, you = null, replyId = null, allMsgs = [], tOut, myAvatar = '', yourAvatar = '';
     const isPC = !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
     async function checkAuth() {
@@ -103,54 +102,66 @@
 
     window.login = async function(val) {
         const code = val || document.getElementById('codeIn').value;
-        const { data } = await _db.from('chat_codes').select('username').eq('code', code).single();
+        const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
         if (!data) return;
         me = data.username; you = (me === 'RJ') ? 'Allyvia' : 'RJ';
         localStorage.setItem('chat_secret_code', code);
         document.getElementById('meDisplay').textContent = me;
         document.getElementById('auth').style.display = 'none';
         startChat();
-        updateLastSeen();
     };
 
-    window.logout = () => { localStorage.removeItem('chat_secret_code'); window.location.reload(); };
-
-    async function updateLastSeen() {
-        if (!me) return;
-        await _db.from('chat_codes').update({ last_seen: new Date().toISOString() }).eq('username', me);
-        // Mark messages as read
-        await _db.from('private_messages').update({ is_read: true }).eq('sender', you).eq('is_read', false);
-    }
-
-    setInterval(updateLastSeen, 15000);
-
-    async function fetchLastSeen() {
-        const { data } = await _db.from('chat_codes').select('last_seen').eq('username', you).single();
-        if (data && data.last_seen) {
-            const diff = (new Date() - new Date(data.last_seen)) / 1000;
-            document.getElementById('lastSeenDisplay').textContent = diff < 30 ? `${you} is Online` : `${you} last seen ${new Date(data.last_seen).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
-        }
-    }
-
-    function startChat() {
+    async function startChat() {
+        await syncProfiles();
         loadMessages();
-        fetchLastSeen();
-        
         _db.channel('global').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, (p) => {
             if (p.eventType === 'INSERT' && p.new.sender === you && isPC) chime.play().catch(() => {});
             loadMessages();
-        }).on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, () => fetchLastSeen()).subscribe();
+        }).on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, () => syncProfiles()).subscribe();
         
         _db.channel('typing').on('postgres_changes', { event: '*', schema: 'public', table: 'typing_status' }, (p) => {
             if (p.new.username === you) {
                 const box = document.getElementById('typing-box');
                 document.getElementById('page-title').textContent = p.new.is_typing ? `${you} is typing...` : "Locked Chat 🔒";
-                if (p.new.is_typing) {
-                    box.innerHTML = (me === 'RJ') ? `${you} is writing: <span class="live-preview">"${p.new.live_text}"</span>` : `${you} is typing...`;
-                } else box.innerHTML = "";
+                box.innerHTML = p.new.is_typing ? (me === 'RJ' ? `${you} is writing: <span class="live-preview">"${p.new.live_text}"</span>` : `${you} is typing...`) : "";
             }
         }).subscribe();
+        setInterval(() => _db.from('chat_codes').update({ last_seen: new Date().toISOString() }).eq('username', me), 15000);
+        setInterval(() => _db.from('private_messages').update({ is_read: true }).eq('sender', you).eq('is_read', false), 10000);
     }
+
+    async function syncProfiles() {
+        const { data } = await _db.from('chat_codes').select('*');
+        data.forEach(u => {
+            if (u.username === me) {
+                myAvatar = u.avatar_url || '';
+                document.getElementById('myAvatarHeader').src = myAvatar;
+            } else {
+                yourAvatar = u.avatar_url || '';
+                document.getElementById('userMood').textContent = u.mood || '😊';
+                const diff = (new Date() - new Date(u.last_seen)) / 1000;
+                document.getElementById('lastSeenDisplay').textContent = diff < 40 ? `${you} is Online` : `${you} last seen ${new Date(u.last_seen).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+            }
+        });
+        render(); // Re-render to show new avatars
+    }
+
+    async function uploadPFP(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const fName = `pfp_${me}_${Date.now()}`;
+        const { data } = await _db.storage.from('chat-files').upload(fName, file);
+        if (data) {
+            const url = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
+            await _db.from('chat_codes').update({ avatar_url: url }).eq('username', me);
+            syncProfiles();
+        }
+    }
+
+    window.changeMood = async () => {
+        const m = prompt("Enter a mood emoji:");
+        if (m) await _db.from('chat_codes').update({ mood: m }).eq('username', me);
+    };
 
     async function loadMessages() {
         const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(100);
@@ -162,23 +173,21 @@
         const box = document.getElementById('messages');
         box.innerHTML = allMsgs.map(m => {
             const isMe = m.sender === me;
+            const avatar = isMe ? myAvatar : yourAvatar;
             const parent = allMsgs.find(x => x.id === m.reply_to_id);
             const rHtml = m.reply_to_id ? `<div class="reply-box">⤴️ ${parent ? (parent.message || 'Media') : 'Deleted'}</div>` : '';
             const mHtml = m.file_url ? (m.file_type === 'image' ? `<img src="${m.file_url}" class="media-content">` : `<video src="${m.file_url}" class="media-content" controls></video>`) : '';
-            const msgEscaped = (m.message || 'Media').replace(/'/g, "\\'");
 
             return `
-                <div class="msg-container" data-id="${m.id}" data-text="${msgEscaped}"
-                     ontouchstart="ts(event)" ontouchmove="tm(event)" ontouchend="te(event)"
-                     ondblclick="setupReply('${m.id}', '${msgEscaped}')">
-                    <div class="swipe-hint">⤴️</div>
+                <div class="msg-row ${isMe ? 'row-self' : ''}" data-id="${m.id}" data-text="${(m.message || 'Media').replace(/'/g, "\\'")}" 
+                     ontouchstart="ts(event)" ontouchmove="tm(event)" ontouchend="te(event)" ondblclick="setupReply('${m.id}', '${(m.message || '').replace(/'/g, "\\'")}')">
+                    <img src="${avatar || 'https://via.placeholder.com/32'}" class="avatar">
                     <div class="msg ${isMe ? 'self' : 'other'}">
                         ${rHtml}${mHtml}
                         <div class="pt-1">${m.message || ''}</div>
                         <div class="msg-meta">
                             ${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
                             ${isMe ? `<span class="checks ${m.is_read ? 'read' : 'unread'}">✓✓</span>` : ''}
-                            ${isMe ? `<span class="del-btn" onclick="handleDelete(event, '${m.id}')">🗑️</span>` : ''}
                         </div>
                     </div>
                 </div>`;
@@ -186,84 +195,41 @@
         box.scrollTop = box.scrollHeight;
     }
 
-    window.toggleGallery = async () => {
-        const g = document.getElementById('gallery');
-        const grid = document.getElementById('gallery-grid');
-        if (g.style.display === 'flex') g.style.display = 'none';
-        else {
-            g.style.display = 'flex';
-            const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', { ascending: false });
-            grid.innerHTML = data.map(i => `<img src="${i.file_url}" class="grid-img" onclick="window.open('${i.file_url}')">`).join('');
-        }
-    };
-
-    // --- REPLY & SWIPE LOGIC FIXED ---
+    // --- SWIPE & REPLY ---
     let sx=0, cx=0, el=null;
     window.ts = (e) => { sx = e.touches[0].clientX; el = e.currentTarget; };
-    window.tm = (e) => { 
-        if(!el) return; 
-        cx = e.touches[0].clientX - sx; 
-        if(cx > 0 && cx < 80) { 
-            el.style.transform = `translateX(${cx}px)`; 
-            const hint = el.querySelector('.swipe-hint');
-            if(hint) hint.style.opacity = cx/70;
-        } 
-    };
-    window.te = () => { 
-        if(cx > 45) setupReply(el.dataset.id, el.dataset.text); 
-        if(el) { el.style.transform = ''; const h = el.querySelector('.swipe-hint'); if(h) h.style.opacity = 0; }
-        el = null; cx = 0; 
-    };
-
-    window.setupReply = (id, text) => {
-        replyId = id;
-        document.getElementById('reply-text').textContent = text;
-        document.getElementById('reply-preview').style.display = 'flex';
-        document.getElementById('msgIn').focus();
-    };
-
-    window.cancelReply = () => { replyId = null; document.getElementById('reply-preview').style.display = 'none'; };
-
-    // --- SEND LOGIC ---
-    async function updateTyping(text) {
-        if (!me) return;
-        await _db.from('typing_status').upsert({ username: me, is_typing: text.length > 0, live_text: text }, { onConflict: 'username' });
-    }
-
-    document.getElementById('msgIn').addEventListener('input', (e) => {
-        updateTyping(e.target.value);
-        clearTimeout(tOut);
-        tOut = setTimeout(() => updateTyping(""), 3000);
-    });
+    window.tm = (e) => { if(!el) return; cx = e.touches[0].clientX - sx; if(cx > 0 && cx < 80) el.style.transform = `translateX(${cx}px)`; };
+    window.te = () => { if(cx > 45) setupReply(el.dataset.id, el.dataset.text); if(el) el.style.transform = ''; el=null; cx=0; };
+    window.setupReply = (id, text) => { replyId = id; document.getElementById('reply-text').textContent = text; document.getElementById('reply-preview').classList.remove('hidden'); document.getElementById('msgIn').focus(); };
+    window.cancelReply = () => { replyId = null; document.getElementById('reply-preview').classList.add('hidden'); };
 
     document.getElementById('chat-form').onsubmit = async (e) => {
         e.preventDefault();
         const msgIn = document.getElementById('msgIn'), fileIn = document.getElementById('fileIn');
         const text = msgIn.value.trim(), file = fileIn.files[0], rid = replyId;
         if (!text && !file) return;
-        msgIn.value = ''; fileIn.value = ''; cancelReply(); updateTyping("");
-
+        msgIn.value = ''; fileIn.value = ''; cancelReply();
+        
         let fUrl = null, fType = null;
         if (file) {
-            const fName = `${Date.now()}_${file.name}`;
+            const fName = `chat_${Date.now()}_${file.name}`;
             const { data } = await _db.storage.from('chat-files').upload(fName, file);
-            if (data) {
-                fUrl = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
-                fType = file.type.startsWith('image') ? 'image' : 'video';
-            }
+            if (data) { fUrl = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl; fType = file.type.startsWith('image') ? 'image' : 'video'; }
         }
         await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text, file_url: fUrl, file_type: fType, reply_to_id: rid, is_read: false }]);
     };
 
-    window.handleDelete = async (e, id) => {
-        e.stopPropagation();
-        if (confirm("Delete?")) {
-            const msg = allMsgs.find(x => x.id === id);
-            await _db.from('deleted_log').insert([{ original_id: id, sender: msg.sender, content: msg.message, file_url: msg.file_url }]);
-            await _db.from('private_messages').delete().eq('id', id);
+    window.toggleGallery = async () => {
+        const g = document.getElementById('gallery');
+        if (g.style.display === 'flex') g.style.display = 'none';
+        else {
+            g.style.display = 'flex';
+            const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', { ascending: false });
+            document.getElementById('gallery-grid').innerHTML = data.map(i => `<img src="${i.file_url}" class="grid-img" onclick="window.open('${i.file_url}')">`).join('');
         }
     };
-
+    
+    window.logout = () => { localStorage.removeItem('chat_secret_code'); window.location.reload(); };
     checkAuth();
 </script>
 </body>
