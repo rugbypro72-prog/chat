@@ -10,39 +10,43 @@
         :root { --bg: #0a0f1a; --accent: #0b78e3; --card: #1c2335; }
         body { background: var(--bg); color: white; font-family: sans-serif; height: 100vh; display: flex; overflow: hidden; margin: 0; }
         
+        /* Sidebar & Overlay */
         #sidebar { position: fixed; left: -280px; top: 0; bottom: 0; width: 280px; background: #0f1524; z-index: 600; transition: 0.3s ease; border-right: 1px solid #1c2335; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
         #sidebar.open { left: 0; }
         #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 550; }
         
+        /* Message Area */
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
-        
-        .msg-row { display: flex; align-items: flex-end; gap: 8px; width: 100%; position: relative; transition: transform 0.1s; }
+        .msg-row { display: flex; align-items: flex-end; gap: 8px; width: 100%; position: relative; }
         .row-self { flex-direction: row-reverse; }
         
-        .avatar-mini { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-bottom: 2px; }
+        /* PFPs */
+        .avatar-mini { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-bottom: 2px; border: 1px solid #374151; }
         .avatar-placeholder { background: #374151; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
 
-        .msg { max-width: 75%; padding: 10px 14px; border-radius: 18px; position: relative; word-wrap: break-word; }
+        /* Bubbles */
+        .msg { max-width: 70%; padding: 10px 14px; border-radius: 18px; position: relative; word-wrap: break-word; }
         .self { background: var(--accent); border-bottom-right-radius: 2px; }
         .other { background: var(--card); border-bottom-left-radius: 2px; }
         
+        /* Meta/Trash */
         .reply-box { background: rgba(0,0,0,0.2); border-left: 3px solid #60a5fa; padding: 5px 8px; margin-bottom: 6px; border-radius: 4px; font-size: 11px; color: #93c5fd; }
-        .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 4px; font-size: 10px; opacity: 0.6; }
-        .inner-trash { cursor: pointer; color: #ff8080; font-size: 12px; margin-left: 4px; }
+        .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 4px; font-size: 10px; opacity: 0.7; }
+        .inner-trash { cursor: pointer; color: #ff8080; font-size: 12px; margin-left: 4px; padding: 2px; }
 
+        /* Form & Typing */
         #chat-form-container { background: #101426; border-top: 1px solid #1c2335; padding-bottom: env(safe-area-inset-bottom); }
         #reply-preview { display: none; background: #161b2e; padding: 10px; border-left: 4px solid #3b82f6; align-items: center; justify-content: space-between; }
-        
         #chat-form { padding: 12px; display: flex; align-items: center; gap: 10px; }
         input#msgIn { flex: 1; background: #1c2335; border: none; padding: 12px; border-radius: 20px; color: white; outline: none; }
-        
         #typing-reveal { padding: 8px 16px 2px 16px; font-size: 12px; color: #60a5fa; font-weight: 500; font-style: italic; min-height: 24px; }
+        
+        /* Media */
+        .media-content { border-radius: 12px; max-height: 250px; width: 100%; object-fit: cover; margin-top: 5px; cursor: pointer; background: #000; }
+        #file-indicator { font-size: 10px; color: #10b981; margin-left: 10px; display: none; font-weight: bold; }
         
         /* Gallery */
         #gallery-overlay { display: none; position: fixed; inset: 0; background: #0a0f1a; z-index: 700; flex-direction: column; }
-        .eyes-active { color: #fbbf24; font-weight: bold; margin-left: 5px; animation: blink 2s infinite; }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-        .media-content { border-radius: 12px; max-height: 250px; width: 100%; object-fit: cover; margin-top: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -58,9 +62,7 @@
     <button onclick="changeMood()" class="text-left p-3 bg-[#1c2335] rounded-lg">✨ Update Mood Emoji</button>
     <button onclick="document.getElementById('pfpIn').click()" class="text-left p-3 bg-[#1c2335] rounded-lg">📸 Change Profile Pic</button>
     <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadPFP(this)">
-    <div class="mt-auto">
-        <button onclick="logout()" class="w-full py-3 text-red-400 font-bold border border-red-900 rounded-lg">Logout</button>
-    </div>
+    <div class="mt-auto"><button onclick="logout()" class="w-full py-3 text-red-400 font-bold border border-red-900 rounded-lg">Logout</button></div>
 </div>
 
 <div id="chat-main" class="flex flex-col h-full w-full">
@@ -68,9 +70,7 @@
         <div class="flex items-center gap-3">
             <button onclick="toggleSidebar()" class="text-2xl p-1">☰</button>
             <div>
-                <div class="font-bold text-blue-400 leading-none flex items-center gap-2">
-                    Chat <span id="topMood"></span> <span id="eye-indicator" class="eyes-active hidden">👀</span>
-                </div>
+                <div class="font-bold text-blue-400 leading-none flex items-center gap-2">Chat <span id="topMood"></span> <span id="eye-indicator" class="hidden">👀</span></div>
                 <div id="status" class="text-[10px] text-gray-500 mt-1">Connecting...</div>
             </div>
         </div>
@@ -85,9 +85,12 @@
         </div>
         <div id="typing-reveal"></div>
         <form id="chat-form">
-            <label class="cursor-pointer p-2 text-gray-400"><input type="file" id="fileIn" class="hidden" accept="image/*,video/*">📎</label>
+            <label class="cursor-pointer p-2 text-gray-400">
+                <input type="file" id="fileIn" class="hidden" accept="image/*,video/*" onchange="document.getElementById('file-indicator').style.display = 'inline'">📎
+                <span id="file-indicator">✔ READY</span>
+            </label>
             <input id="msgIn" placeholder="Type a message..." autocomplete="off" oninput="updateTyping(this.value)">
-            <button type="submit" class="bg-blue-600 px-6 py-2 rounded-full font-bold">Send</button>
+            <button type="submit" id="sendBtn" class="bg-blue-600 px-6 py-2 rounded-full font-bold">Send</button>
         </form>
     </div>
 </div>
@@ -104,7 +107,6 @@
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
-
     let me, you, profiles = {}, allMsgs = [], replyId = null;
 
     async function login() {
@@ -117,17 +119,14 @@
     }
 
     async function startChat() {
-        await syncProfiles();
-        loadMessages();
-        _db.channel('sync-room').on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, () => syncProfiles())
+        await syncProfiles(); loadMessages();
+        _db.channel('sync').on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, () => syncProfiles())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages()).subscribe();
-        setInterval(updateHeartbeat, 10000);
-        document.addEventListener('visibilitychange', updateHeartbeat);
-    }
-
-    async function updateHeartbeat() {
-        const isWatching = document.visibilityState === 'visible';
-        await _db.from('chat_codes').update({ last_seen: new Date().toISOString(), is_watching: isWatching }).eq('username', me);
+        
+        setInterval(async () => {
+            const isWatching = document.visibilityState === 'visible';
+            await _db.from('chat_codes').update({ last_seen: new Date().toISOString(), is_watching: isWatching }).eq('username', me);
+        }, 10000);
     }
 
     async function syncProfiles() {
@@ -138,11 +137,9 @@
                 document.getElementById('topMood').textContent = u.mood || '';
                 const diff = (new Date() - new Date(u.last_seen)) / 1000;
                 document.getElementById('status').textContent = diff < 40 ? `Online` : `Last seen ${new Date(u.last_seen).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
-                document.getElementById('eye-indicator').classList.toggle('hidden', !u.is_watching || diff > 40);
-                const revealEl = document.getElementById('typing-reveal');
-                if (u.typing_text) {
-                    revealEl.textContent = (me === 'RJ') ? `${you}: ${u.typing_text}` : `${you} is typing...`;
-                } else { revealEl.textContent = ''; }
+                document.getElementById('eye-indicator').style.display = (u.is_watching && diff < 40) ? 'inline' : 'none';
+                const rev = document.getElementById('typing-reveal');
+                rev.textContent = u.typing_text ? (me === 'RJ' ? `${you}: ${u.typing_text}` : `${you} is typing...`) : '';
             }
         });
         const m = profiles[me];
@@ -150,64 +147,67 @@
         document.getElementById('sideName').textContent = me;
     }
 
-    async function updateTyping(val) { await _db.from('chat_codes').update({ typing_text: val }).eq('username', me); }
-
     async function loadMessages() {
         const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(60);
-        allMsgs = (data || []).reverse();
-        render();
+        allMsgs = (data || []).reverse(); render();
     }
 
     function render() {
         const box = document.getElementById('messages');
         box.innerHTML = allMsgs.map(m => {
             const isMe = m.sender === me;
+            const u = profiles[m.sender];
             const parent = allMsgs.find(x => x.id === m.reply_to_id);
-            const pfpHtml = profiles[m.sender]?.avatar_url ? `<img src="${profiles[m.sender].avatar_url}" class="avatar-mini">` : `<div class="avatar-mini avatar-placeholder">${m.sender.charAt(0)}</div>`;
-            return `
-                <div class="msg-row ${isMe ? 'row-self' : ''}" data-id="${m.id}" data-text="${(m.message || 'Media').replace(/'/g, "\\")}" ontouchstart="ts(event)" ontouchend="te(event)" ondblclick="setupReply('${m.id}', '${(m.message || '').replace(/'/g, "\\")}')">
-                    ${!isMe ? pfpHtml : ''}
-                    <div class="msg ${isMe ? 'self' : 'other'}">
-                        ${m.reply_to_id ? `<div class="reply-box">⤴️ ${parent ? (parent.message || 'Media') : 'Deleted'}</div>` : ''}
-                        ${m.file_url ? (m.file_type === 'image' ? `<img src="${m.file_url}" class="media-content" onclick="window.open('${m.file_url}')">` : `<video src="${m.file_url}" class="media-content" controls></video>`) : ''}
-                        <div>${m.message || ''}</div>
-                        <div class="msg-meta">${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
-                            ${isMe ? `<span class="inner-trash" onclick="deleteMsg('${m.id}', '${(m.message || '').replace(/'/g, "\\")}')">🗑️</span>` : ''}
-                        </div>
+            const pfpHtml = u?.avatar_url ? `<img src="${u.avatar_url}" class="avatar-mini">` : `<div class="avatar-mini avatar-placeholder">${m.sender.charAt(0)}</div>`;
+            
+            return `<div class="msg-row ${isMe ? 'row-self' : ''}" data-id="${m.id}" data-text="${(m.message || 'Media').replace(/'/g, "\\")}" ontouchstart="ts(event)" ontouchend="te(event)" ondblclick="setupReply('${m.id}', '${(m.message || '').replace(/'/g, "\\")}')">
+                ${pfpHtml}
+                <div class="msg ${isMe ? 'self' : 'other'}">
+                    ${m.reply_to_id ? `<div class="reply-box">⤴️ ${parent ? (parent.message || 'Media') : 'Deleted'}</div>` : ''}
+                    ${m.file_url ? (m.file_type === 'image' ? `<img src="${m.file_url}" class="media-content" onclick="window.open('${m.file_url}')">` : `<video src="${m.file_url}" class="media-content" controls></video>`) : ''}
+                    <div>${m.message || ''}</div>
+                    <div class="msg-meta">${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} 
+                        ${isMe ? `<span class="inner-trash" onclick="deleteMsg('${m.id}', '${(m.message || '').replace(/'/g, "\\")}')">🗑️</span>` : ''}
                     </div>
-                </div>`;
+                </div>
+            </div>`;
         }).join('');
         box.scrollTop = box.scrollHeight;
     }
 
-    window.setupReply = (id, text) => { replyId = id; document.getElementById('reply-text').textContent = text; document.getElementById('reply-preview').style.display = 'flex'; document.getElementById('msgIn').focus(); };
-    window.cancelReply = () => { replyId = null; document.getElementById('reply-preview').style.display = 'none'; };
-
-    window.deleteMsg = async (id, originalText) => {
-        if(!confirm("Log and delete?")) return;
-        await _db.from('deleted_log').insert([{ sender: me, message: originalText }]);
-        await _db.from('private_messages').delete().eq('id', id);
-    };
-
     document.getElementById('chat-form').onsubmit = async (e) => {
         e.preventDefault();
-        const msgIn = document.getElementById('msgIn'), fileIn = document.getElementById('fileIn'), text = msgIn.value.trim(), file = fileIn.files[0], rid = replyId;
+        const msgIn = document.getElementById('msgIn'), fileIn = document.getElementById('fileIn'), btn = document.getElementById('sendBtn');
+        const text = msgIn.value.trim(), file = fileIn.files[0], rid = replyId;
         if (!text && !file) return;
-        msgIn.value = ''; fileIn.value = ''; updateTyping(''); cancelReply();
+
+        btn.disabled = true; btn.textContent = "...";
         let fUrl = null, fType = null;
+
         if (file) {
-            const fName = `${Date.now()}_${file.name}`;
-            const { data } = await _db.storage.from('chat-files').upload(fName, file);
-            if (data) { fUrl = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl; fType = file.type.startsWith('image') ? 'image' : 'video'; }
+            const fName = `${Date.now()}_${file.name.replace(/\s/g, '_')}`;
+            const { data, error } = await _db.storage.from('chat-files').upload(fName, file);
+            if (error) { alert("Upload failed: " + error.message); btn.disabled = false; return; }
+            fUrl = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
+            fType = file.type.startsWith('image') ? 'image' : 'video';
         }
+
         await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text, file_url: fUrl, file_type: fType, reply_to_id: rid }]);
+        msgIn.value = ''; fileIn.value = ''; cancelReply();
+        document.getElementById('file-indicator').style.display = 'none';
+        btn.disabled = false; btn.textContent = "Send";
+        updateTyping('');
     };
 
+    window.updateTyping = (val) => _db.from('chat_codes').update({ typing_text: val }).eq('username', me);
+    window.setupReply = (id, text) => { replyId = id; document.getElementById('reply-text').textContent = text; document.getElementById('reply-preview').style.display = 'flex'; document.getElementById('msgIn').focus(); };
+    window.cancelReply = () => { replyId = null; document.getElementById('reply-preview').style.display = 'none'; };
+    window.deleteMsg = async (id, originalText) => { if(confirm("Log and delete?")) { await _db.from('deleted_log').insert([{ sender: me, message: originalText }]); await _db.from('private_messages').delete().eq('id', id); } };
+    
     window.toggleGallery = async () => {
         const g = document.getElementById('gallery-overlay');
-        if (g.style.display === 'flex') g.style.display = 'none';
-        else {
-            g.style.display = 'flex';
+        g.style.display = g.style.display === 'flex' ? 'none' : 'flex';
+        if (g.style.display === 'flex') {
             const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', { ascending: false });
             document.getElementById('gallery-grid').innerHTML = data.map(i => `<img src="${i.file_url}" class="aspect-square object-cover" onclick="window.open('${i.file_url}')">`).join('');
         }
@@ -223,8 +223,7 @@
         }
     };
 
-    let sx=0;
-    window.ts = (e) => { sx = e.touches[0].clientX; };
+    let sx=0; window.ts = (e) => sx = e.touches[0].clientX;
     window.te = (e) => { if(e.changedTouches[0].clientX - sx > 60) setupReply(e.currentTarget.dataset.id, e.currentTarget.dataset.text); };
     window.toggleSidebar = () => { const s = document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = s ? 'block' : 'none'; };
     window.changeMood = async () => { const m = prompt("Mood Emoji:"); if (m) await _db.from('chat_codes').update({ mood: m }).eq('username', me); };
