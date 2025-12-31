@@ -8,45 +8,62 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --bg: #0a0f1a; --accent: #0b78e3; --card: rgba(28, 35, 53, 0.9); }
-        body { background: var(--bg); color: white; font-family: sans-serif; height: 100vh; display: flex; overflow: hidden; margin: 0; }
+        body { background: var(--bg); color: white; font-family: sans-serif; height: 100vh; display: flex; overflow: hidden; margin: 0; transition: background 0.5s; }
         
         /* Theme Definitions */
         body.theme-plain { --bg: #0a0f1a; --accent: #0b78e3; }
-        body.theme-love { --bg: #2d0a1a; --accent: #e11d48; }
-        body.theme-funny { --bg: #1a2d0a; --accent: #84cc16; }
+        
+        body.theme-love { --bg: #2d0a1a; --accent: #e11d48; --card: rgba(76, 29, 149, 0.4); }
+        body.theme-love #chat-bg {
+            background-color: #2d0a1a;
+            background-image: radial-gradient(#e11d48 0.5px, transparent 0.5px), radial-gradient(#e11d48 0.5px, #2d0a1a 0.5px);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
+        }
 
-        #chat-bg { position: fixed; inset: 0; z-index: -1; background-size: cover; background-position: center; filter: brightness(0.4) blur(2px); transition: 0.5s; }
+        body.theme-funny { --bg: #1a2d0a; --accent: #84cc16; --card: rgba(20, 83, 45, 0.6); }
+        body.theme-funny #chat-bg {
+            background-color: #1a2d0a;
+            background-image: linear-gradient(30deg, #101b07 12%, transparent 12.5%, transparent 87%, #101b07 87.5%, #101b07), linear-gradient(150deg, #101b07 12%, transparent 12.5%, transparent 87%, #101b07 87.5%, #101b07);
+            background-size: 40px 70px;
+        }
 
-        /* Sidebar & Overlay */
+        #chat-bg { position: fixed; inset: 0; z-index: -1; background-size: cover; background-position: center; filter: brightness(0.6); transition: 0.5s; }
+
+        /* Sidebar & Layout */
         #sidebar { position: fixed; left: -280px; top: 0; bottom: 0; width: 280px; background: #0f1524; z-index: 600; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); border-right: 1px solid #1c2335; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
         #sidebar.open { left: 0; }
         #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 550; backdrop-filter: blur(2px); }
         
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
         
-        /* Bubbles & Meta */
+        /* Message Bubbles */
         .msg-row { display: flex; align-items: flex-end; gap: 8px; width: 100%; position: relative; }
         .row-self { flex-direction: row-reverse; }
         .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 14px; flex-shrink: 0; object-fit: cover; }
         .avatar-RJ { background: #000000; border: 1px solid #333; }
         .avatar-Allyvia { background: #ec4899; }
+        
         .msg { max-width: 75%; padding: 10px 14px; border-radius: 18px; word-wrap: break-word; backdrop-filter: blur(5px); }
         .self { background: var(--accent); border-bottom-right-radius: 2px; }
         .other { background: var(--card); border-bottom-left-radius: 2px; }
         .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 2px; font-size: 9px; opacity: 0.5; }
         
-        /* System Message */
-        .sys-msg { align-self: center; font-size: 11px; opacity: 0.5; background: rgba(255,255,255,0.05); padding: 4px 12px; border-radius: 10px; margin: 10px 0; }
+        .sys-msg { align-self: center; font-size: 11px; opacity: 0.6; background: rgba(255,255,255,0.1); padding: 4px 14px; border-radius: 20px; margin: 10px 0; text-align: center; }
 
-        .side-btn { text-align: left; padding: 10px; border-radius: 10px; background: #1c2335; font-size: 13px; }
+        .side-btn { text-align: left; padding: 10px; border-radius: 10px; background: #1c2335; font-size: 13px; transition: 0.2s; }
+        .side-btn:hover { background: #2d3748; }
         .reset-btn { background: #331c1c; color: #f87171; border: 1px solid #7f1d1d; }
+        
+        #chat-form { background: rgba(16, 20, 38, 0.9); padding: 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #1c2335; padding-bottom: env(safe-area-inset-bottom); }
+        input#msgIn { flex: 1; background: #1c2335; border: none; padding: 12px; border-radius: 20px; color: white; outline: none; }
     </style>
 </head>
 <body class="theme-plain">
 
 <div id="chat-bg"></div>
 <div id="auth" style="display: none;">
-    <div class="bg-[#101426] p-8 rounded-2xl border border-gray-800 text-center w-80">
+    <div class="bg-[#101426] p-8 rounded-2xl border border-gray-800 text-center w-80 m-auto">
         <h2 class="mb-4 text-xl font-bold text-blue-400">ChatWebb</h2>
         <input id="codeIn" type="password" placeholder="Access Code" class="w-full mb-4 text-center p-3 rounded bg-gray-800 text-white outline-none">
         <button onclick="login()" class="w-full bg-blue-600 py-3 rounded-xl font-bold">Connect</button>
@@ -63,34 +80,34 @@
     
     <p class="text-[10px] uppercase opacity-40 font-bold mt-2">Personalize</p>
     <button onclick="changeMood()" class="side-btn">✨ Update Mood Emoji</button>
-    <button onclick="document.getElementById('pfpIn').click()" class="side-btn">📸 Update Profile Pic</button>
+    <button onclick="document.getElementById('pfpIn').click()" class="side-btn">📸 Change Profile Pic</button>
     <button onclick="document.getElementById('bgIn').click()" class="side-btn">🖼️ Set Custom Wallpaper</button>
     
     <p class="text-[10px] uppercase opacity-40 font-bold mt-2">Theme Presets</p>
     <div class="grid grid-cols-3 gap-2">
-        <button onclick="setTheme('plain')" class="bg-blue-900 text-[11px] p-2 rounded">Plain</button>
-        <button onclick="setTheme('love')" class="bg-rose-900 text-[11px] p-2 rounded">Love</button>
-        <button onclick="setTheme('funny')" class="bg-lime-900 text-[11px] p-2 rounded">Funny</button>
+        <button onclick="setTheme('plain')" class="bg-blue-900 text-[10px] p-2 rounded">Plain</button>
+        <button onclick="setTheme('love')" class="bg-rose-900 text-[10px] p-2 rounded">Love</button>
+        <button onclick="setTheme('funny')" class="bg-lime-900 text-[10px] p-2 rounded">Funny</button>
     </div>
 
-    <button onclick="resetAll()" class="side-btn reset-btn mt-4">♻️ Reset Everything</button>
-    <button onclick="toggleGallery()" class="side-btn mt-2">📁 View All Media</button>
+    <button onclick="resetAll()" class="side-btn reset-btn mt-4">♻️ Reset Identity & Theme</button>
+    <button onclick="toggleGallery()" class="side-btn mt-2">📁 Media Gallery</button>
     
     <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadPFP(this)">
     <input type="file" id="bgIn" class="hidden" accept="image/*" onchange="uploadBG(this)">
     
-    <div class="mt-auto">
+    <div class="mt-auto pt-4">
         <button onclick="logout()" class="w-full py-2 text-red-400 font-bold border border-red-900 rounded-lg text-sm">Logout</button>
     </div>
 </div>
 
 <div id="chat-main" class="flex flex-col h-full w-full">
-    <header class="p-4 bg-[#0f1524]/90 backdrop-blur-md flex justify-between items-center border-b border-[#1c2335] z-10">
+    <header class="p-4 bg-[#0f1524]/80 backdrop-blur-md flex justify-between items-center border-b border-[#1c2335] z-10">
         <div class="flex items-center gap-3">
-            <button onclick="toggleSidebar()" class="text-2xl">☰</button>
+            <button onclick="toggleSidebar()" class="text-2xl p-1">☰</button>
             <div>
                 <div class="font-bold text-blue-400 leading-none flex items-center gap-2">
-                    Chat <span id="userMood" class="text-lg"></span>
+                    Chat <span id="userMood" class="text-xl"></span>
                 </div>
                 <div id="lastSeenDisplay" class="text-[10px] text-gray-500 mt-1"></div>
             </div>
@@ -98,7 +115,7 @@
     </header>
 
     <main id="messages"></main>
-    <div id="typing-box" class="px-6 py-1 text-[10px] text-blue-400 italic"></div>
+    <div id="typing-box" class="px-6 py-1 text-[10px] text-blue-400 italic h-4"></div>
 
     <form id="chat-form">
         <label class="cursor-pointer p-2 text-gray-400"><input type="file" id="fileIn" class="hidden" accept="image/*,video/*">📎</label>
@@ -133,6 +150,8 @@
         loadMessages();
         _db.channel('room1').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, () => syncProfiles()).subscribe();
+        
+        setInterval(() => _db.from('chat_codes').update({ last_seen: new Date().toISOString() }).eq('username', me), 15000);
     }
 
     async function syncProfiles() {
@@ -141,40 +160,45 @@
             profiles[u.username] = u;
             if (u.username === you) {
                 document.getElementById('userMood').textContent = u.mood || '';
+                // Sync theme based on the other person's setting or a global one
                 document.body.className = `theme-${u.current_theme || 'plain'}`;
             }
         });
         const m = profiles[me];
-        if(m?.wallpaper_url) document.getElementById('chat-bg').style.backgroundImage = `url(${m.wallpaper_url})`;
-        else document.getElementById('chat-bg').style.backgroundImage = 'none';
-        
         const sideAv = document.getElementById('sideAvatar');
-        sideAv.innerHTML = m?.avatar_url ? `<img src="${m.avatar_url}" class="avatar">` : me.charAt(0);
-        sideAv.className = `avatar avatar-${me}`;
+        if(m?.avatar_url) sideAv.innerHTML = `<img src="${m.avatar_url}" class="avatar">`;
+        else { sideAv.innerHTML = me.charAt(0); sideAv.className = `avatar avatar-${me}`; }
+        
+        if(m?.wallpaper_url) document.getElementById('chat-bg').style.backgroundImage = `url(${m.wallpaper_url})`;
+        else if (document.body.className === 'theme-plain') document.getElementById('chat-bg').style.backgroundImage = 'none';
+
         render();
     }
 
-    async function setTheme(themeName) {
-        await _db.from('chat_codes').update({ current_theme: themeName }).eq('username', me);
-        await _db.from('private_messages').insert([{ sender: 'SYSTEM', message: `${me} changed the theme to ${themeName}` }]);
+    async function setTheme(t) {
+        await _db.from('chat_codes').update({ current_theme: t }).eq('username', me);
+        await _db.from('private_messages').insert([{ sender: 'SYSTEM', message: `${me} changed the theme to ${t}` }]);
         toggleSidebar();
     }
 
+    async function changeMood() {
+        const m = prompt("Enter Mood Emoji:");
+        if (m !== null) {
+            await _db.from('chat_codes').update({ mood: m }).eq('username', me);
+            toggleSidebar();
+        }
+    }
+
     async function resetAll() {
-        if(!confirm("Reset PFP and Wallpaper?")) return;
+        if(!confirm("Reset everything?")) return;
         await _db.from('chat_codes').update({ avatar_url: null, wallpaper_url: null, current_theme: 'plain', mood: '' }).eq('username', me);
         syncProfiles();
         toggleSidebar();
     }
 
-    async function changeMood() {
-        const m = prompt("Mood Emoji:");
-        if (m !== null) await _db.from('chat_codes').update({ mood: m }).eq('username', me);
-    }
-
     async function loadMessages() {
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(50);
-        allMsgs = data.reverse();
+        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(60);
+        allMsgs = (data || []).reverse();
         render();
     }
 
@@ -189,8 +213,8 @@
                 <div class="msg-row ${isMe ? 'row-self' : ''}">
                     ${av}
                     <div class="msg ${isMe ? 'self' : 'other'}">
-                        ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg max-h-48 mb-1">` : ''}
-                        <div>${m.message || ''}</div>
+                        ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg max-h-60 mt-1">` : ''}
+                        <div class="pt-1">${m.message || ''}</div>
                         <div class="msg-meta">${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} ${isMe ? (m.is_read ? '✓✓' : '<span class="text-blue-400">✓✓</span>') : ''}</div>
                     </div>
                 </div>`;
@@ -198,7 +222,6 @@
         box.scrollTop = box.scrollHeight;
     }
 
-    // Reuse uploadPFP and uploadBG from previous versions...
     async function uploadPFP(input) {
         const file = input.files[0]; if (!file) return;
         const fName = `pfp_${me}_${Date.now()}`;
@@ -228,6 +251,8 @@
         msgIn.value = '';
         await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text, is_read: false }]);
     };
+
+    window.logout = () => { localStorage.removeItem('chat_secret_code'); window.location.reload(); };
 
     const saved = localStorage.getItem('chat_secret_code');
     if (saved) login(saved); else document.getElementById('auth').style.display = 'flex';
