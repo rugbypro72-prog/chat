@@ -3,12 +3,19 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title id="page-title">Chat</title>
+    <title id="page-title">ChatWebb</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --bg: #0a0f1a; --accent: #0b78e3; --card: #1c2335; }
-        body { background: var(--bg); color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; margin: 0; }
+        body { background: var(--bg); color: white; font-family: sans-serif; height: 100vh; display: flex; overflow: hidden; margin: 0; }
+        
+        /* Sidebar Styles */
+        #sidebar { position: fixed; left: -280px; top: 0; bottom: 0; width: 280px; background: #0f1524; z-index: 600; transition: 0.3s ease; border-right: 1px solid #1c2335; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+        #sidebar.open { left: 0; }
+        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 550; }
+        
+        #chat-main { flex: 1; display: flex; flex-direction: column; height: 100vh; position: relative; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
         
         .msg-row { display: flex; align-items: flex-end; gap: 8px; width: 100%; position: relative; }
@@ -22,19 +29,17 @@
         .self { background: var(--accent); border-bottom-right-radius: 2px; }
         .other { background: var(--card); border-bottom-left-radius: 2px; }
         
-        /* Clean small meta */
         .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 2px; font-size: 9px; opacity: 0.5; }
         .checks { font-weight: bold; }
         .unread { color: #38bdf8; } 
         .read { color: #000000; }   
 
-        #gallery { display: none; position: fixed; inset: 0; background: #0a0f1a; z-index: 400; flex-direction: column; }
+        #gallery-overlay { display: none; position: fixed; inset: 0; background: #0a0f1a; z-index: 700; flex-direction: column; }
         #typing-box { padding: 0 25px 10px; font-size: 11px; color: #60a5fa; font-style: italic; min-height: 20px; }
-        .live-preview { color: #facc15; font-weight: bold; }
         
         #chat-form { background: #101426; padding: 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #1c2335; padding-bottom: env(safe-area-inset-bottom); }
         input#msgIn { flex: 1; background: #1c2335; border: none; padding: 12px; border-radius: 20px; color: white; outline: none; }
-        #auth { position: fixed; inset: 0; background: #0a0f1a; z-index: 500; display: flex; align-items: center; justify-content: center; }
+        #auth { position: fixed; inset: 0; background: #0a0f1a; z-index: 1000; display: flex; align-items: center; justify-content: center; }
         .reply-box { background: rgba(0,0,0,0.3); border-left: 3px solid #60a5fa; padding: 5px 8px; margin-bottom: 6px; border-radius: 4px; font-size: 0.75rem; color: #93c5fd; }
     </style>
 </head>
@@ -42,44 +47,57 @@
 
 <div id="auth" style="display: none;">
     <div class="bg-[#101426] p-8 rounded-2xl border border-gray-800 text-center w-80">
-        <h2 class="mb-4 text-xl font-bold text-blue-400">Secure Access</h2>
-        <input id="codeIn" type="password" placeholder="Chat Code" class="w-full mb-4 text-center p-3 rounded bg-gray-800 text-white outline-none">
-        <button onclick="login()" class="w-full bg-blue-600 py-3 rounded-xl font-bold">Enter Chat</button>
+        <h2 class="mb-4 text-xl font-bold text-blue-400">ChatWebb</h2>
+        <input id="codeIn" type="password" placeholder="Access Code" class="w-full mb-4 text-center p-3 rounded bg-gray-800 text-white outline-none">
+        <button onclick="login()" class="w-full bg-blue-600 py-3 rounded-xl font-bold">Connect</button>
     </div>
 </div>
 
-<header class="p-4 bg-[#0f1524] flex justify-between items-center border-b border-[#1c2335]">
-    <div class="flex items-center gap-3">
-        <div id="headerAvatar" class="avatar cursor-pointer" onclick="document.getElementById('pfpIn').click()"></div>
-        <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadPFP(this)">
-        <div>
-            <div class="font-bold text-blue-400 leading-none flex items-center gap-2">
-                Chat <span id="userMood" onclick="changeMood()" class="cursor-pointer text-sm"></span>
+<div id="overlay" onclick="toggleSidebar()"></div>
+
+<div id="sidebar">
+    <div class="flex items-center gap-3 mb-6">
+        <div id="sideAvatar" class="avatar"></div>
+        <div class="font-bold text-lg" id="sideName">Menu</div>
+    </div>
+    <button onclick="toggleGallery()" class="text-left py-3 px-4 rounded-lg bg-gray-800 hover:bg-gray-700">🖼️ Media Gallery</button>
+    <button onclick="changeMood()" class="text-left py-3 px-4 rounded-lg bg-gray-800 hover:bg-gray-700">😊 Update Mood</button>
+    <button onclick="document.getElementById('pfpIn').click()" class="text-left py-3 px-4 rounded-lg bg-gray-800 hover:bg-gray-700">📸 Change Picture</button>
+    <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadPFP(this)">
+    <div class="mt-auto">
+        <button onclick="logout()" class="w-full py-3 text-red-400 font-bold border border-red-900 rounded-lg">Logout</button>
+    </div>
+</div>
+
+<div id="chat-main">
+    <header class="p-4 bg-[#0f1524] flex justify-between items-center border-b border-[#1c2335]">
+        <div class="flex items-center gap-3">
+            <button onclick="toggleSidebar()" class="text-xl">☰</button>
+            <div>
+                <div class="font-bold text-blue-400 leading-none flex items-center gap-2">
+                    Chat <span id="userMood" class="text-sm"></span>
+                </div>
+                <div id="lastSeenDisplay" class="text-[10px] text-gray-500 mt-1"></div>
             </div>
-            <div id="lastSeenDisplay" class="text-[10px] text-gray-500 mt-1"></div>
         </div>
-    </div>
-    <div class="flex items-center gap-4">
-        <button onclick="toggleGallery()" class="text-xl">Gallery 🖼️</button>
-        <button onclick="logout()" id="meDisplay" class="text-[10px] opacity-50 uppercase underline"></button>
-    </div>
-</header>
+    </header>
 
-<main id="messages"></main>
-<div id="typing-box"></div>
+    <main id="messages"></main>
+    <div id="typing-box"></div>
 
-<div id="reply-preview" class="hidden bg-[#161b2e] p-3 border-l-4 border-blue-500 flex justify-between items-center">
-    <div class="truncate text-sm">Replying to: <span id="reply-text" class="opacity-60"></span></div>
-    <button onclick="cancelReply()" class="text-xl px-2">&times;</button>
+    <div id="reply-preview" class="hidden bg-[#161b2e] p-3 border-l-4 border-blue-500 flex justify-between items-center">
+        <div class="truncate text-sm">Replying to: <span id="reply-text" class="opacity-60"></span></div>
+        <button onclick="cancelReply()" class="text-xl px-2">&times;</button>
+    </div>
+
+    <form id="chat-form">
+        <label class="cursor-pointer p-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-width="2" /></svg><input type="file" id="fileIn" class="hidden" accept="image/*,video/*"></label>
+        <input id="msgIn" placeholder="Type a message..." autocomplete="off">
+        <button type="submit" class="bg-blue-600 px-6 py-2 rounded-full font-bold">Send</button>
+    </form>
 </div>
 
-<form id="chat-form">
-    <label class="cursor-pointer p-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-width="2" /></svg><input type="file" id="fileIn" class="hidden" accept="image/*,video/*"></label>
-    <input id="msgIn" placeholder="Type a message..." autocomplete="off">
-    <button type="submit" class="bg-blue-600 px-5 py-2 rounded-full font-bold">Send</button>
-</form>
-
-<div id="gallery" class="hidden">
+<div id="gallery-overlay" class="hidden">
     <header class="p-4 flex justify-between items-center border-b border-gray-800">
         <span class="font-bold">Media Gallery</span>
         <button onclick="toggleGallery()" class="text-xl px-2">&times;</button>
@@ -96,6 +114,11 @@
     let me = null, you = null, replyId = null, allMsgs = [], profiles = {};
     const isPC = !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
+    window.toggleSidebar = () => {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('overlay').style.display = document.getElementById('sidebar').classList.contains('open') ? 'block' : 'none';
+    };
+
     async function checkAuth() {
         const saved = localStorage.getItem('chat_secret_code');
         if (saved) await login(saved); else document.getElementById('auth').style.display = 'flex';
@@ -107,7 +130,6 @@
         if (!data) return;
         me = data.username; you = (me === 'RJ') ? 'Allyvia' : 'RJ';
         localStorage.setItem('chat_secret_code', code);
-        document.getElementById('meDisplay').textContent = me;
         document.getElementById('auth').style.display = 'none';
         startChat();
     };
@@ -115,13 +137,16 @@
     async function startChat() {
         await syncProfiles();
         loadMessages();
-        _db.channel('global').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages()).on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, () => syncProfiles()).subscribe();
+        _db.channel('global').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, () => syncProfiles()).subscribe();
+        
         _db.channel('typing').on('postgres_changes', { event: '*', schema: 'public', table: 'typing_status' }, (p) => {
             if (p.new.username === you) {
                 const box = document.getElementById('typing-box');
-                box.innerHTML = p.new.is_typing ? (me === 'RJ' ? `${you} is writing: <span class="live-preview">"${p.new.live_text}"</span>` : `${you} is typing...`) : "";
+                box.innerHTML = p.new.is_typing ? (me === 'RJ' ? `${you} is writing: <span class="text-yellow-400 font-bold">"${p.new.live_text}"</span>` : `${you} is typing...`) : "";
             }
         }).subscribe();
+        
         setInterval(() => _db.from('chat_codes').update({ last_seen: new Date().toISOString() }).eq('username', me), 15000);
     }
 
@@ -130,23 +155,17 @@
         data.forEach(u => {
             profiles[u.username] = u;
             if (u.username === you) {
-                document.getElementById('userMood').textContent = u.mood || '😊';
+                document.getElementById('userMood').textContent = u.mood || '';
                 const diff = (new Date() - new Date(u.last_seen)) / 1000;
                 document.getElementById('lastSeenDisplay').textContent = diff < 45 ? `${you} is Online` : `${you} last seen ${new Date(u.last_seen).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
             }
         });
-        renderAvatar(document.getElementById('headerAvatar'), me);
+        const m = profiles[me];
+        const sideAv = document.getElementById('sideAvatar');
+        if (m?.avatar_url) sideAv.innerHTML = `<img src="${m.avatar_url}" class="avatar">`;
+        else { sideAv.innerHTML = me.charAt(0); sideAv.className = `avatar avatar-${me}`; }
+        document.getElementById('sideName').textContent = me;
         render();
-    }
-
-    function renderAvatar(el, username) {
-        const u = profiles[username];
-        if (u?.avatar_url) {
-            el.innerHTML = `<img src="${u.avatar_url}" class="avatar">`;
-        } else {
-            el.innerHTML = username.charAt(0);
-            el.className = `avatar avatar-${username}`;
-        }
     }
 
     async function loadMessages() {
@@ -195,10 +214,22 @@
 
     window.changeMood = async () => {
         const m = prompt("Enter mood emoji:");
-        if (m) await _db.from('chat_codes').update({ mood: m }).eq('username', me);
+        if (m) {
+            await _db.from('chat_codes').update({ mood: m }).eq('username', me);
+            toggleSidebar();
+        }
     };
 
-    // Swipe/Reply
+    window.toggleGallery = async () => {
+        const g = document.getElementById('gallery-overlay');
+        if (g.style.display === 'flex') g.style.display = 'none';
+        else {
+            g.style.display = 'flex'; toggleSidebar();
+            const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', { ascending: false });
+            document.getElementById('gallery-grid').innerHTML = data.map(i => `<img src="${i.file_url}" class="grid-img rounded-lg aspect-square object-cover" onclick="window.open('${i.file_url}')">`).join('');
+        }
+    };
+
     let sx=0, cx=0, el=null;
     window.ts = (e) => { sx = e.touches[0].clientX; el = e.currentTarget; };
     window.tm = (e) => { if(!el) return; cx = e.touches[0].clientX - sx; if(cx > 0 && cx < 70) el.style.transform = `translateX(${cx}px)`; };
@@ -208,8 +239,7 @@
 
     document.getElementById('chat-form').onsubmit = async (e) => {
         e.preventDefault();
-        const msgIn = document.getElementById('msgIn'), fileIn = document.getElementById('fileIn');
-        const text = msgIn.value.trim(), file = fileIn.files[0], rid = replyId;
+        const msgIn = document.getElementById('msgIn'), fileIn = document.getElementById('fileIn'), text = msgIn.value.trim(), file = fileIn.files[0], rid = replyId;
         if (!text && !file) return;
         msgIn.value = ''; fileIn.value = ''; cancelReply();
         let fUrl = null, fType = null;
@@ -221,7 +251,6 @@
         await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text, file_url: fUrl, file_type: fType, reply_to_id: rid, is_read: false }]);
     };
 
-    window.toggleGallery = () => document.getElementById('gallery').classList.toggle('hidden');
     window.logout = () => { localStorage.removeItem('chat_secret_code'); window.location.reload(); };
     checkAuth();
 </script>
