@@ -27,12 +27,14 @@
         .other { background: var(--card); border-bottom-left-radius: 2px; }
         
         .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 4px; font-size: 10px; opacity: 0.6; }
-        .inner-trash { cursor: pointer; color: #ff8080; font-size: 12px; margin-left: 4px; padding: 2px; }
+        .inner-trash { cursor: pointer; color: #ff8080; font-size: 12px; margin-left: 4px; }
 
-        #chat-form { background: #101426; padding: 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #1c2335; padding-bottom: env(safe-area-inset-bottom); }
+        #chat-form-container { background: #101426; border-top: 1px solid #1c2335; padding-bottom: env(safe-area-inset-bottom); }
+        #chat-form { padding: 12px; display: flex; align-items: center; gap: 10px; }
         input#msgIn { flex: 1; background: #1c2335; border: none; padding: 12px; border-radius: 20px; color: white; outline: none; }
         
-        #typing-status { font-size: 11px; color: #60a5fa; font-weight: bold; font-style: italic; transition: 0.2s; }
+        /* The Reveal Area */
+        #typing-reveal { padding: 8px 16px 2px 16px; font-size: 12px; color: #60a5fa; font-weight: 500; font-style: italic; min-height: 24px; }
         .eyes-active { color: #fbbf24; font-weight: bold; margin-left: 5px; animation: blink 2s infinite; }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
     </style>
@@ -46,7 +48,6 @@
         <div id="sideAv" class="w-10 h-10 rounded-full flex items-center justify-center font-bold avatar-placeholder"></div>
         <div class="font-bold text-lg" id="sideName">Settings</div>
     </div>
-    <button onclick="toggleGallery()" class="text-left p-3 bg-[#1c2335] rounded-lg">🖼️ Media Gallery</button>
     <button onclick="changeMood()" class="text-left p-3 bg-[#1c2335] rounded-lg">✨ Update Mood Emoji</button>
     <button onclick="document.getElementById('pfpIn').click()" class="text-left p-3 bg-[#1c2335] rounded-lg">📸 Change Profile Pic</button>
     <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadPFP(this)">
@@ -63,19 +64,21 @@
                 <div class="font-bold text-blue-400 leading-none flex items-center gap-2">
                     Chat <span id="topMood"></span> <span id="eye-indicator" class="eyes-active hidden">👀</span>
                 </div>
-                <div id="typing-status" class="mt-1 h-3"></div>
+                <div id="status" class="text-[10px] text-gray-500 mt-1">Connecting...</div>
             </div>
         </div>
-        <div id="status" class="text-[10px] text-gray-500">Connecting...</div>
     </header>
 
     <main id="messages"></main>
 
-    <form id="chat-form">
-        <label class="cursor-pointer p-2 text-gray-400"><input type="file" id="fileIn" class="hidden" accept="image/*,video/*">📎</label>
-        <input id="msgIn" placeholder="Type a message..." autocomplete="off" oninput="updateTyping(this.value)">
-        <button type="submit" class="bg-blue-600 px-6 py-2 rounded-full font-bold">Send</button>
-    </form>
+    <div id="chat-form-container">
+        <div id="typing-reveal"></div>
+        <form id="chat-form">
+            <label class="cursor-pointer p-2 text-gray-400"><input type="file" id="fileIn" class="hidden" accept="image/*,video/*">📎</label>
+            <input id="msgIn" placeholder="Type a message..." autocomplete="off" oninput="updateTyping(this.value)">
+            <button type="submit" class="bg-blue-600 px-6 py-2 rounded-full font-bold">Send</button>
+        </form>
+    </div>
 </div>
 
 <script>
@@ -103,7 +106,6 @@
             .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages())
             .subscribe();
 
-        // Heartbeat for "Last Seen" and "Eyes"
         setInterval(updateHeartbeat, 10000);
         document.addEventListener('visibilitychange', updateHeartbeat);
     }
@@ -122,15 +124,23 @@
             profiles[u.username] = u;
             if (u.username === you) {
                 document.getElementById('topMood').textContent = u.mood || '';
-                
-                // Status & Eyes logic
                 const diff = (new Date() - new Date(u.last_seen)) / 1000;
                 document.getElementById('status').textContent = diff < 40 ? `Online` : `Last seen ${new Date(u.last_seen).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
                 document.getElementById('eye-indicator').classList.toggle('hidden', !u.is_watching || diff > 40);
                 
-                // Typing Reveal
-                const typingEl = document.getElementById('typing-status');
-                typingEl.textContent = u.typing_text ? `${you} typing: ${u.typing_text}` : '';
+                // THE POWER DYNAMIC LOGIC
+                const revealEl = document.getElementById('typing-reveal');
+                if (u.typing_text && u.typing_text.length > 0) {
+                    // RJ sees EVERYTHING she types
+                    // She only sees "RJ is typing..."
+                    if (me === 'RJ') {
+                        revealEl.textContent = `${you}: ${u.typing_text}`;
+                    } else {
+                        revealEl.textContent = `${you} is typing...`;
+                    }
+                } else {
+                    revealEl.textContent = '';
+                }
             }
         });
         const m = profiles[me];
