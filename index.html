@@ -32,10 +32,9 @@
         #chat-form { background: #101426; padding: 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #1c2335; padding-bottom: env(safe-area-inset-bottom); }
         input#msgIn { flex: 1; background: #1c2335; border: none; padding: 12px; border-radius: 20px; color: white; outline: none; }
         
-        .side-btn { text-align: left; padding: 12px; border-radius: 10px; background: #1c2335; font-size: 14px; }
-        
-        /* High-Visibility Typing Text */
-        #typing-status { font-size: 11px; color: #60a5fa; font-weight: bold; font-style: italic; }
+        #typing-status { font-size: 11px; color: #60a5fa; font-weight: bold; font-style: italic; transition: 0.2s; }
+        .eyes-active { color: #fbbf24; font-weight: bold; margin-left: 5px; animation: blink 2s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
     </style>
 </head>
 <body>
@@ -47,9 +46,9 @@
         <div id="sideAv" class="w-10 h-10 rounded-full flex items-center justify-center font-bold avatar-placeholder"></div>
         <div class="font-bold text-lg" id="sideName">Settings</div>
     </div>
-    <button onclick="toggleGallery()" class="side-btn">🖼️ Media Gallery</button>
-    <button onclick="changeMood()" class="side-btn">✨ Update Mood Emoji</button>
-    <button onclick="document.getElementById('pfpIn').click()" class="side-btn">📸 Change Profile Pic</button>
+    <button onclick="toggleGallery()" class="text-left p-3 bg-[#1c2335] rounded-lg">🖼️ Media Gallery</button>
+    <button onclick="changeMood()" class="text-left p-3 bg-[#1c2335] rounded-lg">✨ Update Mood Emoji</button>
+    <button onclick="document.getElementById('pfpIn').click()" class="text-left p-3 bg-[#1c2335] rounded-lg">📸 Change Profile Pic</button>
     <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadPFP(this)">
     <div class="mt-auto">
         <button onclick="logout()" class="w-full py-3 text-red-400 font-bold border border-red-900 rounded-lg">Logout</button>
@@ -61,7 +60,9 @@
         <div class="flex items-center gap-3">
             <button onclick="toggleSidebar()" class="text-2xl p-1">☰</button>
             <div>
-                <div class="font-bold text-blue-400 leading-none flex items-center gap-2">Chat <span id="topMood"></span></div>
+                <div class="font-bold text-blue-400 leading-none flex items-center gap-2">
+                    Chat <span id="topMood"></span> <span id="eye-indicator" class="eyes-active hidden">👀</span>
+                </div>
                 <div id="typing-status" class="mt-1 h-3"></div>
             </div>
         </div>
@@ -97,17 +98,22 @@
         await syncProfiles();
         loadMessages();
         
-        // REPLICATED: Dedicated Realtime channel for instant typing & profile updates
         _db.channel('sync-room')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, (payload) => {
-                syncProfiles();
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => {
-                loadMessages();
-            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, () => syncProfiles())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages())
             .subscribe();
 
-        setInterval(() => _db.from('chat_codes').update({ last_seen: new Date().toISOString() }).eq('username', me), 15000);
+        // Heartbeat for "Last Seen" and "Eyes"
+        setInterval(updateHeartbeat, 10000);
+        document.addEventListener('visibilitychange', updateHeartbeat);
+    }
+
+    async function updateHeartbeat() {
+        const isWatching = document.visibilityState === 'visible';
+        await _db.from('chat_codes').update({ 
+            last_seen: new Date().toISOString(),
+            is_watching: isWatching 
+        }).eq('username', me);
     }
 
     async function syncProfiles() {
@@ -116,16 +122,15 @@
             profiles[u.username] = u;
             if (u.username === you) {
                 document.getElementById('topMood').textContent = u.mood || '';
-                const diff = (new Date() - new Date(u.last_seen)) / 1000;
-                document.getElementById('status').textContent = diff < 45 ? `Online` : `Last seen ${new Date(u.last_seen).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
                 
-                // SHOW HER TEXT AS SHE TYPES
+                // Status & Eyes logic
+                const diff = (new Date() - new Date(u.last_seen)) / 1000;
+                document.getElementById('status').textContent = diff < 40 ? `Online` : `Last seen ${new Date(u.last_seen).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+                document.getElementById('eye-indicator').classList.toggle('hidden', !u.is_watching || diff > 40);
+                
+                // Typing Reveal
                 const typingEl = document.getElementById('typing-status');
-                if (u.typing_text && u.typing_text.length > 0) {
-                    typingEl.textContent = `${you} is writing: ${u.typing_text}`;
-                } else {
-                    typingEl.textContent = '';
-                }
+                typingEl.textContent = u.typing_text ? `${you} typing: ${u.typing_text}` : '';
             }
         });
         const m = profiles[me];
@@ -133,7 +138,6 @@
         document.getElementById('sideName').textContent = me;
     }
 
-    // THE CHEEKY TYPING LOGIC
     async function updateTyping(val) {
         await _db.from('chat_codes').update({ typing_text: val }).eq('username', me);
     }
@@ -168,7 +172,6 @@
 
     window.deleteMsg = async (id, originalText) => {
         if(!confirm("Log and delete?")) return;
-        // SHADOW LOG: Save to deleted_log before removing from main chat
         await _db.from('deleted_log').insert([{ sender: me, message: originalText }]);
         await _db.from('private_messages').delete().eq('id', id);
     };
@@ -178,7 +181,7 @@
         const msgIn = document.getElementById('msgIn'), text = msgIn.value.trim();
         if (!text) return;
         msgIn.value = '';
-        updateTyping(''); // Clear the preview immediately on send
+        updateTyping('');
         await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text }]);
     };
 
