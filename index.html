@@ -7,85 +7,98 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root { --bg: #0a0f1a; --accent: #0b78e3; --card: rgba(28, 35, 53, 0.9); }
+        :root { --bg: #0a0f1a; --accent: #0b78e3; --card: #1c2335; }
         body { background: var(--bg); color: white; font-family: sans-serif; height: 100vh; display: flex; overflow: hidden; margin: 0; }
         
-        /* Theme Logic */
-        body.theme-plain { --bg: #0a0f1a; --accent: #0b78e3; }
-        body.theme-love { --bg: #2d0a1a; --accent: #e11d48; --card: rgba(76, 29, 149, 0.4); }
-        body.theme-love #chat-bg { background-image: radial-gradient(#e11d48 0.5px, transparent 0.5px), radial-gradient(#e11d48 0.5px, #2d0a1a 0.5px); background-size: 40px 40px; background-position: 0 0, 20px 20px; filter: brightness(0.5); }
-        
-        #chat-bg { position: fixed; inset: 0; z-index: -1; background-size: cover; background-position: center; transition: 0.5s; }
-        #sidebar { position: fixed; left: -280px; top: 0; bottom: 0; width: 280px; background: #0f1524; z-index: 600; transition: 0.3s; border-right: 1px solid #1c2335; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+        #sidebar { position: fixed; left: -280px; top: 0; bottom: 0; width: 280px; background: #0f1524; z-index: 600; transition: 0.3s ease; border-right: 1px solid #1c2335; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
         #sidebar.open { left: 0; }
-        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 550; }
+        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 550; }
         
+        #chat-main { flex: 1; display: flex; flex-direction: column; height: 100vh; position: relative; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
-        .msg { max-width: 75%; padding: 10px 14px; border-radius: 18px; backdrop-filter: blur(5px); }
-        .self { background: var(--accent); border-bottom-right-radius: 2px; margin-left: auto; }
-        .other { background: var(--card); border-bottom-left-radius: 2px; }
-        .sys-msg { align-self: center; font-size: 11px; opacity: 0.5; background: rgba(255,255,255,0.05); padding: 4px 12px; border-radius: 10px; margin: 10px 0; }
+        
+        .msg-row { display: flex; align-items: flex-end; gap: 8px; width: 100%; transition: transform 0.1s; }
+        .row-self { flex-direction: row-reverse; }
+        
+        .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; flex-shrink: 0; object-fit: cover; }
+        .avatar-RJ { background: #000; border: 1px solid #333; }
+        .avatar-Allyvia { background: #ec4899; }
 
-        .side-btn { text-align: left; padding: 10px; border-radius: 10px; background: #1c2335; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
-        .reset-tag { font-size: 9px; background: #ef4444; padding: 2px 6px; border-radius: 4px; font-bold: true; cursor: pointer; }
+        .msg { max-width: 75%; padding: 10px 14px; border-radius: 18px; position: relative; word-wrap: break-word; }
+        .self { background: var(--accent); border-bottom-right-radius: 2px; }
+        .other { background: var(--card); border-bottom-left-radius: 2px; }
+        
+        .reply-box { background: rgba(0,0,0,0.2); border-left: 3px solid #60a5fa; padding: 5px 8px; margin-bottom: 6px; border-radius: 4px; font-size: 11px; color: #93c5fd; }
+        .media-content { border-radius: 12px; max-height: 250px; width: 100%; object-fit: cover; margin-top: 5px; }
+        
+        #gallery-overlay { display: none; position: fixed; inset: 0; background: #0a0f1a; z-index: 700; flex-direction: column; }
+        #chat-form { background: #101426; padding: 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #1c2335; padding-bottom: env(safe-area-inset-bottom); }
+        input#msgIn { flex: 1; background: #1c2335; border: none; padding: 12px; border-radius: 20px; color: white; outline: none; }
+        
+        .side-btn { text-align: left; padding: 12px; border-radius: 10px; background: #1c2335; font-size: 14px; }
     </style>
 </head>
 <body>
 
-<div id="chat-bg"></div>
 <div id="overlay" onclick="toggleSidebar()"></div>
 
 <div id="sidebar">
-    <div class="flex items-center gap-3 mb-4">
-        <div id="sideAv" class="w-10 h-10 rounded-full bg-black flex items-center justify-center font-bold border border-gray-700"></div>
-        <div class="font-bold" id="sideName">Settings</div>
+    <div class="flex items-center gap-3 mb-6">
+        <div id="sideAv" class="avatar"></div>
+        <div class="font-bold text-lg" id="sideName">Settings</div>
     </div>
-
-    <button onclick="changeMood()" class="side-btn">
-        <span>✨ Mood Emoji</span>
-        <span id="moodReset" class="reset-tag hidden" onclick="resetItem(event, 'mood')">RESET</span>
-    </button>
-
-    <button onclick="document.getElementById('pfpIn').click()" class="side-btn">
-        <span>📸 Profile Picture</span>
-        <span id="pfpReset" class="reset-tag hidden" onclick="resetItem(event, 'pfp')">RESET</span>
-    </button>
-    <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadFile(this, 'avatar_url')">
-
-    <p class="text-[10px] uppercase opacity-40 font-bold mt-2">Themes</p>
-    <div class="grid grid-cols-2 gap-2">
-        <button onclick="setTheme('plain')" class="bg-gray-800 p-2 rounded text-xs">Plain</button>
-        <button onclick="setTheme('love')" class="bg-rose-900 p-2 rounded text-xs">Love ❤️</button>
-    </div>
-    <button id="themeReset" class="side-btn reset-tag hidden mt-2 w-full justify-center" onclick="resetItem(event, 'theme')">RESET THEME</button>
-
+    <button onclick="toggleGallery()" class="side-btn">🖼️ Media Gallery</button>
+    <button onclick="changeMood()" class="side-btn">✨ Update Mood Emoji</button>
+    <button onclick="document.getElementById('pfpIn').click()" class="side-btn">📸 Change Profile Pic</button>
+    <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadPFP(this)">
     <div class="mt-auto">
-        <button onclick="logout()" class="w-full py-2 text-red-400 text-sm border border-red-900 rounded-lg">Logout</button>
+        <button onclick="logout()" class="w-full py-3 text-red-400 font-bold border border-red-900 rounded-lg">Logout</button>
     </div>
 </div>
 
-<div id="chat-main" class="flex flex-col h-full w-full">
-    <header class="p-4 bg-[#0f1524]/90 backdrop-blur-md flex justify-between items-center border-b border-[#1c2335]">
+<div id="chat-main">
+    <header class="p-4 bg-[#0f1524] flex justify-between items-center border-b border-[#1c2335]">
         <div class="flex items-center gap-3">
             <button onclick="toggleSidebar()" class="text-2xl">☰</button>
             <div>
-                <div class="font-bold text-blue-400 flex items-center gap-2">Chat <span id="topMood"></span></div>
-                <div id="status" class="text-[10px] text-gray-500">Connecting...</div>
+                <div class="font-bold text-blue-400 leading-none flex items-center gap-2">
+                    Chat <span id="topMood" class="text-lg"></span>
+                </div>
+                <div id="status" class="text-[10px] text-gray-500 mt-1">Connecting...</div>
             </div>
         </div>
     </header>
+
     <main id="messages"></main>
-    <form id="chat-form" class="p-4 bg-[#101426] flex gap-2">
-        <input id="msgIn" placeholder="Message..." class="flex-1 bg-[#1c2335] border-none p-3 rounded-full text-white outline-none">
-        <button class="bg-blue-600 px-6 rounded-full font-bold">Send</button>
+
+    <div id="reply-preview" class="hidden bg-[#161b2e] p-3 border-l-4 border-blue-500 flex justify-between items-center">
+        <div class="truncate text-sm">Replying to: <span id="reply-text" class="opacity-60"></span></div>
+        <button onclick="cancelReply()" class="text-xl px-2">&times;</button>
+    </div>
+
+    <form id="chat-form">
+        <label class="cursor-pointer p-2 text-gray-400">
+            <input type="file" id="fileIn" class="hidden" accept="image/*,video/*">📎
+        </label>
+        <input id="msgIn" placeholder="Type a message..." autocomplete="off">
+        <button type="submit" class="bg-blue-600 px-6 py-2 rounded-full font-bold">Send</button>
     </form>
+</div>
+
+<div id="gallery-overlay" class="hidden">
+    <header class="p-4 flex justify-between items-center border-b border-gray-800">
+        <span class="font-bold">Media Gallery</span>
+        <button onclick="toggleGallery()" class="text-xl px-2">&times;</button>
+    </header>
+    <div id="gallery-grid" class="grid grid-cols-3 gap-2 p-4 overflow-y-auto"></div>
 </div>
 
 <script>
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
-    let me, you, profiles = {};
+
+    let me, you, replyId = null, profiles = {}, allMsgs = [];
 
     window.toggleSidebar = () => {
         const isOpen = document.getElementById('sidebar').classList.toggle('open');
@@ -93,7 +106,7 @@
     };
 
     async function login() {
-        const code = localStorage.getItem('chat_secret_code') || prompt("Enter Chat Code:");
+        const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
         const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
         if (!data) return;
         me = data.username; you = (me === 'RJ') ? 'Allyvia' : 'RJ';
@@ -102,81 +115,115 @@
     }
 
     async function startChat() {
-        sync();
-        _db.channel('sync').on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, () => sync()).on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMsgs()).subscribe();
-        loadMsgs();
+        await syncProfiles();
+        loadMessages();
+        _db.channel('global').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, () => syncProfiles()).subscribe();
+        
+        setInterval(() => _db.from('chat_codes').update({ last_seen: new Date().toISOString() }).eq('username', me), 15000);
     }
 
-    async function sync() {
+    async function syncProfiles() {
         const { data } = await _db.from('chat_codes').select('*');
         data.forEach(u => {
             profiles[u.username] = u;
             if (u.username === you) {
                 document.getElementById('topMood').textContent = u.mood || '';
-                document.body.className = `theme-${u.current_theme || 'plain'}`;
-                document.getElementById('status').textContent = `${you} is active`;
-            }
-            if (u.username === me) {
-                // Toggle Resets
-                document.getElementById('pfpReset').classList.toggle('hidden', !u.avatar_url);
-                document.getElementById('moodReset').classList.toggle('hidden', !u.mood);
-                document.getElementById('themeReset').classList.toggle('hidden', u.current_theme === 'plain');
-                
-                const sideAv = document.getElementById('sideAv');
-                sideAv.innerHTML = u.avatar_url ? `<img src="${u.avatar_url}" class="w-full h-full rounded-full object-cover">` : me.charAt(0);
-                sideAv.style.backgroundColor = (me === 'RJ') ? 'black' : '#ec4899';
+                const diff = (new Date() - new Date(u.last_seen)) / 1000;
+                document.getElementById('status').textContent = diff < 45 ? `${you} is Online` : `Last seen ${new Date(u.last_seen).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
             }
         });
+        const m = profiles[me];
+        const sideAv = document.getElementById('sideAv');
+        sideAv.innerHTML = m?.avatar_url ? `<img src="${m.avatar_url}" class="avatar w-full h-full">` : me.charAt(0);
+        sideAv.className = `avatar avatar-${me}`;
+        document.getElementById('sideName').textContent = me;
     }
 
-    async function setTheme(t) {
-        await _db.from('chat_codes').update({ current_theme: t }).eq('username', me);
-        await _db.from('private_messages').insert([{ sender: 'SYSTEM', message: `${me} changed the theme to ${t}` }]);
+    async function loadMessages() {
+        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(60);
+        allMsgs = (data || []).reverse();
+        render();
     }
 
-    async function resetItem(e, type) {
-        e.stopPropagation();
-        const updates = {};
-        if (type === 'mood') updates.mood = '';
-        if (type === 'pfp') updates.avatar_url = null;
-        if (type === 'theme') updates.current_theme = 'plain';
-        await _db.from('chat_codes').update(updates).eq('username', me);
-    }
-
-    async function changeMood() {
-        const m = prompt("New Mood Emoji:");
-        if (m !== null) await _db.from('chat_codes').update({ mood: m }).eq('username', me);
-    }
-
-    async function uploadFile(input, col) {
-        const file = input.files[0];
-        const path = `${Date.now()}_${file.name}`;
-        const { data } = await _db.storage.from('chat-files').upload(path, file);
-        if (data) {
-            const url = _db.storage.from('chat-files').getPublicUrl(path).data.publicUrl;
-            const obj = {}; obj[col] = url;
-            await _db.from('chat_codes').update(obj).eq('username', me);
-        }
-    }
-
-    async function loadMsgs() {
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(40);
+    function render() {
         const box = document.getElementById('messages');
-        box.innerHTML = data.reverse().map(m => {
-            if (m.sender === 'SYSTEM') return `<div class="sys-msg">${m.message}</div>`;
-            return `<div class="msg ${m.sender === me ? 'self' : 'other'}">${m.message}</div>`;
+        box.innerHTML = allMsgs.map(m => {
+            const isMe = m.sender === me;
+            const parent = allMsgs.find(x => x.id === m.reply_to_id);
+            const rHtml = m.reply_to_id ? `<div class="reply-box">⤴️ ${parent ? (parent.message || 'Media') : 'Message deleted'}</div>` : '';
+            const mHtml = m.file_url ? (m.file_type === 'image' ? `<img src="${m.file_url}" class="media-content" onclick="window.open('${m.file_url}')">` : `<video src="${m.file_url}" class="media-content" controls></video>`) : '';
+
+            return `
+                <div class="msg-row ${isMe ? 'row-self' : ''}" data-id="${m.id}" data-text="${(m.message || 'Media').replace(/'/g, "\\'")}" 
+                     ontouchstart="ts(event)" ontouchmove="tm(event)" ontouchend="te(event)" ondblclick="setupReply('${m.id}', '${(m.message || '').replace(/'/g, "\\'")}')">
+                    <div class="msg ${isMe ? 'self' : 'other'}">
+                        ${rHtml}${mHtml}
+                        <div class="pt-1">${m.message || ''}</div>
+                        <div class="msg-meta mt-1 opacity-50 text-[9px] text-right">
+                            ${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                            ${isMe ? (m.is_read ? '✓✓' : '✓✓') : ''}
+                        </div>
+                    </div>
+                </div>`;
         }).join('');
         box.scrollTop = box.scrollHeight;
     }
 
+    // Features
+    window.setupReply = (id, text) => { replyId = id; document.getElementById('reply-text').textContent = text; document.getElementById('reply-preview').classList.remove('hidden'); document.getElementById('msgIn').focus(); };
+    window.cancelReply = () => { replyId = null; document.getElementById('reply-preview').classList.add('hidden'); };
+
     document.getElementById('chat-form').onsubmit = async (e) => {
         e.preventDefault();
-        const input = document.getElementById('msgIn');
-        if (!input.value.trim()) return;
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: input.value }]);
-        input.value = '';
+        const msgIn = document.getElementById('msgIn'), fileIn = document.getElementById('fileIn'), text = msgIn.value.trim(), file = fileIn.files[0], rid = replyId;
+        if (!text && !file) return;
+        msgIn.value = ''; fileIn.value = ''; cancelReply();
+
+        let fUrl = null, fType = null;
+        if (file) {
+            const fName = `${Date.now()}_${file.name}`;
+            const { data } = await _db.storage.from('chat-files').upload(fName, file);
+            if (data) {
+                fUrl = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
+                fType = file.type.startsWith('image') ? 'image' : 'video';
+            }
+        }
+        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text, file_url: fUrl, file_type: fType, reply_to_id: rid }]);
     };
 
+    window.changeMood = async () => {
+        const m = prompt("New Mood Emoji:");
+        if (m) await _db.from('chat_codes').update({ mood: m }).eq('username', me);
+    };
+
+    window.uploadPFP = async (input) => {
+        const file = input.files[0]; if (!file) return;
+        const fName = `pfp_${me}_${Date.now()}`;
+        const { data } = await _db.storage.from('chat-files').upload(fName, file);
+        if (data) {
+            const url = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
+            await _db.from('chat_codes').update({ avatar_url: url }).eq('username', me);
+        }
+    };
+
+    window.toggleGallery = async () => {
+        const g = document.getElementById('gallery-overlay');
+        if (g.style.display === 'flex') g.style.display = 'none';
+        else {
+            g.style.display = 'flex';
+            const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', { ascending: false });
+            document.getElementById('gallery-grid').innerHTML = data.map(i => `<img src="${i.file_url}" class="rounded-lg aspect-square object-cover" onclick="window.open('${i.file_url}')">`).join('');
+        }
+    };
+
+    // Swipe logic
+    let sx=0, cx=0, el=null;
+    window.ts = (e) => { sx = e.touches[0].clientX; el = e.currentTarget; };
+    window.tm = (e) => { if(!el) return; cx = e.touches[0].clientX - sx; if(cx > 0 && cx < 60) el.style.transform = `translateX(${cx}px)`; };
+    window.te = () => { if(cx > 40) setupReply(el.dataset.id, el.dataset.text); if(el) el.style.transform = ''; el=null; cx=0; };
+
+    window.logout = () => { localStorage.removeItem('chat_secret_code'); window.location.reload(); };
     login();
 </script>
 </body>
