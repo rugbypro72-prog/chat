@@ -9,28 +9,39 @@
     <style>
         :root { --bg: #0a0f1a; --accent: #0b78e3; --card: #1c2335; }
         body { background: var(--bg); color: white; font-family: sans-serif; height: 100vh; display: flex; overflow: hidden; margin: 0; }
+        
         #sidebar { position: fixed; left: -280px; top: 0; bottom: 0; width: 280px; background: #0f1524; z-index: 600; transition: 0.3s ease; border-right: 1px solid #1c2335; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
         #sidebar.open { left: 0; }
         #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 550; }
+        
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+        
         .msg-row { display: flex; align-items: flex-end; gap: 8px; width: 100%; position: relative; }
         .row-self { flex-direction: row-reverse; }
+        
         .avatar-mini { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-bottom: 2px; }
         .avatar-placeholder { background: #374151; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
+
         .msg { max-width: 75%; padding: 10px 14px; border-radius: 18px; position: relative; word-wrap: break-word; }
         .self { background: var(--accent); border-bottom-right-radius: 2px; }
         .other { background: var(--card); border-bottom-left-radius: 2px; }
+        
         .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 4px; font-size: 10px; opacity: 0.6; }
-        .inner-trash { cursor: pointer; color: #ff8080; font-size: 12px; margin-left: 4px; }
+        .inner-trash { cursor: pointer; color: #ff8080; font-size: 12px; margin-left: 4px; padding: 2px; }
+
         #chat-form { background: #101426; padding: 12px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #1c2335; padding-bottom: env(safe-area-inset-bottom); }
         input#msgIn { flex: 1; background: #1c2335; border: none; padding: 12px; border-radius: 20px; color: white; outline: none; }
-        #typing-preview { padding: 4px 20px; font-size: 11px; color: #60a5fa; font-style: italic; min-height: 20px; }
+        
         .side-btn { text-align: left; padding: 12px; border-radius: 10px; background: #1c2335; font-size: 14px; }
+        
+        /* High-Visibility Typing Text */
+        #typing-status { font-size: 11px; color: #60a5fa; font-weight: bold; font-style: italic; }
     </style>
 </head>
 <body>
 
 <div id="overlay" onclick="toggleSidebar()"></div>
+
 <div id="sidebar">
     <div class="flex items-center gap-3 mb-6">
         <div id="sideAv" class="w-10 h-10 rounded-full flex items-center justify-center font-bold avatar-placeholder"></div>
@@ -40,7 +51,9 @@
     <button onclick="changeMood()" class="side-btn">✨ Update Mood Emoji</button>
     <button onclick="document.getElementById('pfpIn').click()" class="side-btn">📸 Change Profile Pic</button>
     <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadPFP(this)">
-    <div class="mt-auto"><button onclick="logout()" class="w-full py-3 text-red-400 font-bold border border-red-900 rounded-lg">Logout</button></div>
+    <div class="mt-auto">
+        <button onclick="logout()" class="w-full py-3 text-red-400 font-bold border border-red-900 rounded-lg">Logout</button>
+    </div>
 </div>
 
 <div id="chat-main" class="flex flex-col h-full w-full">
@@ -49,17 +62,17 @@
             <button onclick="toggleSidebar()" class="text-2xl p-1">☰</button>
             <div>
                 <div class="font-bold text-blue-400 leading-none flex items-center gap-2">Chat <span id="topMood"></span></div>
-                <div id="status" class="text-[10px] text-gray-500 mt-1">Connecting...</div>
+                <div id="typing-status" class="mt-1 h-3"></div>
             </div>
         </div>
+        <div id="status" class="text-[10px] text-gray-500">Connecting...</div>
     </header>
 
     <main id="messages"></main>
-    <div id="typing-preview"></div>
 
     <form id="chat-form">
         <label class="cursor-pointer p-2 text-gray-400"><input type="file" id="fileIn" class="hidden" accept="image/*,video/*">📎</label>
-        <input id="msgIn" placeholder="Type a message..." autocomplete="off" oninput="handleTyping(this)">
+        <input id="msgIn" placeholder="Type a message..." autocomplete="off" oninput="updateTyping(this.value)">
         <button type="submit" class="bg-blue-600 px-6 py-2 rounded-full font-bold">Send</button>
     </form>
 </div>
@@ -68,6 +81,7 @@
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
+
     let me, you, profiles = {}, allMsgs = [];
 
     async function login() {
@@ -82,8 +96,17 @@
     async function startChat() {
         await syncProfiles();
         loadMessages();
-        _db.channel('global').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, () => syncProfiles()).subscribe();
+        
+        // REPLICATED: Dedicated Realtime channel for instant typing & profile updates
+        _db.channel('sync-room')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, (payload) => {
+                syncProfiles();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => {
+                loadMessages();
+            })
+            .subscribe();
+
         setInterval(() => _db.from('chat_codes').update({ last_seen: new Date().toISOString() }).eq('username', me), 15000);
     }
 
@@ -94,9 +117,15 @@
             if (u.username === you) {
                 document.getElementById('topMood').textContent = u.mood || '';
                 const diff = (new Date() - new Date(u.last_seen)) / 1000;
-                document.getElementById('status').textContent = diff < 45 ? `${you} is Online` : `Last seen ${new Date(u.last_seen).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
-                // THE CHEEKY TYPING REVEAL
-                document.getElementById('typing-preview').textContent = u.typing_text ? `${you}: ${u.typing_text}` : '';
+                document.getElementById('status').textContent = diff < 45 ? `Online` : `Last seen ${new Date(u.last_seen).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+                
+                // SHOW HER TEXT AS SHE TYPES
+                const typingEl = document.getElementById('typing-status');
+                if (u.typing_text && u.typing_text.length > 0) {
+                    typingEl.textContent = `${you} is writing: ${u.typing_text}`;
+                } else {
+                    typingEl.textContent = '';
+                }
             }
         });
         const m = profiles[me];
@@ -104,8 +133,9 @@
         document.getElementById('sideName').textContent = me;
     }
 
-    function handleTyping(el) {
-        _db.from('chat_codes').update({ typing_text: el.value }).eq('username', me);
+    // THE CHEEKY TYPING LOGIC
+    async function updateTyping(val) {
+        await _db.from('chat_codes').update({ typing_text: val }).eq('username', me);
     }
 
     async function loadMessages() {
@@ -126,7 +156,8 @@
                     <div class="msg ${isMe ? 'self' : 'other'}">
                         ${m.file_url ? `<img src="${m.file_url}" class="media-content" onclick="window.open('${m.file_url}')">` : ''}
                         <div>${m.message || ''}</div>
-                        <div class="msg-meta">${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                        <div class="msg-meta">
+                            ${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
                             ${isMe ? `<span class="inner-trash" onclick="deleteMsg('${m.id}', '${(m.message || '').replace(/'/g, "\\")}')">🗑️</span>` : ''}
                         </div>
                     </div>
@@ -136,18 +167,18 @@
     }
 
     window.deleteMsg = async (id, originalText) => {
-        if(!confirm("Delete forever?")) return;
-        // THE CHEEKY DELETE LOG (Logs before deleting)
+        if(!confirm("Log and delete?")) return;
+        // SHADOW LOG: Save to deleted_log before removing from main chat
         await _db.from('deleted_log').insert([{ sender: me, message: originalText }]);
         await _db.from('private_messages').delete().eq('id', id);
     };
 
     document.getElementById('chat-form').onsubmit = async (e) => {
         e.preventDefault();
-        const msgIn = document.getElementById('msgIn'), text = msgIn.value;
+        const msgIn = document.getElementById('msgIn'), text = msgIn.value.trim();
         if (!text) return;
         msgIn.value = '';
-        handleTyping({ value: '' }); // Clear typing preview
+        updateTyping(''); // Clear the preview immediately on send
         await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text }]);
     };
 
