@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>ChatWebb</title>
+    <title>ChatWebb v3</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -18,17 +18,16 @@
         header { padding: 12px 20px; background: rgba(11, 15, 26, 0.95); border-bottom: 1px solid #1e293b; display: flex; align-items: center; justify-content: space-between; }
         
         #messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; scroll-behavior: smooth; }
-        .msg-row { display: flex; width: 100%; margin: 2px 0; }
+        .msg-row { display: flex; width: 100%; margin: 2px 0; transition: transform 0.2s ease-out; touch-action: pan-y; }
         .row-self { justify-content: flex-end; }
         
-        .msg { max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 15px; position: relative; overflow: hidden; z-index: 1; cursor: pointer; }
+        .msg { max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 15px; position: relative; overflow: hidden; z-index: 1; user-select: none; }
         .msg::before { content: ""; position: absolute; inset: 0; opacity: 0.12; z-index: -1; background-position: center; background-size: cover; background-repeat: no-repeat; }
         .self { background: var(--accent); color: white; border-bottom-right-radius: 4px; }
         .self::before { background-image: var(--self-pfp); }
         .other { background: var(--card); border: 1px solid #2d3748; border-bottom-left-radius: 4px; }
         .other::before { background-image: var(--other-pfp); }
         
-        /* Reply Styling */
         .reply-preview { font-size: 11px; opacity: 0.7; border-left: 2px solid #3b82f6; padding-left: 8px; margin-bottom: 4px; background: rgba(255,255,255,0.05); border-radius: 4px; padding: 4px; }
         #reply-bar { display: none; background: #1e293b; padding: 8px 15px; border-top: 1px solid #334155; align-items: center; justify-content: space-between; font-size: 12px; }
 
@@ -127,9 +126,7 @@
 
         document.getElementById('msgIn').addEventListener('input', (e) => {
             clearTimeout(typingTimeout);
-            // Instant broadcast
             _db.from('chat_codes').update({ typing_text: e.target.value }).eq('username', me);
-            // The 3-second inactivity timer to hide typing
             typingTimeout = setTimeout(() => {
                 _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
             }, 3000);
@@ -164,8 +161,14 @@
             const cleanMsg = m.message ? m.message.replace(/"/g, '&quot;') : '';
 
             return `
-            <div class="msg-row ${isMe ? 'row-self' : ''}">
-                <div class="msg ${isMe ? 'self' : 'other'}" style="${pfpStyle}" onclick="setReply('${m.sender}', '${cleanMsg}')">
+            <div class="msg-row ${isMe ? 'row-self' : ''}" 
+                 data-sender="${m.sender}" 
+                 data-msg="${cleanMsg}"
+                 ontouchstart="handleTouchStart(event, this)" 
+                 ontouchmove="handleTouchMove(event, this)" 
+                 ontouchend="handleTouchEnd(event, this)"
+                 ondblclick="setReply('${m.sender}', '${cleanMsg}')">
+                <div class="msg ${isMe ? 'self' : 'other'}" style="${pfpStyle}">
                     ${m.reply_to ? `<div class="reply-preview">↳ ${m.reply_to}</div>` : ''}
                     ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-w-full">` : ''}
                     <div class="whitespace-pre-wrap">${m.message || ''}</div>
@@ -177,6 +180,20 @@
                 </div>
             </div>`}).join('');
         box.scrollTop = box.scrollHeight;
+    }
+
+    // Touch Handling for Mobile Swipe
+    let touchStartX = 0;
+    function handleTouchStart(e, el) { touchStartX = e.touches[0].clientX; }
+    function handleTouchMove(e, el) {
+        let touchX = e.touches[0].clientX;
+        let diff = touchX - touchStartX;
+        if (diff > 0 && diff < 80) el.style.transform = `translateX(${diff}px)`; // Swipe Right
+    }
+    function handleTouchEnd(e, el) {
+        let diff = e.changedTouches[0].clientX - touchStartX;
+        if (diff > 50) setReply(el.dataset.sender, el.dataset.msg);
+        el.style.transform = `translateX(0)`;
     }
 
     window.setReply = (sender, text) => {
