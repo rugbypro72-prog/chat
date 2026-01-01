@@ -3,98 +3,96 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>ChatWebb v1</title>
+    <title>ChatWebb v3</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root { --bg: #0b101b; --card: #1a202e; --accent: #3b82f6; }
-        body { background: var(--bg); color: white; font-family: 'Inter', system-ui, sans-serif; height: 100vh; overflow: hidden; margin: 0; }
+        :root { --bg: #0b0f1a; --card: #1e293b; --accent: #3b82f6; }
+        body { background: var(--bg); color: white; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; height: 100vh; overflow: hidden; margin: 0; }
         
-        /* Sidebar Glassmorphism */
-        #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: rgba(15, 23, 42, 0.9); z-index: 600; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); border-right: 1px solid rgba(255,255,255,0.1); padding: 25px; display: flex; flex-direction: column; backdrop-filter: blur(12px); }
-        #sidebar.open { left: 0; box-shadow: 25px 0 60px rgba(0,0,0,0.7); }
-        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 550; backdrop-filter: blur(4px); }
+        /* Layout */
+        #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 800px; margin: 0 auto; background: #0f172a; position: relative; }
         
-        /* Message Layout */
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; scroll-behavior: smooth; }
-        .msg-row { display: flex; width: 100%; position: relative; group; }
-        .row-self { justify-content: flex-end; }
+        /* Sidebar */
+        #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: rgba(15, 23, 42, 0.98); z-index: 600; transition: 0.3s; border-right: 1px solid #334155; padding: 20px; backdrop-filter: blur(10px); }
+        #sidebar.open { left: 0; box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
+        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 550; }
+
+        /* Messages Area */
+        #messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
         
-        .msg { max-width: 75%; padding: 12px 16px; border-radius: 20px; font-size: 15px; position: relative; overflow: hidden; z-index: 1; transition: transform 0.2s; }
-        .msg::before { content: ""; position: absolute; inset: 0; opacity: 0.15; z-index: -1; background-position: center; background-size: cover; }
+        /* PFP Behind/Beside Message Logic */
+        .msg-container { display: flex; align-items: flex-end; gap: 8px; width: 100%; margin: 4px 0; }
+        .row-self { flex-direction: row-reverse; }
         
-        .self { background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-bottom-right-radius: 4px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3); }
-        .self::before { background-image: var(--self-pfp); }
-        .other { background: var(--card); border: 1px solid rgba(255,255,255,0.05); border-bottom-left-radius: 4px; }
-        .other::before { background-image: var(--other-pfp); }
+        .pfp-icon { width: 32px; height: 32px; border-radius: 50%; background-size: cover; background-position: center; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1); }
+        
+        .msg { max-width: 70%; padding: 10px 14px; border-radius: 18px; font-size: 15px; position: relative; line-height: 1.4; transition: all 0.2s; cursor: pointer; }
+        .self { background: var(--accent); color: white; border-bottom-right-radius: 4px; }
+        .other { background: var(--card); border: 1px solid #334155; border-bottom-left-radius: 4px; }
+        
+        /* Reaction & Delete Hover */
+        .msg-actions { position: absolute; top: -20px; display: none; gap: 5px; z-index: 10; }
+        .msg-container:hover .msg-actions { display: flex; }
+        .row-self .msg-actions { right: 0; }
+        .row-other .msg-actions { left: 0; }
+        .act-btn { background: #334155; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px; border: 1px solid #475569; }
 
-        /* Reactions & Actions (Hover) */
-        .actions { position: absolute; top: -15px; opacity: 0; transition: 0.2s; display: flex; gap: 8px; z-index: 10; }
-        .row-self .actions { right: 10px; }
-        .row-other .actions { left: 10px; }
-        .msg-row:hover .actions { opacity: 1; top: -20px; }
-        .btn-action { background: #1e293b; border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; width: 32px; height: 32px; display: flex; items-center; justify-content: center; font-size: 14px; cursor: pointer; }
-        .btn-action:hover { transform: scale(1.1); background: #334155; }
-
-        .reaction-badge { position: absolute; bottom: -8px; right: 10px; background: #1e293b; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 2px 6px; font-size: 10px; }
-
-        /* Reply Node */
-        .reply-node { font-size: 11px; opacity: 0.8; border-left: 3px solid #60a5fa; padding: 4px 10px; margin-bottom: 8px; background: rgba(0,0,0,0.2); border-radius: 4px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-        /* Footer & Typing */
-        #typing-reveal { min-height: 30px; padding: 0 25px; font-size: 12px; color: #60a5fa; font-style: italic; display: flex; align-items: center; }
-        #input-area { background: #0f172a; border-top: 1px solid rgba(255,255,255,0.05); padding: 10px 15px 20px; }
-        #input-container { background: #1e293b; border-radius: 30px; padding: 5px 15px; display: flex; align-items: center; border: 1px solid rgba(255,255,255,0.1); }
-        input#msgIn { flex: 1; background: transparent; border: none; padding: 10px; color: white; outline: none; }
+        /* Reply Preview */
+        .reply-box { font-size: 11px; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 6px; margin-bottom: 4px; border-left: 2px solid #60a5fa; opacity: 0.8; }
+        
+        /* Input Area */
+        #footer-form { background: #0f172a; border-top: 1px solid #1e293b; padding: 10px; }
+        #input-wrap { background: #1e293b; border-radius: 25px; display: flex; align-items: center; padding: 2px 15px; border: 1px solid #334155; }
+        input#msgIn { flex: 1; background: transparent; border: none; padding: 10px; color: white; outline: none; font-size: 16px; }
+        
+        #typing-reveal { font-size: 12px; color: #60a5fa; padding: 0 15px 5px; height: 18px; font-style: italic; }
+        
+        @media (max-width: 600px) { .msg { max-width: 85%; } }
     </style>
 </head>
 <body>
 
 <div id="overlay" onclick="toggleSidebar()"></div>
 <div id="sidebar">
-    <div id="sideAv" class="w-20 h-20 rounded-full bg-slate-800 mb-4 border-2 border-blue-500 overflow-hidden shadow-2xl"></div>
-    <div class="font-bold text-2xl mb-8 tracking-tight" id="sideName">User</div>
-    <div class="space-y-3">
-        <button onclick="toggleGallery()" class="w-full text-left p-4 hover:bg-white/5 rounded-xl transition flex items-center gap-4">🖼️ <span class="text-sm font-medium">Media Gallery</span></button>
-        <button onclick="document.getElementById('pfpIn').click()" class="w-full text-left p-4 hover:bg-white/5 rounded-xl transition flex items-center gap-4">📸 <span class="text-sm font-medium">Update PFP</span></button>
-        <button onclick="changeMood()" class="w-full text-left p-4 hover:bg-white/5 rounded-xl transition flex items-center gap-4">✨ <span class="text-sm font-medium">Status Mood</span></button>
+    <div id="sideAv" class="w-16 h-16 rounded-full bg-slate-800 mb-4 border-2 border-blue-500 overflow-hidden"></div>
+    <div class="font-bold text-xl mb-6" id="sideName">User</div>
+    <div class="flex flex-col gap-2">
+        <button onclick="toggleGallery()" class="text-left p-3 hover:bg-white/5 rounded-lg">🖼️ Gallery</button>
+        <button onclick="document.getElementById('pfpIn').click()" class="text-left p-3 hover:bg-white/5 rounded-lg">📸 Change PFP</button>
+        <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadPFP(this)">
+        <button onclick="changeMood()" class="text-left p-3 hover:bg-white/5 rounded-lg">✨ Mood</button>
     </div>
-    <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadPFP(this)">
-    <button onclick="logout()" class="mt-auto p-4 text-red-400 font-bold border-t border-white/5 text-center hover:bg-red-500/10 rounded-xl">Logout</button>
+    <button onclick="logout()" class="mt-auto p-3 text-red-400 font-bold border-t border-white/10">Logout</button>
 </div>
 
-<div id="chat-main" class="flex flex-col h-full">
-    <header class="h-16 flex items-center justify-between px-6 border-b border-white/5 bg-slate-950/50">
-        <div class="flex items-center gap-4">
-            <button onclick="toggleSidebar()" class="text-xl p-2 hover:bg-white/5 rounded-full">☰</button>
+<div id="chat-main">
+    <header class="p-3 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <button onclick="toggleSidebar()" class="p-2">☰</button>
             <div>
-                <div class="font-bold flex items-center gap-2">Chat <span id="topMood" class="text-xs font-normal text-blue-400"></span></div>
-                <div class="text-[9px] text-green-500 font-bold tracking-widest">LIVE</div>
+                <div class="font-bold text-sm">Chat Master <span id="topMood" class="text-blue-400 font-normal"></span></div>
+                <div class="text-[9px] text-green-500 uppercase font-black">● Live</div>
             </div>
         </div>
     </header>
 
     <main id="messages"></main>
 
-    <div id="input-area">
-        <div id="reply-bar" class="hidden flex items-center justify-between bg-blue-500/10 p-3 rounded-t-2xl border-t border-x border-blue-500/20">
-            <div id="reply-text" class="text-xs italic truncate text-blue-300"></div>
-            <button onclick="cancelReply()" class="text-blue-400 font-bold px-2">✕</button>
+    <div id="footer-form">
+        <div id="reply-preview-bar" class="hidden flex items-center justify-between p-2 bg-blue-500/10 rounded-t-lg text-xs">
+            <span id="reply-txt" class="truncate italic opacity-70"></span>
+            <button onclick="cancelReply()">✕</button>
         </div>
         <div id="typing-reveal"></div>
         <form id="chat-form">
-            <div id="input-container">
-                <label class="p-2 cursor-pointer opacity-50 hover:opacity-100"><input type="file" id="fileIn" class="hidden" accept="image/*">📎</label>
-                <input id="msgIn" placeholder="Type a message..." autocomplete="off">
-                <button type="submit" class="p-2 text-blue-500 font-bold tracking-tighter">SEND</button>
+            <div id="input-wrap">
+                <label class="p-2 cursor-pointer opacity-50"><input type="file" id="fileIn" class="hidden" accept="image/*">📎</label>
+                <input id="msgIn" placeholder="Message..." autocomplete="off">
+                <button type="submit" class="p-2 text-blue-500 font-bold">SEND</button>
             </div>
         </form>
     </div>
-</div>
-
-<div id="gallery-overlay" class="hidden fixed inset-0 bg-slate-950 z-[700] flex-col">
-    <div class="p-6 border-b border-white/5 flex justify-between items-center"><span class="text-xl font-bold">Media</span><button onclick="toggleGallery()" class="text-3xl">&times;</button></div>
-    <div id="gallery-grid" class="grid grid-cols-3 gap-2 p-4 overflow-y-auto"></div>
 </div>
 
 <script>
@@ -102,7 +100,7 @@
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
     
-    let me, you, profiles = {}, typingTimeout, replyId = null, allMessages = [];
+    let me, you, profiles = {}, typingTimeout, replyId = null;
 
     async function start() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
@@ -114,13 +112,10 @@
         await syncProfiles();
         loadMessages();
         
-        _db.channel('main')
+        _db.channel('room')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_codes' }, (p) => {
                 if (p.new.username === you) {
-                    const rev = document.getElementById('typing-reveal');
-                    if (p.new.typing_text) {
-                        rev.innerHTML = (me === 'RJ') ? `● ${you}: ${p.new.typing_text}` : `● ${you} is typing...`;
-                    } else rev.innerHTML = "";
+                    document.getElementById('typing-reveal').textContent = p.new.typing_text ? `${you} is typing...` : "";
                     if(p.new.mood) document.getElementById('topMood').textContent = `(${p.new.mood})`;
                 }
             })
@@ -131,60 +126,43 @@
     async function syncProfiles() {
         const { data } = await _db.from('chat_codes').select('*');
         data.forEach(u => profiles[u.username] = u);
-        document.getElementById('sideAv').innerHTML = profiles[me]?.avatar_url ? `<img src="${profiles[me].avatar_url}" class="w-full h-full object-cover">` : "";
+        const myAv = profiles[me]?.avatar_url;
+        document.getElementById('sideAv').style.backgroundImage = myAv ? `url(${myAv})` : '';
         document.getElementById('sideName').textContent = me;
     }
 
     async function loadMessages() {
         const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(50);
-        allMessages = data;
         const box = document.getElementById('messages');
-        const myPfp = profiles[me]?.avatar_url ? `url(${profiles[me].avatar_url})` : 'none';
-        const yourPfp = profiles[you]?.avatar_url ? `url(${profiles[you].avatar_url})` : 'none';
+        const msgs = data.reverse();
 
-        box.innerHTML = data.reverse().map(m => {
+        box.innerHTML = msgs.map(m => {
             const isMe = m.sender === me;
-            const pfpVar = isMe ? `--self-pfp: ${myPfp}` : `--other-pfp: ${yourPfp}`;
-            const replyMsg = allMessages.find(am => am.id === m.reply_to);
+            const pfp = profiles[m.sender]?.avatar_url || '';
+            const repliedTo = msgs.find(x => x.id === m.reply_to);
 
             return `
-            <div class="msg-row ${isMe ? 'row-self' : 'row-other'}">
-                <div class="actions">
-                    <button class="btn-action" onclick="react('${m.id}', '❤️')">❤️</button>
-                    <button class="btn-action" onclick="setReply('${m.id}', '${m.message}')">↩️</button>
-                    ${isMe ? `<button class="btn-action" onclick="deleteM('${m.id}')">🗑️</button>` : ''}
-                </div>
-                <div class="msg ${isMe ? 'self' : 'other'}" style="${pfpVar}">
-                    ${replyMsg ? `<div class="reply-node">↳ ${replyMsg.message}</div>` : ''}
-                    ${m.file_url ? `<img src="${m.file_url}" class="rounded-xl mb-2 max-w-full shadow-lg">` : ''}
-                    <div class="whitespace-pre-wrap">${m.message || ''}</div>
-                    <div class="text-[9px] opacity-40 text-right mt-1">
-                        ${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
-                        ${isMe ? (m.is_read ? ' <span class="text-blue-300">✔✔</span>' : ' ✔✔') : ''}
+            <div class="msg-container ${isMe ? 'row-self' : 'row-other'}">
+                <div class="pfp-icon" style="background-image: url('${pfp}')"></div>
+                <div class="msg ${isMe ? 'self' : 'other'}">
+                    <div class="msg-actions">
+                        <button class="act-btn" onclick="react('${m.id}')">❤️</button>
+                        <button class="act-btn" onclick="setReply('${m.id}', '${m.message}')">↩️</button>
+                        ${isMe ? `<button class="act-btn text-red-400" onclick="delM('${m.id}')">🗑️</button>` : ''}
                     </div>
-                    ${m.reaction ? `<div class="reaction-badge">${m.reaction}</div>` : ''}
+                    ${repliedTo ? `<div class="reply-box">↳ ${repliedTo.message}</div>` : ''}
+                    ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-w-full">` : ''}
+                    <div class="whitespace-pre-wrap">${m.message || ''}</div>
+                    <div class="text-[8px] opacity-40 text-right mt-1">${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} ${m.reaction || ''}</div>
                 </div>
             </div>`}).join('');
         box.scrollTop = box.scrollHeight;
     }
 
-    window.react = async (id, emoji) => {
-        await _db.from('private_messages').update({ reaction: emoji }).eq('id', id);
-    };
-
-    window.setReply = (id, text) => {
-        replyId = id;
-        document.getElementById('reply-text').textContent = `Replying to: ${text}`;
-        document.getElementById('reply-bar').classList.remove('hidden');
-        document.getElementById('msgIn').focus();
-    };
-
-    window.cancelReply = () => { replyId = null; document.getElementById('reply-bar').classList.add('hidden'); };
-
     document.getElementById('msgIn').addEventListener('input', (e) => {
         clearTimeout(typingTimeout);
         _db.from('chat_codes').update({ typing_text: e.target.value }).eq('username', me).then();
-        typingTimeout = setTimeout(() => _db.from('chat_codes').update({ typing_text: '' }).eq('username', me).then(), 3000);
+        typingTimeout = setTimeout(() => _db.from('chat_codes').update({ typing_text: '' }).eq('username', me).then(), 2500);
     });
 
     document.getElementById('chat-form').onsubmit = async (e) => {
@@ -199,38 +177,21 @@
             if (data) fUrl = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
         }
 
-        const msg = input.value, currentReplyId = replyId;
-        input.value = ''; fileIn.value = ''; cancelReply();
-        
+        const mBody = input.value, rId = replyId;
+        input.value = ''; cancelReply(); fileIn.value = '';
+
         await _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
-        // FIX: sending replyId (UUID) instead of string text
-        await _db.from('private_messages').insert([{ 
-            sender: me, receiver: you, message: msg, file_url: fUrl, is_read: false, reply_to: currentReplyId 
-        }]);
+        // Correctly sending the UUID for reply_to
+        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: mBody, file_url: fUrl, reply_to: rId }]);
     };
 
-    window.deleteM = async (id) => { if(confirm("Delete?")) await _db.from('private_messages').delete().eq('id', id); };
-    window.toggleSidebar = () => { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = document.getElementById('sidebar').classList.contains('open') ? 'block' : 'none'; };
-    window.toggleGallery = async () => {
-        const g = document.getElementById('gallery-overlay');
-        g.classList.toggle('hidden');
-        if (!g.classList.contains('hidden')) {
-            const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', {ascending: false});
-            document.getElementById('gallery-grid').innerHTML = data.map(i => `<img src="${i.file_url}" class="w-full aspect-square object-cover rounded-lg">`).join('');
-        }
-    };
-    window.uploadPFP = async (input) => {
-        const f = input.files[0]; if (!f) return;
-        const fName = `pfp_${me}_${Date.now()}`;
-        const { data } = await _db.storage.from('chat-files').upload(fName, f);
-        if (data) {
-            const url = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
-            await _db.from('chat_codes').update({ avatar_url: url }).eq('username', me);
-            location.reload();
-        }
-    };
-    window.changeMood = async () => { const m = prompt("Status:"); if(m) await _db.from('chat_codes').update({ mood: m }).eq('username', me); };
-    window.logout = () => { localStorage.removeItem('chat_secret_code'); location.reload(); };
+    window.setReply = (id, txt) => { replyId = id; document.getElementById('reply-txt').textContent = txt; document.getElementById('reply-preview-bar').classList.remove('hidden'); document.getElementById('msgIn').focus(); };
+    window.cancelReply = () => { replyId = null; document.getElementById('reply-preview-bar').classList.add('hidden'); };
+    window.delM = async (id) => { if(confirm("Delete?")) await _db.from('private_messages').delete().eq('id', id); };
+    window.react = async (id) => await _db.from('private_messages').update({ reaction: '❤️' }).eq('id', id);
+    window.toggleSidebar = () => { const s = document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = s ? 'block' : 'none'; };
+    window.logout = () => { localStorage.clear(); location.reload(); };
+    
     start();
 </script>
 </body>
