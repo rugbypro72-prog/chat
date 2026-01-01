@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>ChatWebb v3</title>
+    <title>ChatWebb v3 - Final Edition</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -12,12 +12,14 @@
         body { background: var(--bg); color: white; font-family: -apple-system, sans-serif; height: 100vh; width: 100vw; overflow: hidden; margin: 0; position: fixed; }
         
         #chat-main { display: flex; flex-direction: column; height: 100%; width: 100%; max-width: 800px; margin: 0 auto; background: #0f172a; position: relative; overflow: hidden; }
+        
+        /* Sidebar */
         #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: rgba(15, 23, 42, 0.98); z-index: 600; transition: 0.3s; border-right: 1px solid #334155; padding: 20px; backdrop-filter: blur(10px); display: flex; flex-direction: column; }
         #sidebar.open { left: 0; box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
         #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 550; }
 
+        /* Messages */
         #messages { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 15px; display: flex; flex-direction: column; gap: 12px; -webkit-overflow-scrolling: touch; }
-        
         .msg-container { display: flex; align-items: flex-end; gap: 10px; width: 100%; margin: 4px 0; transition: transform 0.1s ease-out; touch-action: pan-y; position: relative; }
         .row-self { flex-direction: row-reverse; }
         
@@ -27,6 +29,12 @@
         .self { background: var(--accent); border-bottom-right-radius: 4px; }
         .other { background: var(--card); border: 1px solid #334155; border-bottom-left-radius: 4px; }
         
+        /* Message Actions (Trash/Reply) */
+        .msg-tools { display: flex; gap: 12px; margin-top: 5px; opacity: 0.4; font-size: 12px; }
+        .row-self .msg-tools { justify-content: flex-end; }
+        .tool-btn { cursor: pointer; transition: 0.2s; }
+        .tool-btn:hover { opacity: 1; color: #f87171; }
+
         .swipe-indicator { position: absolute; left: -45px; top: 50%; transform: translateY(-50%); opacity: 0; transition: 0.1s; font-size: 20px; color: var(--accent); }
 
         #lightbox, #gallery-overlay { display: none; position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,0.95); align-items: center; justify-content: center; }
@@ -41,7 +49,7 @@
 <body>
 
 <div id="overlay" onclick="toggleSidebar()"></div>
-<div id="lightbox" onclick="this.style.display='none'"><img id="lbox-img" class="max-w-full max-h-full rounded-lg"></div>
+<div id="lightbox" onclick="this.style.display='none'"><img id="lbox-img" class="max-w-full max-h-full"></div>
 
 <div id="gallery-overlay">
     <div class="w-full p-4 border-b border-slate-800 flex justify-between items-center">
@@ -69,7 +77,7 @@
             <button onclick="toggleSidebar()" class="text-xl">☰</button>
             <div>
                 <div class="font-bold text-sm">Chat Master <span id="topMood" class="text-blue-400 font-normal ml-2"></span></div>
-                <div class="text-[9px] text-green-500 font-black uppercase">● Live</div>
+                <div class="text-[9px] text-green-500 font-black uppercase tracking-tighter">● Live</div>
             </div>
         </div>
     </header>
@@ -103,36 +111,27 @@
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
         const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
         if (!data) return; 
-        
-        me = data.username; 
-        you = (me === 'RJ') ? 'Allyvia' : 'RJ';
+        me = data.username; you = (me === 'RJ') ? 'Allyvia' : 'RJ';
         localStorage.setItem('chat_secret_code', code);
-        
         await syncProfiles();
         loadMessages();
         
-        _db.channel('global').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_codes' }, (p) => {
+        _db.channel('room1').on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, (p) => {
             if (p.new.username === you) {
                 const rev = document.getElementById('typing-reveal');
                 const tText = p.new.typing_text;
-
-                // LOGIC: If she sends the private code, we still show generic. 
-                // If she sends raw text, we show the raw text.
-                if (tText === "___PRIVATE_TYPING___") {
-                    rev.textContent = `● ${you} is typing...`;
-                } else if (tText && tText.length > 0) {
-                    rev.textContent = `● ${you}: ${tText}`;
-                } else {
-                    rev.textContent = "";
-                }
-                
+                if (tText === "___PRIVATE_TYPING___") rev.textContent = `● ${you} is typing...`;
+                else if (tText) rev.textContent = `● ${you}: ${tText}`;
+                else rev.textContent = "";
                 if(p.new.mood) document.getElementById('topMood').textContent = `(${p.new.mood})`;
-                
-                // Live PFP Update
                 if(p.new.avatar_url !== profiles[you]?.avatar_url) {
                     profiles[you].avatar_url = p.new.avatar_url;
-                    loadMessages(); 
+                    loadMessages();
                 }
+            }
+            if (p.new.username === me) {
+                profiles[me].avatar_url = p.new.avatar_url;
+                updateSidebarUI();
             }
         }).on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages()).subscribe();
     }
@@ -145,12 +144,12 @@
 
     function updateSidebarUI() {
         const myAv = profiles[me]?.avatar_url;
-        document.getElementById('sideAv').style.backgroundImage = myAv ? `url(${myAv})` : '';
+        document.getElementById('sideAv').style.backgroundImage = myAv ? `url('${myAv}')` : '';
         document.getElementById('sideName').textContent = me;
     }
 
     async function loadMessages() {
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(50);
+        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(60);
         const box = document.getElementById('messages');
         const msgs = data.reverse();
         box.innerHTML = msgs.map(m => {
@@ -161,11 +160,16 @@
             <div class="msg-container ${isMe ? 'row-self' : ''}" data-id="${m.id}" data-text="${m.message || 'Image'}">
                 <div class="swipe-indicator">↩️</div>
                 <div class="pfp-icon" style="background-image: url('${pfp}')"></div>
-                <div class="msg ${isMe ? 'self' : 'other'}">
-                    ${rMsg ? `<div class="text-[10px] opacity-60 border-l-2 border-blue-400 pl-2 mb-2 italic">↳ ${rMsg.message}</div>` : ''}
-                    ${m.file_url ? `<img src="${m.file_url}" onclick="openImg('${m.file_url}')" class="rounded-lg mb-2 max-w-full">` : ''}
-                    <div class="whitespace-pre-wrap">${m.message || ''}</div>
-                    <div class="text-[8px] opacity-40 text-right mt-1">${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
+                <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'}">
+                    <div class="msg ${isMe ? 'self' : 'other'}">
+                        ${rMsg ? `<div class="text-[10px] opacity-60 border-l-2 border-blue-400 pl-2 mb-2 italic">↳ ${rMsg.message}</div>` : ''}
+                        ${m.file_url ? `<img src="${m.file_url}" onclick="openImg('${m.file_url}')" class="rounded-lg mb-2 max-w-full">` : ''}
+                        <div class="whitespace-pre-wrap">${m.message || ''}</div>
+                    </div>
+                    <div class="msg-tools">
+                        <span class="tool-btn" onclick="setReply('${m.id}', '${m.message || 'Image'}')">Reply</span>
+                        <span class="tool-btn" onclick="delM('${m.id}')">🗑️</span>
+                    </div>
                 </div>
             </div>`}).join('');
         box.scrollTop = box.scrollHeight;
@@ -185,7 +189,7 @@
             }, {passive: true});
             el.addEventListener('touchend', () => {
                 if (currentX > 55) {
-                    if (window.navigator.vibrate) window.navigator.vibrate(15);
+                    if (window.navigator.vibrate) window.navigator.vibrate(10);
                     setReply(el.dataset.id, el.dataset.text);
                 }
                 el.style.transform = '';
@@ -195,23 +199,11 @@
         });
     }
 
-    // ONE-WAY MIRROR LOGIC
     document.getElementById('msgIn').addEventListener('input', (e) => {
         clearTimeout(typingTimeout);
-        let status;
-        
-        if (me === "RJ") {
-            // RJ stays hidden (sends secret code)
-            status = e.target.value.length > 0 ? "___PRIVATE_TYPING___" : "";
-        } else {
-            // Allyvia stays transparent (sends raw text)
-            status = e.target.value;
-        }
-        
+        let status = me === "RJ" ? (e.target.value ? "___PRIVATE_TYPING___" : "") : e.target.value;
         _db.from('chat_codes').update({ typing_text: status }).eq('username', me).then();
-        typingTimeout = setTimeout(() => {
-            _db.from('chat_codes').update({ typing_text: '' }).eq('username', me).then();
-        }, 3000);
+        typingTimeout = setTimeout(() => _db.from('chat_codes').update({ typing_text: '' }).eq('username', me).then(), 2500);
     });
 
     document.getElementById('chat-form').onsubmit = async (e) => {
@@ -220,7 +212,7 @@
         if (!input.value && !fileIn.files[0]) return;
         let fUrl = null;
         if (fileIn.files[0]) {
-            const f = fileIn.files[0], fName = `chat_${Date.now()}_${f.name}`;
+            const f = fileIn.files[0], fName = `f_${Date.now()}`;
             const { data } = await _db.storage.from('chat-files').upload(fName, f);
             if (data) fUrl = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
         }
@@ -230,19 +222,15 @@
         await _db.from('private_messages').insert([{ sender: me, receiver: you, message: mBody, file_url: fUrl, reply_to: rId }]);
     };
 
-    // FIXED PFP UPLOAD
     window.uploadPFP = async (input) => {
         const f = input.files[0]; if (!f) return;
-        const fName = `pfp_${me}_${Date.now()}`;
-        const { data, error } = await _db.storage.from('chat-files').upload(fName, f);
-        if (data) {
-            const url = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
-            await _db.from('chat_codes').update({ avatar_url: url }).eq('username', me);
-            profiles[me].avatar_url = url; // Update local cache
-            updateSidebarUI(); // Update Sidebar
-            loadMessages(); // Update Chat PFPs
-            alert("PFP Updated!");
-        }
+        const fName = `pfp_${me}`; // Fixed name to overwrite old PFP
+        const { data } = await _db.storage.from('chat-files').upload(fName, f, {upsert: true});
+        const url = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl + "?t=" + Date.now();
+        await _db.from('chat_codes').update({ avatar_url: url }).eq('username', me);
+        profiles[me].avatar_url = url;
+        updateSidebarUI();
+        loadMessages();
     };
 
     window.toggleSidebar = () => { const s = document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = s ? 'block' : 'none'; };
@@ -250,10 +238,11 @@
         const g = document.getElementById('gallery-overlay');
         g.style.display = g.style.display === 'flex' ? 'none' : 'flex';
         if (g.style.display === 'flex') {
-            const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', {ascending: false});
+            const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null);
             document.getElementById('gallery-grid').innerHTML = data.map(i => `<img src="${i.file_url}" onclick="openImg('${i.file_url}')" class="w-full aspect-square object-cover rounded-lg">`).join('');
         }
     };
+    window.delM = async (id) => { if(confirm("Delete message?")) await _db.from('private_messages').delete().eq('id', id); };
     window.openImg = (url) => { document.getElementById('lbox-img').src = url; document.getElementById('lightbox').style.display = 'flex'; };
     window.setReply = (id, txt) => { replyId = id; document.getElementById('reply-txt').textContent = txt; document.getElementById('reply-preview-bar').classList.remove('hidden'); document.getElementById('msgIn').focus(); };
     window.cancelReply = () => { replyId = null; document.getElementById('reply-preview-bar').classList.add('hidden'); };
