@@ -12,7 +12,7 @@
         
         /* Sidebar */
         #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: #0f172a; z-index: 600; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); border-right: 1px solid #1e293b; padding: 20px; display: flex; flex-direction: column; }
-        #sidebar.open { left: 0; shadow: 20px 0 50px rgba(0,0,0,0.8); }
+        #sidebar.open { left: 0; box-shadow: 20px 0 50px rgba(0,0,0,0.8); }
         #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 550; backdrop-filter: blur(4px); }
         
         /* Main Layout */
@@ -23,11 +23,22 @@
         #messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; scroll-behavior: smooth; }
         .msg-row { display: flex; width: 100%; margin: 2px 0; }
         .row-self { justify-content: flex-end; }
-        .msg { max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 15px; position: relative; }
-        .self { background: var(--accent); color: white; border-bottom-right-radius: 4px; }
-        .other { background: var(--card); border: 1px solid #2d3748; border-bottom-left-radius: 4px; }
         
-        /* THE TYPING BAR - FIXED ANCHOR */
+        /* Message Bubble with PFP Background */
+        .msg { 
+            max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 15px; position: relative; 
+            overflow: hidden; z-index: 1; 
+        }
+        .msg::before {
+            content: ""; position: absolute; inset: 0; opacity: 0.12; z-index: -1;
+            background-position: center; background-size: cover; background-repeat: no-repeat;
+        }
+        .self { background: var(--accent); color: white; border-bottom-right-radius: 4px; }
+        .self::before { background-image: var(--self-pfp); }
+        .other { background: var(--card); border: 1px solid #2d3748; border-bottom-left-radius: 4px; }
+        .other::before { background-image: var(--other-pfp); }
+        
+        /* Typing Bar */
         #typing-reveal { min-height: 30px; padding: 4px 20px; font-size: 12px; color: #60a5fa; font-style: italic; display: flex; align-items: center; background: rgba(59, 130, 246, 0.05); }
 
         /* Input Zone */
@@ -35,7 +46,6 @@
         #input-wrapper { background: #1e293b; border-radius: 24px; margin: 8px 12px; padding: 4px 12px; display: flex; align-items: center; border: 1px solid #334155; }
         input#msgIn { flex: 1; background: transparent; border: none; padding: 8px; color: white; outline: none; }
         
-        /* GALLERY FIXED */
         #gallery-overlay { display: none; position: fixed; inset: 0; background: #0b0f1a; z-index: 700; flex-direction: column; }
         #gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; overflow-y: auto; }
         .g-item { width: 100%; aspect-ratio: 1/1; object-fit: cover; background: #161b2c; border-radius: 2px; }
@@ -60,7 +70,7 @@
         <div class="flex items-center gap-3">
             <button onclick="toggleSidebar()" class="text-xl">☰</button>
             <div>
-                <div class="font-bold flex items-center gap-2">Chat <span id="topMood"></span></div>
+                <div class="font-bold flex items-center gap-2">Chat <span id="topMood" class="text-xs font-normal opacity-60"></span></div>
                 <div class="text-[9px] text-green-500 uppercase font-bold">● Live</div>
             </div>
         </div>
@@ -109,8 +119,13 @@
                 if (p.new.username === you) {
                     const rev = document.getElementById('typing-reveal');
                     const text = p.new.typing_text || "";
-                    rev.textContent = (text && me === 'RJ') ? `${you}: ${text}` : (text ? `${you} is typing...` : "");
-                    document.getElementById('topMood').textContent = p.new.mood || "";
+                    // LOGIC: RJ sees her text. Allyvia only sees "is typing..."
+                    if(text) {
+                        rev.textContent = (me === 'RJ') ? `${you}: ${text}` : `${you} is typing...`;
+                    } else {
+                        rev.textContent = "";
+                    }
+                    document.getElementById('topMood').textContent = p.new.mood ? `(${p.new.mood})` : "";
                 }
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages())
@@ -118,10 +133,19 @@
 
         document.getElementById('msgIn').oninput = (e) => {
             clearTimeout(typingTimeout);
+            _db.from('chat_codes').update({ typing_text: e.target.value }).eq('username', me);
             typingTimeout = setTimeout(() => {
-                _db.from('chat_codes').update({ typing_text: e.target.value }).eq('username', me);
-            }, 100);
+                _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
+            }, 3000);
         };
+
+        // Mark messages as read when window is focused
+        window.addEventListener('focus', markAsRead);
+        markAsRead();
+    }
+
+    async function markAsRead() {
+        await _db.from('private_messages').update({ is_read: true }).eq('receiver', me).eq('is_read', false);
     }
 
     async function syncProfiles() {
@@ -135,17 +159,27 @@
     async function loadMessages() {
         const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(40);
         const box = document.getElementById('messages');
-        box.innerHTML = data.reverse().map(m => `
-            <div class="msg-row ${m.sender === me ? 'row-self' : ''}">
-                <div class="msg ${m.sender === me ? 'self' : 'other'}">
+        
+        const myPfp = profiles[me]?.avatar_url ? `url(${profiles[me].avatar_url})` : 'none';
+        const yourPfp = profiles[you]?.avatar_url ? `url(${profiles[you].avatar_url})` : 'none';
+
+        box.innerHTML = data.reverse().map(m => {
+            const isMe = m.sender === me;
+            const pfpStyle = isMe ? `--self-pfp: ${myPfp}` : `--other-pfp: ${yourPfp}`;
+            const readStatus = m.is_read ? 'text-blue-400' : 'text-gray-500';
+
+            return `
+            <div class="msg-row ${isMe ? 'row-self' : ''}">
+                <div class="msg ${isMe ? 'self' : 'other'}" style="${pfpStyle}">
                     ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-w-full">` : ''}
-                    ${m.message || ''}
-                    <div class="text-[8px] opacity-40 text-right mt-1">
+                    <div class="whitespace-pre-wrap">${m.message || ''}</div>
+                    <div class="text-[8px] opacity-60 text-right mt-1 flex items-center justify-end gap-1">
                         ${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
-                        ${m.sender === me ? `<span class="ml-2 cursor-pointer" onclick="deleteM('${m.id}')">🗑️</span>` : ''}
+                        ${isMe ? `<span class="${readStatus}">✔✔</span>` : ''}
+                        ${isMe ? `<span class="ml-1 cursor-pointer" onclick="deleteM('${m.id}')">🗑️</span>` : ''}
                     </div>
                 </div>
-            </div>`).join('');
+            </div>`}).join('');
         box.scrollTop = box.scrollHeight;
     }
 
@@ -163,7 +197,7 @@
 
         const txt = msgIn.value; msgIn.value = ''; fileIn.value = '';
         _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: txt, file_url: fUrl }]);
+        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: txt, file_url: fUrl, is_read: false }]);
     };
 
     window.deleteM = async (id) => { if(confirm("Delete?")) await _db.from('private_messages').delete().eq('id', id); };
