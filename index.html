@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>ChatWebb v2</title>
+    <title>ChatWebb v3</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -110,12 +110,18 @@
         
         _db.channel('global')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_codes' }, (payload) => {
-                if (payload.new.username === you) {
+                const updatedUser = payload.new.username;
+                const typingText = payload.new.typing_text;
+
+                if (updatedUser === you) {
                     const rev = document.getElementById('typing-reveal');
-                    const text = payload.new.typing_text;
-                    if (text && text.length > 0) {
-                        rev.innerHTML = (me === 'RJ') ? `● ${you}: ${text}` : `● ${you} is typing...`;
-                    } else { rev.innerHTML = ""; }
+                    if (typingText && typingText.length > 0) {
+                        rev.innerHTML = (me === 'RJ') 
+                            ? `<span class="text-blue-400 mr-2">●</span> ${you}: ${typingText}` 
+                            : `<span class="animate-pulse text-blue-400 mr-2">●</span> ${you} is typing...`;
+                    } else {
+                        rev.innerHTML = "";
+                    }
                     document.getElementById('topMood').textContent = payload.new.mood ? `(${payload.new.mood})` : "";
                 }
             })
@@ -126,9 +132,13 @@
 
         document.getElementById('msgIn').addEventListener('input', (e) => {
             clearTimeout(typingTimeout);
-            _db.from('chat_codes').update({ typing_text: e.target.value }).eq('username', me);
-            typingTimeout = setTimeout(() => {
-                _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
+            const val = e.target.value;
+            // Immediate broadcast
+            _db.from('chat_codes').update({ typing_text: val }).eq('username', me);
+            
+            // 3-second inactivity clear
+            typingTimeout = setTimeout(async () => {
+                await _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
             }, 3000);
         });
 
@@ -158,7 +168,6 @@
             const isMe = m.sender === me;
             const pfpStyle = isMe ? `--self-pfp: ${myPfp}` : `--other-pfp: ${yourPfp}`;
             const readStatus = m.is_read ? 'text-blue-400' : 'text-gray-500';
-            // Safety for quotes in strings
             const cleanMsg = m.message ? m.message.replace(/'/g, "\\'").replace(/"/g, "&quot;") : '';
 
             return `
@@ -225,7 +234,6 @@
         cancelReply();
 
         await _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
-        // This will only work after you add the 'reply_to' column in Supabase!
         await _db.from('private_messages').insert([{ 
             sender: me, receiver: you, message: txt, file_url: fUrl, is_read: false, reply_to: currentReply 
         }]);
