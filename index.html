@@ -3,88 +3,36 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>ChatWebb Master</title>
+    <title>ChatWebb Debug Mode</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --bg: #0f172a; --accent: #3b82f6; --card: #1e293b; }
         body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; height: 100vh; display: flex; overflow: hidden; margin: 0; }
-        
-        #sidebar { position: fixed; left: -280px; top: 0; bottom: 0; width: 280px; background: #111827; z-index: 600; transition: 0.3s ease; border-right: 1px solid #334155; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
-        #sidebar.open { left: 0; }
-        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 550; backdrop-filter: blur(4px); }
-        
         #chat-main { flex: 1; display: flex; flex-direction: column; height: 100%; position: relative; }
-        header { padding: 16px 20px; background: rgba(15, 23, 42, 0.9); border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; z-index: 50; }
-        
+        header { padding: 16px 20px; background: rgba(15, 23, 42, 0.9); border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
-        .msg-row { display: flex; align-items: flex-end; gap: 10px; width: 100%; }
-        .row-self { flex-direction: row-reverse; }
-        
-        .avatar-mini { width: 36px; height: 36px; border-radius: 12px; object-fit: cover; flex-shrink: 0; border: 2px solid #334155; }
-        .msg { max-width: 75%; padding: 12px 16px; border-radius: 18px; position: relative; font-size: 15px; }
-        .self { background: var(--accent); border-bottom-right-radius: 4px; }
-        .other { background: var(--card); border-bottom-left-radius: 4px; border: 1px solid #334155; }
-        
-        /* THE MASTER VIEW ZONE */
-        #typing-reveal { 
-            font-size: 13px; 
-            color: #60a5fa; 
-            font-weight: 600; 
-            min-height: 35px; 
-            padding: 0 20px; 
-            font-style: italic; 
-            background: rgba(30, 41, 59, 0.8);
-            border-top: 1px solid #334155;
-            display: flex;
-            align-items: center;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        #chat-form-container { background: #0f172a; border-top: 1px solid #334155; padding-bottom: env(safe-area-inset-bottom); }
-        #input-wrapper { background: #1e293b; border-radius: 24px; margin: 10px; padding: 4px 8px; display: flex; align-items: center; gap: 8px; border: 1px solid #334155; }
-        input#msgIn { flex: 1; background: transparent; border: none; padding: 10px 12px; color: white; outline: none; font-size: 15px; }
-        #sendBtn { background: #3b82f6; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .msg { max-width: 75%; padding: 12px 16px; border-radius: 18px; position: relative; font-size: 15px; background: var(--card); border: 1px solid #334155; }
+        .self { background: var(--accent); border-bottom-right-radius: 4px; align-self: flex-end; }
+        .other { border-bottom-left-radius: 4px; align-self: flex-start; }
+        #typing-reveal { font-size: 13px; color: #60a5fa; font-weight: 600; min-height: 35px; padding: 0 20px; font-style: italic; background: rgba(30, 41, 59, 0.8); border-top: 1px solid #334155; display: flex; align-items: center; }
+        #input-wrapper { background: #1e293b; border-radius: 24px; margin: 10px; padding: 4px 12px; display: flex; align-items: center; border: 1px solid #334155; }
+        input#msgIn { flex: 1; background: transparent; border: none; padding: 10px; color: white; outline: none; }
     </style>
 </head>
 <body>
 
-<div id="overlay" onclick="toggleSidebar()"></div>
-
-<div id="sidebar">
-    <div class="flex items-center gap-3 mb-4">
-        <div id="sideAv" class="w-12 h-12 rounded-xl bg-slate-700 flex items-center justify-center font-bold border-2 border-blue-500 overflow-hidden"></div>
-        <div class="font-bold text-lg" id="sideName">User</div>
-    </div>
-    <button onclick="toggleGallery()" class="text-left p-3 hover:bg-slate-800 rounded-xl transition">🖼️ Media Gallery</button>
-    <button onclick="changeMood()" class="text-left p-3 hover:bg-slate-800 rounded-xl transition">✨ Update Status</button>
-    <button onclick="document.getElementById('pfpIn').click()" class="text-left p-3 hover:bg-slate-800 rounded-xl transition">📸 Change PFP</button>
-    <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadPFP(this)">
-    <button onclick="logout()" class="mt-auto w-full py-3 text-red-400 font-bold border border-red-900/50 rounded-xl">Logout</button>
-</div>
-
 <div id="chat-main">
     <header>
-        <div class="flex items-center gap-4">
-            <button onclick="toggleSidebar()" class="text-2xl text-slate-400">☰</button>
-            <div>
-                <div class="font-bold text-blue-400 flex items-center gap-2 text-lg">Chat <span id="topMood"></span> <span id="eye-indicator" class="hidden">👀</span></div>
-                <div id="status" class="text-[10px] text-slate-500 uppercase tracking-tighter">Online</div>
-            </div>
-        </div>
+        <div class="font-bold text-blue-400 text-lg">Chat Master <span id="status" class="text-[10px] ml-2 opacity-50">Connecting...</span></div>
     </header>
-
     <main id="messages"></main>
-
     <div id="chat-form-container">
         <div id="typing-reveal"></div>
         <form id="chat-form">
             <div id="input-wrapper">
-                <label class="cursor-pointer p-2 text-slate-400"><input type="file" id="fileIn" class="hidden" accept="image/*,video/*">📎</label>
                 <input id="msgIn" placeholder="Type a message..." autocomplete="off">
-                <button type="submit" id="sendBtn">➤</button>
+                <button type="submit" class="text-blue-500 font-bold">SEND</button>
             </div>
         </form>
     </div>
@@ -94,139 +42,95 @@
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
-    let me, you, profiles = {}, allMsgs = [], typingTimeout;
+    
+    let me, you, typingTimeout;
 
-    async function login() {
+    async function init() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
-        const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
-        if (!data) return;
-        me = data.username; you = (me === 'RJ') ? 'Allyvia' : 'RJ';
+        const { data, error } = await _db.from('chat_codes').select('*').eq('code', code).single();
+        
+        if (error || !data) {
+            console.error("[AUTH ERROR] Invalid code or connection failure:", error);
+            return;
+        }
+
+        me = data.username;
+        you = (me === 'RJ') ? 'Allyvia' : 'RJ';
         localStorage.setItem('chat_secret_code', code);
-        startChat();
+        
+        console.log(`%c[AUTH] Logged in as ${me}. Partner is ${you}`, "color: green; font-weight: bold;");
+        startRealtime();
+        loadMessages();
     }
 
-    async function startChat() {
-        await syncProfiles();
-        loadMessages();
+    function startRealtime() {
+        console.log("[SYSTEM] Initializing Realtime Channels...");
         
-        // Remove all old channels to prevent "ghost" connections
-        await _db.removeAllChannels();
-
-        // Listen for ANY change in the chat_codes table
-        _db.channel('room1')
+        const channel = _db.channel('db-changes')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_codes' }, (payload) => {
-                console.log("Update received for:", payload.new.username);
-                
-                // Update local profile data
-                profiles[payload.new.username] = payload.new;
-                
-                // If the update is from the OTHER person, update typing UI immediately
-                if (payload.new.username === you) {
-                    updateTypingUI(payload.new);
-                    syncHeader(payload.new);
-                    
-                    // Visual sync indicator in status
-                    const s = document.getElementById('status');
-                    s.textContent = "SYNCING...";
-                    s.style.color = "#60a5fa";
-                    setTimeout(() => { s.textContent = "Online"; s.style.color = ""; }, 500);
+                const updatedUser = payload.new.username;
+                const typingText = payload.new.typing_text;
+
+                console.log(`%c[REALTIME] Update from ${updatedUser}: "${typingText}"`, "color: #3b82f6;");
+
+                if (updatedUser === you) {
+                    const rev = document.getElementById('typing-reveal');
+                    if (typingText && typingText.length > 0) {
+                        rev.innerHTML = (me === 'RJ') 
+                            ? `<span class="text-blue-400 mr-2">●</span> ${you}: ${typingText}` 
+                            : `<span class="animate-pulse text-blue-400 mr-2">●</span> ${you} is typing...`;
+                    } else {
+                        rev.innerHTML = "";
+                    }
                 }
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages())
-            .subscribe();
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, () => loadMessages())
+            .subscribe((status) => {
+                console.log("[SYSTEM] Connection Status:", status);
+                document.getElementById('status').textContent = status;
+                if (status === 'TIMED_OUT') {
+                    console.warn("[RETRY] Connection timed out. Attempting reconnect...");
+                    setTimeout(startRealtime, 2000);
+                }
+            });
+    }
 
-        // Broadcast your typing
-        document.getElementById('msgIn').addEventListener('input', (e) => {
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
-                _db.from('chat_codes').update({ typing_text: e.target.value }).eq('username', me);
-            }, 150); // Faster broadcast
-        });
-
-        // Online Pulse
-        setInterval(() => {
-            if (document.visibilityState === 'visible') {
-                _db.from('chat_codes').update({ last_seen: new Date().toISOString(), is_watching: true }).eq('username', me);
+    // Capture your typing and log success/fail
+    document.getElementById('msgIn').addEventListener('input', (e) => {
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(async () => {
+            const val = e.target.value;
+            const { error } = await _db.from('chat_codes').update({ typing_text: val }).eq('username', me);
+            
+            if (error) {
+                console.error("[DB ERROR] Failed to save typing text:", error.message);
+            } else {
+                console.log(`[LOCAL] Typing broadcasted: "${val}"`);
             }
-        }, 5000);
-    }
-
-    function updateTypingUI(user) {
-        const rev = document.getElementById('typing-reveal');
-        const text = user.typing_text || "";
-        
-        if (text.length > 0) {
-            // RJ sees what she is actually typing
-            // Allyvia only sees "...is typing"
-            rev.innerHTML = (me === 'RJ') 
-                ? `<span class="text-blue-400 mr-2">●</span> ${you}: ${text}` 
-                : `<span class="animate-pulse text-blue-400 mr-2">●</span> ${you} is typing...`;
-        } else {
-            rev.innerHTML = "";
-        }
-    }
-
-    function syncHeader(u) {
-        if (u.username === you) {
-            document.getElementById('topMood').textContent = u.mood || '';
-            const diff = (new Date() - new Date(u.last_seen)) / 1000;
-            document.getElementById('eye-indicator').classList.toggle('hidden', !u.is_watching || diff > 20);
-        }
-    }
-
-    async function syncProfiles() {
-        const { data } = await _db.from('chat_codes').select('*');
-        data.forEach(u => profiles[u.username] = u);
-        const m = profiles[me];
-        document.getElementById('sideAv').innerHTML = m?.avatar_url ? `<img src="${m.avatar_url}" class="w-full h-full object-cover">` : me[0];
-        document.getElementById('sideName').textContent = me;
-    }
+        }, 150);
+    });
 
     async function loadMessages() {
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(40);
-        allMsgs = data.reverse();
-        render();
-    }
-
-    function render() {
+        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(20);
         const box = document.getElementById('messages');
-        box.innerHTML = allMsgs.map(m => {
-            const isMe = m.sender === me;
-            const u = profiles[m.sender];
-            const pfp = u?.avatar_url ? `<img src="${u.avatar_url}" class="avatar-mini">` : `<div class="avatar-mini bg-slate-600 flex items-center justify-center text-xs">${m.sender[0]}</div>`;
-            return `
-                <div class="msg-row ${isMe ? 'row-self' : ''}">
-                    ${pfp}
-                    <div class="msg ${isMe ? 'self' : 'other'}">
-                        ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-w-full">` : ''}
-                        <div>${m.message || ''}</div>
-                        <div class="text-[9px] opacity-40 mt-1 text-right">${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
-                    </div>
-                </div>`;
-        }).join('');
+        box.innerHTML = data.reverse().map(m => `
+            <div class="msg ${m.sender === me ? 'self' : 'other'}">
+                ${m.message}
+            </div>
+        `).join('');
         box.scrollTop = box.scrollHeight;
     }
 
     document.getElementById('chat-form').onsubmit = async (e) => {
         e.preventDefault();
-        const msgIn = document.getElementById('msgIn'), fileIn = document.getElementById('fileIn'), text = msgIn.value.trim();
-        if (!text && !fileIn.files[0]) return;
-        
-        let fUrl = null;
-        if (fileIn.files[0]) {
-            const f = fileIn.files[0], fName = `${Date.now()}_${f.name}`;
-            const { data } = await _db.storage.from('chat-files').upload(fName, f);
-            if (data) fUrl = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
-        }
-
-        msgIn.value = ''; fileIn.value = '';
-        _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text, file_url: fUrl }]);
+        const input = document.getElementById('msgIn');
+        const text = input.value;
+        input.value = '';
+        await _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
+        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text }]);
     };
 
-    window.toggleSidebar = () => { const s = document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = s ? 'block' : 'none'; };
-    window.logout = () => { localStorage.removeItem('chat_secret_code'); window.location.reload(); };
-    login();
+    init();
 </script>
 </body>
 </html>
