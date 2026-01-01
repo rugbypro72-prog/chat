@@ -10,43 +10,35 @@
         :root { --bg: #0a0f1a; --accent: #0b78e3; --card: #1c2335; }
         body { background: var(--bg); color: white; font-family: sans-serif; height: 100vh; display: flex; overflow: hidden; margin: 0; }
         
-        /* Sidebar & Overlay */
         #sidebar { position: fixed; left: -280px; top: 0; bottom: 0; width: 280px; background: #0f1524; z-index: 600; transition: 0.3s ease; border-right: 1px solid #1c2335; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
         #sidebar.open { left: 0; }
         #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 550; }
         
-        /* Message Area */
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
         .msg-row { display: flex; align-items: flex-end; gap: 8px; width: 100%; position: relative; }
         .row-self { flex-direction: row-reverse; }
         
-        /* PFPs */
         .avatar-mini { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-bottom: 2px; border: 1px solid #374151; }
         .avatar-placeholder { background: #374151; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
 
-        /* Bubbles */
         .msg { max-width: 70%; padding: 10px 14px; border-radius: 18px; position: relative; word-wrap: break-word; }
         .self { background: var(--accent); border-bottom-right-radius: 2px; }
         .other { background: var(--card); border-bottom-left-radius: 2px; }
         
-        /* Meta/Trash */
         .reply-box { background: rgba(0,0,0,0.2); border-left: 3px solid #60a5fa; padding: 5px 8px; margin-bottom: 6px; border-radius: 4px; font-size: 11px; color: #93c5fd; }
         .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 4px; font-size: 10px; opacity: 0.7; }
-        .inner-trash { cursor: pointer; color: #ff8080; font-size: 12px; margin-left: 4px; padding: 2px; }
+        .inner-trash { cursor: pointer; color: #ff8080; font-size: 12px; margin-left: 4px; }
 
-        /* Form & Typing */
         #chat-form-container { background: #101426; border-top: 1px solid #1c2335; padding-bottom: env(safe-area-inset-bottom); }
         #reply-preview { display: none; background: #161b2e; padding: 10px; border-left: 4px solid #3b82f6; align-items: center; justify-content: space-between; }
         #chat-form { padding: 12px; display: flex; align-items: center; gap: 10px; }
         input#msgIn { flex: 1; background: #1c2335; border: none; padding: 12px; border-radius: 20px; color: white; outline: none; }
+        
+        /* The Reveal Area Above Textbox */
         #typing-reveal { padding: 8px 16px 2px 16px; font-size: 12px; color: #60a5fa; font-weight: 500; font-style: italic; min-height: 24px; }
         
-        /* Media */
-        .media-content { border-radius: 12px; max-height: 250px; width: 100%; object-fit: cover; margin-top: 5px; cursor: pointer; background: #000; }
-        #file-indicator { font-size: 10px; color: #10b981; margin-left: 10px; display: none; font-weight: bold; }
-        
-        /* Gallery */
         #gallery-overlay { display: none; position: fixed; inset: 0; background: #0a0f1a; z-index: 700; flex-direction: column; }
+        .media-content { border-radius: 12px; max-height: 250px; width: 100%; object-fit: cover; margin-top: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -86,8 +78,7 @@
         <div id="typing-reveal"></div>
         <form id="chat-form">
             <label class="cursor-pointer p-2 text-gray-400">
-                <input type="file" id="fileIn" class="hidden" accept="image/*,video/*" onchange="document.getElementById('file-indicator').style.display = 'inline'">📎
-                <span id="file-indicator">✔ READY</span>
+                <input type="file" id="fileIn" class="hidden" accept="image/*,video/*">📎
             </label>
             <input id="msgIn" placeholder="Type a message..." autocomplete="off" oninput="updateTyping(this.value)">
             <button type="submit" id="sendBtn" class="bg-blue-600 px-6 py-2 rounded-full font-bold">Send</button>
@@ -138,8 +129,20 @@
                 const diff = (new Date() - new Date(u.last_seen)) / 1000;
                 document.getElementById('status').textContent = diff < 40 ? `Online` : `Last seen ${new Date(u.last_seen).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
                 document.getElementById('eye-indicator').style.display = (u.is_watching && diff < 40) ? 'inline' : 'none';
+                
+                // --- THE POWER DYNAMIC LOGIC ---
                 const rev = document.getElementById('typing-reveal');
-                rev.textContent = u.typing_text ? (me === 'RJ' ? `${you}: ${u.typing_text}` : `${you} is typing...`) : '';
+                if (u.typing_text && u.typing_text.length > 0) {
+                    if (me === 'RJ') {
+                        // YOU see her exact letters
+                        rev.textContent = `${you}: ${u.typing_text}`;
+                    } else {
+                        // SHE only sees the standard status
+                        rev.textContent = `${you} is typing...`;
+                    }
+                } else {
+                    rev.textContent = '';
+                }
             }
         });
         const m = profiles[me];
@@ -181,21 +184,19 @@
         const text = msgIn.value.trim(), file = fileIn.files[0], rid = replyId;
         if (!text && !file) return;
 
-        btn.disabled = true; btn.textContent = "...";
+        btn.disabled = true;
         let fUrl = null, fType = null;
-
         if (file) {
-            const fName = `${Date.now()}_${file.name.replace(/\s/g, '_')}`;
-            const { data, error } = await _db.storage.from('chat-files').upload(fName, file);
-            if (error) { alert("Upload failed: " + error.message); btn.disabled = false; return; }
-            fUrl = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
-            fType = file.type.startsWith('image') ? 'image' : 'video';
+            const fName = `${Date.now()}_${file.name}`;
+            const { data } = await _db.storage.from('chat-files').upload(fName, file);
+            if (data) {
+                fUrl = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
+                fType = file.type.startsWith('image') ? 'image' : 'video';
+            }
         }
-
         await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text, file_url: fUrl, file_type: fType, reply_to_id: rid }]);
         msgIn.value = ''; fileIn.value = ''; cancelReply();
-        document.getElementById('file-indicator').style.display = 'none';
-        btn.disabled = false; btn.textContent = "Send";
+        btn.disabled = false;
         updateTyping('');
     };
 
