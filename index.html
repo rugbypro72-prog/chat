@@ -38,8 +38,8 @@
         .other { background: var(--card); border: 1px solid #2d3748; border-bottom-left-radius: 4px; }
         .other::before { background-image: var(--other-pfp); }
         
-        /* Typing Bar */
-        #typing-reveal { min-height: 30px; padding: 4px 20px; font-size: 12px; color: #60a5fa; font-style: italic; display: flex; align-items: center; background: rgba(59, 130, 246, 0.05); }
+        /* The Typing Bar */
+        #typing-reveal { min-height: 35px; padding: 4px 20px; font-size: 13px; color: #60a5fa; font-weight: 600; display: flex; align-items: center; background: rgba(30, 41, 59, 0.8); border-top: 1px solid #1e293b; font-style: italic; }
 
         /* Input Zone */
         #chat-form-container { background: var(--bg); border-top: 1px solid #1e293b; padding-bottom: env(safe-area-inset-bottom); }
@@ -71,7 +71,7 @@
             <button onclick="toggleSidebar()" class="text-xl">☰</button>
             <div>
                 <div class="font-bold flex items-center gap-2">Chat <span id="topMood" class="text-xs font-normal opacity-60"></span></div>
-                <div class="text-[9px] text-green-500 uppercase font-bold">● Live</div>
+                <div class="text-[9px] text-green-500 uppercase font-bold" id="conn-status">● Live</div>
             </div>
         </div>
     </header>
@@ -114,32 +114,38 @@
         await syncProfiles();
         loadMessages();
         
+        // INTEGRATED DEBUG TYPING LOGIC
         _db.channel('global')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_codes' }, (p) => {
-                if (p.new.username === you) {
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_codes' }, (payload) => {
+                const updatedUser = payload.new.username;
+                const typingText = payload.new.typing_text;
+
+                if (updatedUser === you) {
                     const rev = document.getElementById('typing-reveal');
-                    const text = p.new.typing_text || "";
-                    // LOGIC: RJ sees her text. Allyvia only sees "is typing..."
-                    if(text) {
-                        rev.textContent = (me === 'RJ') ? `${you}: ${text}` : `${you} is typing...`;
+                    if (typingText && typingText.length > 0) {
+                        rev.innerHTML = (me === 'RJ') 
+                            ? `<span class="text-blue-400 mr-2">●</span> ${you}: ${typingText}` 
+                            : `<span class="animate-pulse text-blue-400 mr-2">●</span> ${you} is typing...`;
                     } else {
-                        rev.textContent = "";
+                        rev.innerHTML = "";
                     }
-                    document.getElementById('topMood').textContent = p.new.mood ? `(${p.new.mood})` : "";
+                    document.getElementById('topMood').textContent = payload.new.mood ? `(${payload.new.mood})` : "";
                 }
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages())
-            .subscribe();
+            .subscribe((status) => {
+                document.getElementById('conn-status').textContent = status === 'SUBSCRIBED' ? '● Live' : '● Connecting...';
+            });
 
-        document.getElementById('msgIn').oninput = (e) => {
+        // OPTIMIZED TYPING BROADCAST
+        document.getElementById('msgIn').addEventListener('input', (e) => {
             clearTimeout(typingTimeout);
-            _db.from('chat_codes').update({ typing_text: e.target.value }).eq('username', me);
-            typingTimeout = setTimeout(() => {
-                _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
-            }, 3000);
-        };
+            typingTimeout = setTimeout(async () => {
+                const val = e.target.value;
+                await _db.from('chat_codes').update({ typing_text: val }).eq('username', me);
+            }, 150);
+        });
 
-        // Mark messages as read when window is focused
         window.addEventListener('focus', markAsRead);
         markAsRead();
     }
@@ -196,7 +202,7 @@
         }
 
         const txt = msgIn.value; msgIn.value = ''; fileIn.value = '';
-        _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
+        await _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
         await _db.from('private_messages').insert([{ sender: me, receiver: you, message: txt, file_url: fUrl, is_read: false }]);
     };
 
