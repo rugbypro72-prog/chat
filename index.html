@@ -17,9 +17,6 @@
         #messages-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
         
-        .msg-row { display: flex; align-items: flex-end; gap: 8px; width: 100%; position: relative; }
-        .row-self { flex-direction: row-reverse; }
-        
         .avatar-mini { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid #374151; }
         .msg { max-width: 70%; padding: 10px 14px; border-radius: 18px; position: relative; word-wrap: break-word; font-size: 15px; }
         .self { background: var(--accent); border-bottom-right-radius: 2px; }
@@ -99,7 +96,12 @@
 <script>
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
-    const _db = supabase.createClient(SB_URL, SB_KEY);
+    
+    // Explicit config to help with WebSocket stability
+    const _db = supabase.createClient(SB_URL, SB_KEY, {
+        realtime: { params: { eventsPerSecond: 10 } }
+    });
+
     let me, you, profiles = {}, allMsgs = [], replyId = null, typingTimeout;
 
     async function login() {
@@ -108,59 +110,64 @@
         if (!data) return;
         me = data.username; you = (me === 'RJ') ? 'Allyvia' : 'RJ';
         localStorage.setItem('chat_secret_code', code);
-        console.log(`[AUTH] Logged in as ${me}. Partner is ${you}`);
         startChat();
     }
 
     async function startChat() {
         await syncProfiles();
         loadMessages();
-        _db.removeAllChannels();
-
-        console.log("[SYSTEM] Initializing Realtime Channels...");
-
-        const master = _db.channel('master-stream')
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_codes' }, (payload) => {
-                console.log(`[REALTIME] Database Update for ${payload.new.username}:`, payload.new.typing_text);
-                if (payload.new.username === you) {
-                    console.log(`[DEBUG] Updating Typing UI with: "${payload.new.typing_text}"`);
-                    updateTypingUI(payload.new);
-                }
+        
+        // Force cleanup of any dead sockets
+        await _db.removeAllChannels();
+        
+        const mainChannel = _db.channel('master-sync', { config: { ack: true } })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, (payload) => {
+                if (payload.new.username === you) updateTypingUI(payload.new);
                 profiles[payload.new.username] = payload.new;
                 syncHeader(payload.new);
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages())
-            .subscribe((status) => console.log(`[SYSTEM] Connection Status: ${status}`));
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, () => loadMessages())
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'private_messages' }, () => loadMessages())
+            .subscribe(async (status) => {
+                console.log(`[REALTIME STATUS] ${status}`);
+                document.getElementById('status').textContent = status === 'SUBSCRIBED' ? 'Online' : 'Connecting...';
+                
+                // If it times out, wait 1 second and force a full script refresh
+                if (status === 'TIMED_OUT') {
+                    console.error("Master Sync Timed Out. Retrying...");
+                    setTimeout(() => startChat(), 1000);
+                }
+            });
 
+        // Typing Update (Debounced to protect the socket)
         document.getElementById('msgIn').addEventListener('input', (e) => {
             clearTimeout(typingTimeout);
             typingTimeout = setTimeout(() => {
-                console.log(`[DEBUG] Sending Typing Update: "${e.target.value}"`);
                 _db.from('chat_codes').update({ typing_text: e.target.value }).eq('username', me);
             }, 300);
         });
 
+        // Online Pulse
         setInterval(() => {
-            const isWatching = document.visibilityState === 'visible';
-            _db.from('chat_codes').update({ last_seen: new Date().toISOString(), is_watching: isWatching }).eq('username', me);
-        }, 8000);
+            if (document.visibilityState === 'visible') {
+                _db.from('chat_codes').update({ last_seen: new Date().toISOString(), is_watching: true }).eq('username', me);
+            }
+        }, 10000);
     }
 
     function updateTypingUI(user) {
         const rev = document.getElementById('typing-reveal');
         if (user.typing_text && user.typing_text.length > 0) {
+            // Master View: RJ sees drafts, Allyvia sees "...is typing"
             rev.textContent = (me === 'RJ') ? `${you}: ${user.typing_text}` : `${you} is typing...`;
-        } else { 
-            rev.textContent = ''; 
-        }
+        } else { rev.textContent = ''; }
     }
 
     function syncHeader(u) {
         if (u.username === you) {
             document.getElementById('topMood').textContent = u.mood || '';
             const diff = (new Date() - new Date(u.last_seen)) / 1000;
-            document.getElementById('status').textContent = diff < 25 ? 'Online' : 'Away';
-            document.getElementById('eye-indicator').classList.toggle('hidden', !u.is_watching || diff > 25);
+            document.getElementById('eye-indicator').classList.toggle('hidden', !u.is_watching || diff > 30);
         }
     }
 
@@ -229,8 +236,8 @@
         if (g.style.display === 'flex') {
             const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', { ascending: false });
             document.getElementById('gallery-grid').innerHTML = data.map(i => `
-                <div class="gallery-item" ondblclick="heartPhoto(this)">
-                    <img src="${i.file_url}" class="aspect-square object-cover w-full h-full">
+                <div class="gallery-item h-40" ondblclick="heartPhoto(this)">
+                    <img src="${i.file_url}" class="object-cover w-full h-full rounded-md">
                     <div class="heart-icon">❤️</div>
                 </div>`).join('');
         }
@@ -251,6 +258,7 @@
             await _db.from('chat_codes').update({ avatar_url: url }).eq('username', me);
         }
     };
+
     let sx=0; window.ts = (e) => sx = e.touches[0].clientX;
     window.te = (e) => { if(e.changedTouches[0].clientX - sx > 60) setupReply(e.currentTarget.dataset.id, e.currentTarget.dataset.text); };
     window.toggleSidebar = () => { const s = document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = s ? 'block' : 'none'; };
