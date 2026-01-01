@@ -3,41 +3,48 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>ChatWebb</title>
+    <title>ChatWebb Elite</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root { --bg: #0a0f1a; --accent: #0b78e3; --card: #1c2335; }
-        body { background: var(--bg); color: white; font-family: sans-serif; height: 100vh; display: flex; overflow: hidden; margin: 0; }
+        :root { --bg: #0f172a; --accent: #3b82f6; --card: #1e293b; --text-dim: #94a3b8; }
+        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; height: 100vh; display: flex; overflow: hidden; margin: 0; }
         
-        #sidebar { position: fixed; left: -280px; top: 0; bottom: 0; width: 280px; background: #0f1524; z-index: 600; transition: 0.3s ease; border-right: 1px solid #1c2335; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        /* Sidebar & Overlay */
+        #sidebar { position: fixed; left: -280px; top: 0; bottom: 0; width: 280px; background: #111827; z-index: 600; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); border-right: 1px solid #334155; padding: 24px; display: flex; flex-direction: column; gap: 16px; box-shadow: 10px 0 15px rgba(0,0,0,0.3); }
         #sidebar.open { left: 0; }
-        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 550; }
+        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 550; backdrop-filter: blur(4px); }
         
-        #messages-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+        /* Main Layout */
+        #chat-main { flex: 1; display: flex; flex-direction: column; height: 100%; position: relative; }
+        header { padding: 16px 20px; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; z-index: 50; }
         
-        .avatar-mini { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid #374151; }
-        .msg { max-width: 70%; padding: 10px 14px; border-radius: 18px; position: relative; word-wrap: break-word; font-size: 15px; }
-        .self { background: var(--accent); border-bottom-right-radius: 2px; }
-        .other { background: var(--card); border-bottom-left-radius: 2px; }
+        /* Message Styling */
+        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
+        .msg-row { display: flex; align-items: flex-end; gap: 10px; width: 100%; }
+        .row-self { flex-direction: row-reverse; }
         
-        .reply-box { background: rgba(0,0,0,0.2); border-left: 3px solid #60a5fa; padding: 5px 8px; margin-bottom: 6px; border-radius: 4px; font-size: 11px; color: #93c5fd; }
-        .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 4px; font-size: 10px; opacity: 0.7; }
-        .inner-trash { cursor: pointer; color: #ff8080; font-size: 12px; margin-left: 4px; }
+        .avatar-mini { width: 36px; height: 36px; border-radius: 12px; object-fit: cover; flex-shrink: 0; border: 2px solid #334155; }
+        .msg { max-width: 75%; padding: 12px 16px; border-radius: 18px; position: relative; font-size: 15px; line-height: 1.4; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .self { background: var(--accent); color: white; border-bottom-right-radius: 4px; }
+        .other { background: var(--card); color: #f1f5f9; border-bottom-left-radius: 4px; border: 1px solid #334155; }
+        
+        /* Reply UI */
+        .reply-tag { background: rgba(0,0,0,0.15); border-left: 3px solid #93c5fd; padding: 6px 10px; margin-bottom: 8px; border-radius: 6px; font-size: 12px; color: #cbd5e1; display: block; }
+        .msg-meta { font-size: 10px; opacity: 0.6; margin-top: 6px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+        
+        /* Input Area & Master View */
+        #chat-form-container { background: #0f172a; border-top: 1px solid #334155; padding: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+        #typing-reveal { font-size: 12px; color: #60a5fa; font-weight: 500; min-height: 20px; padding: 0 8px 8px 8px; font-style: italic; transition: 0.2s; }
+        
+        #input-wrapper { background: #1e293b; border-radius: 24px; padding: 4px 8px; display: flex; align-items: center; gap: 8px; border: 1px solid #334155; }
+        input#msgIn { flex: 1; background: transparent; border: none; padding: 10px 12px; color: white; outline: none; font-size: 15px; }
+        #sendBtn { background: #3b82f6; color: white; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        #sendBtn:active { transform: scale(0.9); }
 
-        #chat-form-container { background: #101426; border-top: 1px solid #1c2335; padding-bottom: env(safe-area-inset-bottom); }
-        #reply-preview { display: none; background: #161b2e; padding: 10px; border-left: 4px solid #3b82f6; align-items: center; justify-content: space-between; }
-        #chat-form { padding: 12px; display: flex; align-items: center; gap: 10px; }
-        input#msgIn { flex: 1; background: #1c2335; border: none; padding: 12px; border-radius: 20px; color: white; outline: none; }
-        
-        #typing-reveal { padding: 10px 20px; font-size: 12px; color: #60a5fa; font-weight: 500; font-style: italic; min-height: 32px; background: rgba(10, 15, 26, 0.8); }
-        
-        #gallery-overlay { display: none; position: fixed; inset: 0; background: #0a0f1a; z-index: 700; flex-direction: column; }
-        .gallery-item { position: relative; cursor: pointer; }
-        .heart-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); transition: 0.3s; font-size: 40px; pointer-events: none; }
-        .heart-active { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
-        .media-content { border-radius: 12px; max-height: 250px; width: 100%; object-fit: cover; margin-top: 5px; cursor: pointer; }
+        /* Gallery */
+        #gallery-overlay { display: none; position: fixed; inset: 0; background: #0f172a; z-index: 700; flex-direction: column; }
+        .gallery-item { position: relative; border-radius: 12px; overflow: hidden; aspect-ratio: 1; border: 1px solid #334155; }
     </style>
 </head>
 <body>
@@ -45,69 +52,74 @@
 <div id="overlay" onclick="toggleSidebar()"></div>
 
 <div id="sidebar">
-    <div class="flex items-center gap-3 mb-6">
-        <div id="sideAv" class="w-10 h-10 rounded-full flex items-center justify-center font-bold bg-gray-700"></div>
-        <div class="font-bold text-lg" id="sideName">Settings</div>
+    <div class="flex items-center gap-3 mb-4">
+        <div id="sideAv" class="w-12 h-12 rounded-xl bg-slate-700 flex items-center justify-center font-bold overflow-hidden border-2 border-blue-500"></div>
+        <div>
+            <div class="font-bold text-lg" id="sideName">User</div>
+            <div class="text-xs text-slate-400">Settings & Media</div>
+        </div>
     </div>
-    <button onclick="toggleGallery()" class="text-left p-3 bg-[#1c2335] rounded-lg">🖼️ Media Gallery</button>
-    <button onclick="changeMood()" class="text-left p-3 bg-[#1c2335] rounded-lg">✨ Update Mood Emoji</button>
-    <button onclick="document.getElementById('pfpIn').click()" class="text-left p-3 bg-[#1c2335] rounded-lg">📸 Change Profile Pic</button>
+    <hr class="border-slate-800 my-2">
+    <button onclick="toggleGallery()" class="text-left p-3 hover:bg-slate-800 rounded-xl transition">🖼️ Media Gallery</button>
+    <button onclick="changeMood()" class="text-left p-3 hover:bg-slate-800 rounded-xl transition">✨ Update Status</button>
+    <button onclick="document.getElementById('pfpIn').click()" class="text-left p-3 hover:bg-slate-800 rounded-xl transition">📸 Change Profile Picture</button>
     <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadPFP(this)">
-    <div class="mt-auto"><button onclick="logout()" class="w-full py-3 text-red-400 font-bold border border-red-900 rounded-lg">Logout</button></div>
+    <button onclick="logout()" class="mt-auto w-full py-3 text-red-400 font-bold border border-red-900/50 rounded-xl hover:bg-red-950/30 transition">Logout</button>
 </div>
 
-<div id="chat-main" class="flex flex-col h-full w-full">
-    <header class="p-4 bg-[#0f1524] flex justify-between items-center border-b border-[#1c2335]">
-        <div class="flex items-center gap-3">
-            <button onclick="toggleSidebar()" class="text-2xl p-1">☰</button>
+<div id="chat-main">
+    <header>
+        <div class="flex items-center gap-4">
+            <button onclick="toggleSidebar()" class="text-2xl text-slate-400">☰</button>
             <div>
-                <div class="font-bold text-blue-400 leading-none flex items-center gap-2">Chat <span id="topMood"></span> <span id="eye-indicator" class="hidden">👀</span></div>
-                <div id="status" class="text-[10px] text-gray-500 mt-1">Connecting...</div>
+                <div class="font-bold text-blue-400 flex items-center gap-2 text-lg">
+                    Chat <span id="topMood"></span> <span id="eye-indicator" class="hidden text-sm">👀</span>
+                </div>
+                <div id="status" class="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Syncing...</div>
             </div>
         </div>
     </header>
 
-    <div id="messages-container">
-        <main id="messages"></main>
-        <div id="typing-reveal"></div>
-    </div>
+    <main id="messages"></main>
 
     <div id="chat-form-container">
-        <div id="reply-preview">
-            <div class="text-xs truncate">Replying to: <span id="reply-text" class="opacity-60"></span></div>
-            <button onclick="cancelReply()" class="px-2 text-xl">&times;</button>
+        <div id="typing-reveal"></div>
+        <div id="reply-preview" class="hidden bg-slate-800/50 p-2 rounded-t-lg border-l-4 border-blue-500 flex justify-between items-center mb-2">
+            <div class="text-xs truncate text-slate-300">Replying: <span id="reply-text"></span></div>
+            <button onclick="cancelReply()" class="text-lg px-2">&times;</button>
         </div>
         <form id="chat-form">
-            <label class="cursor-pointer p-2 text-gray-400"><input type="file" id="fileIn" class="hidden" accept="image/*,video/*">📎</label>
-            <input id="msgIn" placeholder="Type a message..." autocomplete="off">
-            <button type="submit" id="sendBtn" class="bg-blue-600 px-6 py-2 rounded-full font-bold">Send</button>
+            <div id="input-wrapper">
+                <label class="cursor-pointer p-2 text-slate-400 hover:text-white transition">
+                    <input type="file" id="fileIn" class="hidden" accept="image/*,video/*">📎
+                </label>
+                <input id="msgIn" placeholder="Message..." autocomplete="off">
+                <button type="submit" id="sendBtn">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+                </button>
+            </div>
         </form>
     </div>
 </div>
 
 <div id="gallery-overlay">
-    <header class="p-4 flex justify-between items-center border-b border-gray-800">
-        <span class="font-bold">Media Gallery</span>
+    <header class="border-b border-slate-800">
+        <span class="font-bold">Gallery</span>
         <button onclick="toggleGallery()" class="text-3xl">&times;</button>
     </header>
-    <div id="gallery-grid" class="grid grid-cols-3 gap-1 p-1 overflow-y-auto"></div>
+    <div id="gallery-grid" class="grid grid-cols-3 gap-2 p-3 overflow-y-auto"></div>
 </div>
 
 <script>
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
-    
-    // Explicit config to help with WebSocket stability
-    const _db = supabase.createClient(SB_URL, SB_KEY, {
-        realtime: { params: { eventsPerSecond: 10 } }
-    });
-
+    const _db = supabase.createClient(SB_URL, SB_KEY);
     let me, you, profiles = {}, allMsgs = [], replyId = null, typingTimeout;
 
     async function login() {
-        const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
+        const code = localStorage.getItem('chat_secret_code') || prompt("Enter Access Code:");
         const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
-        if (!data) return;
+        if (!data) return alert("Invalid Code");
         me = data.username; you = (me === 'RJ') ? 'Allyvia' : 'RJ';
         localStorage.setItem('chat_secret_code', code);
         startChat();
@@ -116,30 +128,20 @@
     async function startChat() {
         await syncProfiles();
         loadMessages();
-        
-        // Force cleanup of any dead sockets
         await _db.removeAllChannels();
-        
-        const mainChannel = _db.channel('master-sync', { config: { ack: true } })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, (payload) => {
-                if (payload.new.username === you) updateTypingUI(payload.new);
-                profiles[payload.new.username] = payload.new;
-                syncHeader(payload.new);
+
+        _db.channel('master')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, (p) => {
+                if (p.new.username === you) updateTypingUI(p.new);
+                profiles[p.new.username] = p.new;
+                syncHeader(p.new);
             })
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, () => loadMessages())
-            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'private_messages' }, () => loadMessages())
-            .subscribe(async (status) => {
-                console.log(`[REALTIME STATUS] ${status}`);
-                document.getElementById('status').textContent = status === 'SUBSCRIBED' ? 'Online' : 'Connecting...';
-                
-                // If it times out, wait 1 second and force a full script refresh
-                if (status === 'TIMED_OUT') {
-                    console.error("Master Sync Timed Out. Retrying...");
-                    setTimeout(() => startChat(), 1000);
-                }
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages())
+            .subscribe((status) => {
+                document.getElementById('status').textContent = status === 'SUBSCRIBED' ? 'Online' : 'Reconnecting...';
+                if (status === 'TIMED_OUT') setTimeout(startChat, 2000);
             });
 
-        // Typing Update (Debounced to protect the socket)
         document.getElementById('msgIn').addEventListener('input', (e) => {
             clearTimeout(typingTimeout);
             typingTimeout = setTimeout(() => {
@@ -147,18 +149,16 @@
             }, 300);
         });
 
-        // Online Pulse
         setInterval(() => {
             if (document.visibilityState === 'visible') {
                 _db.from('chat_codes').update({ last_seen: new Date().toISOString(), is_watching: true }).eq('username', me);
             }
-        }, 10000);
+        }, 8000);
     }
 
     function updateTypingUI(user) {
         const rev = document.getElementById('typing-reveal');
-        if (user.typing_text && user.typing_text.length > 0) {
-            // Master View: RJ sees drafts, Allyvia sees "...is typing"
+        if (user.typing_text?.length > 0) {
             rev.textContent = (me === 'RJ') ? `${you}: ${user.typing_text}` : `${you} is typing...`;
         } else { rev.textContent = ''; }
     }
@@ -173,14 +173,14 @@
 
     async function syncProfiles() {
         const { data } = await _db.from('chat_codes').select('*');
-        data.forEach(u => { profiles[u.username] = u; syncHeader(u); });
+        data.forEach(u => profiles[u.username] = u);
         const m = profiles[me];
-        document.getElementById('sideAv').innerHTML = m?.avatar_url ? `<img src="${m.avatar_url}" class="w-full h-full rounded-full object-cover">` : me[0];
+        document.getElementById('sideAv').innerHTML = m?.avatar_url ? `<img src="${m.avatar_url}" class="w-full h-full object-cover">` : me[0];
         document.getElementById('sideName').textContent = me;
     }
 
     async function loadMessages() {
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(60);
+        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(50);
         allMsgs = data.reverse();
         render();
     }
@@ -191,16 +191,18 @@
             const isMe = m.sender === me;
             const u = profiles[m.sender];
             const parent = allMsgs.find(x => x.id === m.reply_to_id);
-            const pfp = u?.avatar_url ? `<img src="${u.avatar_url}" class="avatar-mini">` : `<div class="avatar-mini bg-gray-600 flex items-center justify-center text-xs">${m.sender[0]}</div>`;
+            const pfp = u?.avatar_url ? `<img src="${u.avatar_url}" class="avatar-mini">` : `<div class="avatar-mini bg-slate-600 flex items-center justify-center text-xs">${m.sender[0]}</div>`;
             return `
-                <div class="msg-row ${isMe ? 'row-self' : ''}" data-id="${m.id}" data-text="${(m.message || 'Media').replace(/'/g, "\\")}" ontouchstart="ts(event)" ontouchend="te(event)" ondblclick="setupReply('${m.id}', '${(m.message || '').replace(/'/g, "\\")}')">
+                <div class="msg-row ${isMe ? 'row-self' : ''}" ondblclick="setupReply('${m.id}', '${(m.message || 'Media').replace(/'/g, "\\")}')">
                     ${pfp}
                     <div class="msg ${isMe ? 'self' : 'other'}">
-                        ${m.reply_to_id ? `<div class="reply-box">⤴️ ${parent ? (parent.message || 'Media') : 'Deleted'}</div>` : ''}
-                        ${m.file_url ? `<img src="${m.file_url}" class="media-content" onclick="window.open('${m.file_url}')">` : ''}
+                        ${m.reply_to_id ? `<div class="reply-tag">⤴️ ${parent?.message || 'Original Message'}</div>` : ''}
+                        ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-w-full cursor-pointer" onclick="window.open('${m.file_url}')">` : ''}
                         <div>${m.message || ''}</div>
-                        <div class="msg-meta">${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} 
-                        ${isMe ? `<span class="inner-trash" onclick="deleteMsg('${m.id}', '${(m.message || '').replace(/'/g, "\\")}')">🗑️</span>` : ''}</div>
+                        <div class="msg-meta">
+                            ${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                            ${isMe ? `<span class="cursor-pointer text-red-300" onclick="deleteMsg('${m.id}')">🗑️</span>` : ''}
+                        </div>
                     </div>
                 </div>`;
         }).join('');
@@ -209,10 +211,9 @@
 
     document.getElementById('chat-form').onsubmit = async (e) => {
         e.preventDefault();
-        const msgIn = document.getElementById('msgIn'), fileIn = document.getElementById('fileIn'), text = msgIn.value.trim(), rid = replyId;
+        const msgIn = document.getElementById('msgIn'), fileIn = document.getElementById('fileIn'), text = msgIn.value.trim();
         if (!text && !fileIn.files[0]) return;
         
-        document.getElementById('sendBtn').disabled = true;
         let fUrl = null;
         if (fileIn.files[0]) {
             const f = fileIn.files[0], fName = `${Date.now()}_${f.name}`;
@@ -220,49 +221,24 @@
             if (data) fUrl = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
         }
 
-        msgIn.value = ''; fileIn.value = ''; cancelReply();
+        const rid = replyId; msgIn.value = ''; fileIn.value = ''; cancelReply();
         _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
         await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text, file_url: fUrl, reply_to_id: rid }]);
-        document.getElementById('sendBtn').disabled = false;
     };
 
-    window.setupReply = (id, text) => { replyId = id; document.getElementById('reply-text').textContent = text; document.getElementById('reply-preview').style.display = 'flex'; document.getElementById('msgIn').focus(); };
-    window.cancelReply = () => { replyId = null; document.getElementById('reply-preview').style.display = 'none'; };
-    window.deleteMsg = async (id, originalText) => { if(confirm("Delete?")) { await _db.from('deleted_log').insert([{ sender: me, message: originalText }]); await _db.from('private_messages').delete().eq('id', id); } };
-    
+    window.setupReply = (id, text) => { replyId = id; document.getElementById('reply-text').textContent = text; document.getElementById('reply-preview').classList.remove('hidden'); document.getElementById('msgIn').focus(); };
+    window.cancelReply = () => { replyId = null; document.getElementById('reply-preview').classList.add('hidden'); };
+    window.deleteMsg = async (id) => { if(confirm("Delete?")) await _db.from('private_messages').delete().eq('id', id); };
+    window.toggleSidebar = () => { const s = document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = s ? 'block' : 'none'; };
+    window.changeMood = async () => { const m = prompt("Set Status/Mood Emoji:"); if(m) await _db.from('chat_codes').update({ mood: m }).eq('username', me); };
     window.toggleGallery = async () => {
         const g = document.getElementById('gallery-overlay');
         g.style.display = g.style.display === 'flex' ? 'none' : 'flex';
         if (g.style.display === 'flex') {
             const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', { ascending: false });
-            document.getElementById('gallery-grid').innerHTML = data.map(i => `
-                <div class="gallery-item h-40" ondblclick="heartPhoto(this)">
-                    <img src="${i.file_url}" class="object-cover w-full h-full rounded-md">
-                    <div class="heart-icon">❤️</div>
-                </div>`).join('');
+            document.getElementById('gallery-grid').innerHTML = data.map(i => `<div class="gallery-item"><img src="${i.file_url}" class="w-full h-full object-cover"></div>`).join('');
         }
     };
-
-    window.heartPhoto = (el) => {
-        const heart = el.querySelector('.heart-icon');
-        heart.classList.add('heart-active');
-        setTimeout(() => heart.classList.remove('heart-active'), 800);
-    };
-
-    window.uploadPFP = async (input) => {
-        const f = input.files[0]; if (!f) return;
-        const fName = `pfp_${me}_${Date.now()}`;
-        const { data } = await _db.storage.from('chat-files').upload(fName, f);
-        if (data) {
-            const url = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
-            await _db.from('chat_codes').update({ avatar_url: url }).eq('username', me);
-        }
-    };
-
-    let sx=0; window.ts = (e) => sx = e.touches[0].clientX;
-    window.te = (e) => { if(e.changedTouches[0].clientX - sx > 60) setupReply(e.currentTarget.dataset.id, e.currentTarget.dataset.text); };
-    window.toggleSidebar = () => { const s = document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = s ? 'block' : 'none'; };
-    window.changeMood = async () => { const m = prompt("Mood:"); if(m) await _db.from('chat_codes').update({ mood: m }).eq('username', me); };
     window.logout = () => { localStorage.removeItem('chat_secret_code'); window.location.reload(); };
     login();
 </script>
