@@ -3,45 +3,36 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>ChatWebb v3</title>
+    <title>ChatWebb</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root { --bg: #0b0f1a; --card: #161b2c; --accent: #3b82f6; }
         body { background: var(--bg); color: white; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; height: 100vh; overflow: hidden; margin: 0; }
         
-        /* Sidebar */
         #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: #0f172a; z-index: 600; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); border-right: 1px solid #1e293b; padding: 20px; display: flex; flex-direction: column; }
         #sidebar.open { left: 0; box-shadow: 20px 0 50px rgba(0,0,0,0.8); }
         #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 550; backdrop-filter: blur(4px); }
         
-        /* Main Layout */
         #chat-main { flex: 1; display: flex; flex-direction: column; height: 100%; }
         header { padding: 12px 20px; background: rgba(11, 15, 26, 0.95); border-bottom: 1px solid #1e293b; display: flex; align-items: center; justify-content: space-between; }
         
-        /* Message Area */
         #messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; scroll-behavior: smooth; }
         .msg-row { display: flex; width: 100%; margin: 2px 0; }
         .row-self { justify-content: flex-end; }
         
-        /* Message Bubble with PFP Background */
-        .msg { 
-            max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 15px; position: relative; 
-            overflow: hidden; z-index: 1; 
-        }
-        .msg::before {
-            content: ""; position: absolute; inset: 0; opacity: 0.12; z-index: -1;
-            background-position: center; background-size: cover; background-repeat: no-repeat;
-        }
+        .msg { max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 15px; position: relative; overflow: hidden; z-index: 1; cursor: pointer; }
+        .msg::before { content: ""; position: absolute; inset: 0; opacity: 0.12; z-index: -1; background-position: center; background-size: cover; background-repeat: no-repeat; }
         .self { background: var(--accent); color: white; border-bottom-right-radius: 4px; }
         .self::before { background-image: var(--self-pfp); }
         .other { background: var(--card); border: 1px solid #2d3748; border-bottom-left-radius: 4px; }
         .other::before { background-image: var(--other-pfp); }
         
-        /* The Typing Bar */
-        #typing-reveal { min-height: 35px; padding: 4px 20px; font-size: 13px; color: #60a5fa; font-weight: 600; display: flex; align-items: center; background: rgba(30, 41, 59, 0.8); border-top: 1px solid #1e293b; font-style: italic; }
+        /* Reply Styling */
+        .reply-preview { font-size: 11px; opacity: 0.7; border-left: 2px solid #3b82f6; padding-left: 8px; margin-bottom: 4px; background: rgba(255,255,255,0.05); border-radius: 4px; padding: 4px; }
+        #reply-bar { display: none; background: #1e293b; padding: 8px 15px; border-top: 1px solid #334155; align-items: center; justify-content: space-between; font-size: 12px; }
 
-        /* Input Zone */
+        #typing-reveal { min-height: 35px; padding: 4px 20px; font-size: 13px; color: #60a5fa; font-weight: 600; display: flex; align-items: center; background: rgba(30, 41, 59, 0.8); border-top: 1px solid #1e293b; font-style: italic; }
         #chat-form-container { background: var(--bg); border-top: 1px solid #1e293b; padding-bottom: env(safe-area-inset-bottom); }
         #input-wrapper { background: #1e293b; border-radius: 24px; margin: 8px 12px; padding: 4px 12px; display: flex; align-items: center; border: 1px solid #334155; }
         input#msgIn { flex: 1; background: transparent; border: none; padding: 8px; color: white; outline: none; }
@@ -79,6 +70,10 @@
     <main id="messages"></main>
 
     <div id="chat-form-container">
+        <div id="reply-bar">
+            <div id="reply-text" class="truncate"></div>
+            <button onclick="cancelReply()" class="text-red-400 ml-4 font-bold">✕</button>
+        </div>
         <div id="typing-reveal"></div>
         <form id="chat-form">
             <div id="input-wrapper">
@@ -102,7 +97,7 @@
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
-    let me, you, profiles = {}, typingTimeout;
+    let me, you, profiles = {}, typingTimeout, replyData = null;
 
     async function start() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
@@ -114,21 +109,14 @@
         await syncProfiles();
         loadMessages();
         
-        // INTEGRATED DEBUG TYPING LOGIC
         _db.channel('global')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_codes' }, (payload) => {
-                const updatedUser = payload.new.username;
-                const typingText = payload.new.typing_text;
-
-                if (updatedUser === you) {
+                if (payload.new.username === you) {
                     const rev = document.getElementById('typing-reveal');
-                    if (typingText && typingText.length > 0) {
-                        rev.innerHTML = (me === 'RJ') 
-                            ? `<span class="text-blue-400 mr-2">●</span> ${you}: ${typingText}` 
-                            : `<span class="animate-pulse text-blue-400 mr-2">●</span> ${you} is typing...`;
-                    } else {
-                        rev.innerHTML = "";
-                    }
+                    const text = payload.new.typing_text;
+                    if (text && text.length > 0) {
+                        rev.innerHTML = (me === 'RJ') ? `● ${you}: ${text}` : `● ${you} is typing...`;
+                    } else { rev.innerHTML = ""; }
                     document.getElementById('topMood').textContent = payload.new.mood ? `(${payload.new.mood})` : "";
                 }
             })
@@ -137,13 +125,14 @@
                 document.getElementById('conn-status').textContent = status === 'SUBSCRIBED' ? '● Live' : '● Connecting...';
             });
 
-        // OPTIMIZED TYPING BROADCAST
         document.getElementById('msgIn').addEventListener('input', (e) => {
             clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(async () => {
-                const val = e.target.value;
-                await _db.from('chat_codes').update({ typing_text: val }).eq('username', me);
-            }, 150);
+            // Instant broadcast
+            _db.from('chat_codes').update({ typing_text: e.target.value }).eq('username', me);
+            // The 3-second inactivity timer to hide typing
+            typingTimeout = setTimeout(() => {
+                _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
+            }, 3000);
         });
 
         window.addEventListener('focus', markAsRead);
@@ -163,9 +152,8 @@
     }
 
     async function loadMessages() {
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(40);
+        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(50);
         const box = document.getElementById('messages');
-        
         const myPfp = profiles[me]?.avatar_url ? `url(${profiles[me].avatar_url})` : 'none';
         const yourPfp = profiles[you]?.avatar_url ? `url(${profiles[you].avatar_url})` : 'none';
 
@@ -173,21 +161,35 @@
             const isMe = m.sender === me;
             const pfpStyle = isMe ? `--self-pfp: ${myPfp}` : `--other-pfp: ${yourPfp}`;
             const readStatus = m.is_read ? 'text-blue-400' : 'text-gray-500';
+            const cleanMsg = m.message ? m.message.replace(/"/g, '&quot;') : '';
 
             return `
             <div class="msg-row ${isMe ? 'row-self' : ''}">
-                <div class="msg ${isMe ? 'self' : 'other'}" style="${pfpStyle}">
+                <div class="msg ${isMe ? 'self' : 'other'}" style="${pfpStyle}" onclick="setReply('${m.sender}', '${cleanMsg}')">
+                    ${m.reply_to ? `<div class="reply-preview">↳ ${m.reply_to}</div>` : ''}
                     ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-w-full">` : ''}
                     <div class="whitespace-pre-wrap">${m.message || ''}</div>
                     <div class="text-[8px] opacity-60 text-right mt-1 flex items-center justify-end gap-1">
                         ${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
                         ${isMe ? `<span class="${readStatus}">✔✔</span>` : ''}
-                        ${isMe ? `<span class="ml-1 cursor-pointer" onclick="deleteM('${m.id}')">🗑️</span>` : ''}
+                        ${isMe ? `<span class="ml-1 cursor-pointer" onclick="deleteM(event, '${m.id}')">🗑️</span>` : ''}
                     </div>
                 </div>
             </div>`}).join('');
         box.scrollTop = box.scrollHeight;
     }
+
+    window.setReply = (sender, text) => {
+        replyData = `${sender}: ${text}`;
+        document.getElementById('reply-text').textContent = `Replying to ${replyData}`;
+        document.getElementById('reply-bar').style.display = 'flex';
+        document.getElementById('msgIn').focus();
+    };
+
+    window.cancelReply = () => {
+        replyData = null;
+        document.getElementById('reply-bar').style.display = 'none';
+    };
 
     document.getElementById('chat-form').onsubmit = async (e) => {
         e.preventDefault();
@@ -201,12 +203,18 @@
             if (data) fUrl = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
         }
 
-        const txt = msgIn.value; msgIn.value = ''; fileIn.value = '';
+        const txt = msgIn.value;
+        const currentReply = replyData;
+        msgIn.value = ''; fileIn.value = '';
+        cancelReply();
+
         await _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: txt, file_url: fUrl, is_read: false }]);
+        await _db.from('private_messages').insert([{ 
+            sender: me, receiver: you, message: txt, file_url: fUrl, is_read: false, reply_to: currentReply 
+        }]);
     };
 
-    window.deleteM = async (id) => { if(confirm("Delete?")) await _db.from('private_messages').delete().eq('id', id); };
+    window.deleteM = async (e, id) => { e.stopPropagation(); if(confirm("Delete?")) await _db.from('private_messages').delete().eq('id', id); };
     window.toggleSidebar = () => { const s = document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = s ? 'block' : 'none'; };
     window.toggleGallery = async () => {
         const g = document.getElementById('gallery-overlay');
