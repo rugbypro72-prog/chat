@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>ChatWeb</title>
+    <title>ChatWebb</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -25,27 +25,19 @@
         .self { background: var(--accent); border-bottom-right-radius: 2px; }
         .other { background: var(--card); border-bottom-left-radius: 2px; }
         
+        .reply-box { background: rgba(0,0,0,0.2); border-left: 3px solid #60a5fa; padding: 5px 8px; margin-bottom: 6px; border-radius: 4px; font-size: 11px; color: #93c5fd; }
         .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 4px; font-size: 10px; opacity: 0.7; }
         .inner-trash { cursor: pointer; color: #ff8080; font-size: 12px; margin-left: 4px; }
 
         #chat-form-container { background: #101426; border-top: 1px solid #1c2335; padding-bottom: env(safe-area-inset-bottom); }
+        #reply-preview { display: none; background: #161b2e; padding: 10px; border-left: 4px solid #3b82f6; align-items: center; justify-content: space-between; }
         #chat-form { padding: 12px; display: flex; align-items: center; gap: 10px; }
         input#msgIn { flex: 1; background: #1c2335; border: none; padding: 12px; border-radius: 20px; color: white; outline: none; }
         
-        /* THE REPLICATED TYPING BOX */
-        #typing-reveal { 
-            padding: 10px 20px; 
-            font-size: 12px; 
-            color: #60a5fa; 
-            font-weight: 500; 
-            font-style: italic; 
-            min-height: 32px;
-            background: rgba(10, 15, 26, 0.8);
-            border-top: 1px solid rgba(255,255,255,0.05);
-        }
+        #typing-reveal { padding: 10px 20px; font-size: 12px; color: #60a5fa; font-weight: 500; font-style: italic; min-height: 32px; background: rgba(10, 15, 26, 0.8); }
         
         #gallery-overlay { display: none; position: fixed; inset: 0; background: #0a0f1a; z-index: 700; flex-direction: column; }
-        .media-content { border-radius: 12px; max-height: 250px; width: 100%; object-fit: cover; margin-top: 5px; }
+        .media-content { border-radius: 12px; max-height: 250px; width: 100%; object-fit: cover; margin-top: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -81,6 +73,10 @@
     </div>
 
     <div id="chat-form-container">
+        <div id="reply-preview">
+            <div class="text-xs truncate">Replying to: <span id="reply-text" class="opacity-60"></span></div>
+            <button onclick="cancelReply()" class="px-2 text-xl">&times;</button>
+        </div>
         <form id="chat-form">
             <label class="cursor-pointer p-2 text-gray-400"><input type="file" id="fileIn" class="hidden" accept="image/*,video/*">📎</label>
             <input id="msgIn" placeholder="Type a message..." autocomplete="off">
@@ -101,7 +97,7 @@
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
-    let me, you, profiles = {}, allMsgs = [];
+    let me, you, profiles = {}, allMsgs = [], replyId = null, typingTimeout;
 
     async function login() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
@@ -115,39 +111,43 @@
     async function startChat() {
         await syncProfiles();
         loadMessages();
+        _db.removeAllChannels();
 
-        // THE FIXED REALTIME LOGIC
-        _db.channel('public-room')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, (payload) => {
-                // If the other person's row changed, update the UI immediately
-                if (payload.new.username === you) {
-                    updateTypingUI(payload.new);
-                }
-                syncProfiles();
+        _db.channel('master-stream')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_codes' }, (payload) => {
+                if (payload.new.username === you) updateTypingUI(payload.new);
+                profiles[payload.new.username] = payload.new;
+                syncHeader(payload.new);
             })
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, () => loadMessages())
-            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'private_messages' }, () => loadMessages())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages())
             .subscribe();
 
-        // Typing event listener
         document.getElementById('msgIn').addEventListener('input', (e) => {
-            _db.from('chat_codes').update({ typing_text: e.target.value }).eq('username', me);
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                _db.from('chat_codes').update({ typing_text: e.target.value }).eq('username', me);
+            }, 300);
         });
 
-        // Online status heartbeat
         setInterval(() => {
             const isWatching = document.visibilityState === 'visible';
             _db.from('chat_codes').update({ last_seen: new Date().toISOString(), is_watching: isWatching }).eq('username', me);
-        }, 5000);
+        }, 8000);
     }
 
     function updateTypingUI(user) {
         const rev = document.getElementById('typing-reveal');
         if (user.typing_text && user.typing_text.length > 0) {
-            // Power Dynamic: RJ sees the text, Allyvia sees "...is typing"
             rev.textContent = (me === 'RJ') ? `${you}: ${user.typing_text}` : `${you} is typing...`;
-        } else {
-            rev.textContent = '';
+        } else { rev.textContent = ''; }
+    }
+
+    function syncHeader(u) {
+        if (u.username === you) {
+            document.getElementById('topMood').textContent = u.mood || '';
+            const diff = (new Date() - new Date(u.last_seen)) / 1000;
+            document.getElementById('status').textContent = diff < 25 ? 'Online' : 'Away';
+            document.getElementById('eye-indicator').classList.toggle('hidden', !u.is_watching || diff > 25);
         }
     }
 
@@ -155,20 +155,15 @@
         const { data } = await _db.from('chat_codes').select('*');
         data.forEach(u => {
             profiles[u.username] = u;
-            if (u.username === you) {
-                document.getElementById('topMood').textContent = u.mood || '';
-                const diff = (new Date() - new Date(u.last_seen)) / 1000;
-                document.getElementById('status').textContent = diff < 20 ? 'Online' : 'Away';
-                document.getElementById('eye-indicator').classList.toggle('hidden', !u.is_watching || diff > 20);
-                updateTypingUI(u);
-            }
+            syncHeader(u);
         });
         const m = profiles[me];
         document.getElementById('sideAv').innerHTML = m?.avatar_url ? `<img src="${m.avatar_url}" class="w-full h-full rounded-full object-cover">` : me[0];
+        document.getElementById('sideName').textContent = me;
     }
 
     async function loadMessages() {
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(50);
+        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(60);
         allMsgs = data.reverse();
         render();
     }
@@ -178,11 +173,13 @@
         box.innerHTML = allMsgs.map(m => {
             const isMe = m.sender === me;
             const u = profiles[m.sender];
-            const pfp = u?.avatar_url ? `<img src="${u.avatar_url}" class="avatar-mini">` : `<div class="avatar-mini bg-gray-600 flex items-center justify-center">${m.sender[0]}</div>`;
+            const parent = allMsgs.find(x => x.id === m.reply_to_id);
+            const pfp = u?.avatar_url ? `<img src="${u.avatar_url}" class="avatar-mini">` : `<div class="avatar-mini bg-gray-600 flex items-center justify-center text-xs">${m.sender[0]}</div>`;
             return `
-                <div class="msg-row ${isMe ? 'row-self' : ''}">
+                <div class="msg-row ${isMe ? 'row-self' : ''}" data-id="${m.id}" data-text="${(m.message || 'Media').replace(/'/g, "\\")}" ontouchstart="ts(event)" ontouchend="te(event)" ondblclick="setupReply('${m.id}', '${(m.message || '').replace(/'/g, "\\")}')">
                     ${pfp}
                     <div class="msg ${isMe ? 'self' : 'other'}">
+                        ${m.reply_to_id ? `<div class="reply-box">⤴️ ${parent ? (parent.message || 'Media') : 'Deleted'}</div>` : ''}
                         ${m.file_url ? `<img src="${m.file_url}" class="media-content" onclick="window.open('${m.file_url}')">` : ''}
                         <div>${m.message || ''}</div>
                         <div class="msg-meta">${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} 
@@ -195,29 +192,26 @@
 
     document.getElementById('chat-form').onsubmit = async (e) => {
         e.preventDefault();
-        const msgIn = document.getElementById('msgIn'), fileIn = document.getElementById('fileIn'), text = msgIn.value.trim();
+        const msgIn = document.getElementById('msgIn'), fileIn = document.getElementById('fileIn'), text = msgIn.value.trim(), rid = replyId;
         if (!text && !fileIn.files[0]) return;
         
+        document.getElementById('sendBtn').disabled = true;
         let fUrl = null;
         if (fileIn.files[0]) {
-            const f = fileIn.files[0];
-            const fName = `${Date.now()}_${f.name}`;
+            const f = fileIn.files[0], fName = `${Date.now()}_${f.name}`;
             const { data } = await _db.storage.from('chat-files').upload(fName, f);
             if (data) fUrl = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
         }
 
-        msgIn.value = '';
-        fileIn.value = '';
+        msgIn.value = ''; fileIn.value = ''; cancelReply();
         _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text, file_url: fUrl }]);
+        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text, file_url: fUrl, reply_to_id: rid }]);
+        document.getElementById('sendBtn').disabled = false;
     };
 
-    window.deleteMsg = async (id, originalText) => {
-        if(!confirm("Log and delete?")) return;
-        await _db.from('deleted_log').insert([{ sender: me, message: originalText }]);
-        await _db.from('private_messages').delete().eq('id', id);
-    };
-
+    window.setupReply = (id, text) => { replyId = id; document.getElementById('reply-text').textContent = text; document.getElementById('reply-preview').style.display = 'flex'; document.getElementById('msgIn').focus(); };
+    window.cancelReply = () => { replyId = null; document.getElementById('reply-preview').style.display = 'none'; };
+    window.deleteMsg = async (id, originalText) => { if(confirm("Delete?")) { await _db.from('deleted_log').insert([{ sender: me, message: originalText }]); await _db.from('private_messages').delete().eq('id', id); } };
     window.toggleGallery = async () => {
         const g = document.getElementById('gallery-overlay');
         g.style.display = g.style.display === 'flex' ? 'none' : 'flex';
@@ -226,7 +220,6 @@
             document.getElementById('gallery-grid').innerHTML = data.map(i => `<img src="${i.file_url}" class="aspect-square object-cover" onclick="window.open('${i.file_url}')">`).join('');
         }
     };
-
     window.uploadPFP = async (input) => {
         const f = input.files[0]; if (!f) return;
         const fName = `pfp_${me}_${Date.now()}`;
@@ -236,7 +229,8 @@
             await _db.from('chat_codes').update({ avatar_url: url }).eq('username', me);
         }
     };
-
+    let sx=0; window.ts = (e) => sx = e.touches[0].clientX;
+    window.te = (e) => { if(e.changedTouches[0].clientX - sx > 60) setupReply(e.currentTarget.dataset.id, e.currentTarget.dataset.text); };
     window.toggleSidebar = () => { const s = document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = s ? 'block' : 'none'; };
     window.changeMood = async () => { const m = prompt("Mood:"); if(m) await _db.from('chat_codes').update({ mood: m }).eq('username', me); };
     window.logout = () => { localStorage.removeItem('chat_secret_code'); window.location.reload(); };
