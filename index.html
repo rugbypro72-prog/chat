@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>ChatWebb Mr</title>
+    <title>ChatWebb Master</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -26,26 +26,27 @@
         .self { background: var(--accent); border-bottom-right-radius: 4px; }
         .other { background: var(--card); border-bottom-left-radius: 4px; border: 1px solid #334155; }
         
-        /* Master View Typing Zone */
+        /* THE MASTER VIEW ZONE */
         #typing-reveal { 
             font-size: 13px; 
             color: #60a5fa; 
-            font-weight: 500; 
-            min-height: 24px; 
-            padding: 8px 20px; 
+            font-weight: 600; 
+            min-height: 35px; 
+            padding: 0 20px; 
             font-style: italic; 
-            background: rgba(59, 130, 246, 0.05); 
-            border-top: 1px solid rgba(59, 130, 246, 0.2);
+            background: rgba(30, 41, 59, 0.8);
+            border-top: 1px solid #334155;
             display: flex;
             align-items: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        #chat-form-container { background: #0f172a; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+        #chat-form-container { background: #0f172a; border-top: 1px solid #334155; padding-bottom: env(safe-area-inset-bottom); }
         #input-wrapper { background: #1e293b; border-radius: 24px; margin: 10px; padding: 4px 8px; display: flex; align-items: center; gap: 8px; border: 1px solid #334155; }
         input#msgIn { flex: 1; background: transparent; border: none; padding: 10px 12px; color: white; outline: none; font-size: 15px; }
         #sendBtn { background: #3b82f6; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-
-        .reply-tag { background: rgba(0,0,0,0.2); border-left: 3px solid #60a5fa; padding: 4px 8px; border-radius: 4px; font-size: 11px; margin-bottom: 6px; color: #94a3b8; }
     </style>
 </head>
 <body>
@@ -55,10 +56,7 @@
 <div id="sidebar">
     <div class="flex items-center gap-3 mb-4">
         <div id="sideAv" class="w-12 h-12 rounded-xl bg-slate-700 flex items-center justify-center font-bold border-2 border-blue-500 overflow-hidden"></div>
-        <div>
-            <div class="font-bold text-lg" id="sideName">User</div>
-            <div class="text-xs text-slate-400">Settings</div>
-        </div>
+        <div class="font-bold text-lg" id="sideName">User</div>
     </div>
     <button onclick="toggleGallery()" class="text-left p-3 hover:bg-slate-800 rounded-xl transition">🖼️ Media Gallery</button>
     <button onclick="changeMood()" class="text-left p-3 hover:bg-slate-800 rounded-xl transition">✨ Update Status</button>
@@ -73,7 +71,7 @@
             <button onclick="toggleSidebar()" class="text-2xl text-slate-400">☰</button>
             <div>
                 <div class="font-bold text-blue-400 flex items-center gap-2 text-lg">Chat <span id="topMood"></span> <span id="eye-indicator" class="hidden">👀</span></div>
-                <div id="status" class="text-[10px] text-slate-500 uppercase">Connecting...</div>
+                <div id="status" class="text-[10px] text-slate-500 uppercase tracking-tighter">Online</div>
             </div>
         </div>
     </header>
@@ -82,10 +80,6 @@
 
     <div id="chat-form-container">
         <div id="typing-reveal"></div>
-        <div id="reply-preview" class="hidden bg-slate-800 p-2 border-l-4 border-blue-500 flex justify-between items-center mx-2 rounded">
-            <div class="text-xs truncate text-slate-300">Replying: <span id="reply-text"></span></div>
-            <button onclick="cancelReply()" class="px-2">&times;</button>
-        </div>
         <form id="chat-form">
             <div id="input-wrapper">
                 <label class="cursor-pointer p-2 text-slate-400"><input type="file" id="fileIn" class="hidden" accept="image/*,video/*">📎</label>
@@ -100,7 +94,7 @@
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
-    let me, you, profiles = {}, allMsgs = [], replyId = null, typingTimeout;
+    let me, you, profiles = {}, allMsgs = [], typingTimeout;
 
     async function login() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
@@ -114,41 +108,61 @@
     async function startChat() {
         await syncProfiles();
         loadMessages();
+        
+        // Remove all old channels to prevent "ghost" connections
         await _db.removeAllChannels();
 
-        _db.channel('global')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, (p) => {
-                if (p.new.username === you) updateTypingUI(p.new);
-                profiles[p.new.username] = p.new;
-                syncHeader(p.new);
+        // Listen for ANY change in the chat_codes table
+        _db.channel('room1')
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_codes' }, (payload) => {
+                console.log("Update received for:", payload.new.username);
+                
+                // Update local profile data
+                profiles[payload.new.username] = payload.new;
+                
+                // If the update is from the OTHER person, update typing UI immediately
+                if (payload.new.username === you) {
+                    updateTypingUI(payload.new);
+                    syncHeader(payload.new);
+                    
+                    // Visual sync indicator in status
+                    const s = document.getElementById('status');
+                    s.textContent = "SYNCING...";
+                    s.style.color = "#60a5fa";
+                    setTimeout(() => { s.textContent = "Online"; s.style.color = ""; }, 500);
+                }
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages())
-            .subscribe((status) => {
-                document.getElementById('status').textContent = status === 'SUBSCRIBED' ? 'Online' : 'Linking...';
-            });
+            .subscribe();
 
+        // Broadcast your typing
         document.getElementById('msgIn').addEventListener('input', (e) => {
             clearTimeout(typingTimeout);
             typingTimeout = setTimeout(() => {
                 _db.from('chat_codes').update({ typing_text: e.target.value }).eq('username', me);
-            }, 250);
+            }, 150); // Faster broadcast
         });
 
+        // Online Pulse
         setInterval(() => {
             if (document.visibilityState === 'visible') {
                 _db.from('chat_codes').update({ last_seen: new Date().toISOString(), is_watching: true }).eq('username', me);
             }
-        }, 8000);
+        }, 5000);
     }
 
     function updateTypingUI(user) {
         const rev = document.getElementById('typing-reveal');
-        if (user.typing_text && user.typing_text.length > 0) {
-            // THE MASTER VIEW LOGIC:
-            // If you are RJ, you see her text. If you are Allyvia, you only see "...typing"
-            rev.textContent = (me === 'RJ') ? `${you}: ${user.typing_text}` : `${you} is typing...`;
+        const text = user.typing_text || "";
+        
+        if (text.length > 0) {
+            // RJ sees what she is actually typing
+            // Allyvia only sees "...is typing"
+            rev.innerHTML = (me === 'RJ') 
+                ? `<span class="text-blue-400 mr-2">●</span> ${you}: ${text}` 
+                : `<span class="animate-pulse text-blue-400 mr-2">●</span> ${you} is typing...`;
         } else {
-            rev.textContent = '';
+            rev.innerHTML = "";
         }
     }
 
@@ -156,7 +170,7 @@
         if (u.username === you) {
             document.getElementById('topMood').textContent = u.mood || '';
             const diff = (new Date() - new Date(u.last_seen)) / 1000;
-            document.getElementById('eye-indicator').classList.toggle('hidden', !u.is_watching || diff > 30);
+            document.getElementById('eye-indicator').classList.toggle('hidden', !u.is_watching || diff > 20);
         }
     }
 
@@ -169,7 +183,7 @@
     }
 
     async function loadMessages() {
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(50);
+        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(40);
         allMsgs = data.reverse();
         render();
     }
@@ -179,13 +193,11 @@
         box.innerHTML = allMsgs.map(m => {
             const isMe = m.sender === me;
             const u = profiles[m.sender];
-            const parent = allMsgs.find(x => x.id === m.reply_to_id);
             const pfp = u?.avatar_url ? `<img src="${u.avatar_url}" class="avatar-mini">` : `<div class="avatar-mini bg-slate-600 flex items-center justify-center text-xs">${m.sender[0]}</div>`;
             return `
-                <div class="msg-row ${isMe ? 'row-self' : ''}" ondblclick="setupReply('${m.id}', '${(m.message || '').replace(/'/g, "\\")}')">
+                <div class="msg-row ${isMe ? 'row-self' : ''}">
                     ${pfp}
                     <div class="msg ${isMe ? 'self' : 'other'}">
-                        ${m.reply_to_id ? `<div class="reply-tag">⤴️ ${parent?.message || 'Media'}</div>` : ''}
                         ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-w-full">` : ''}
                         <div>${m.message || ''}</div>
                         <div class="text-[9px] opacity-40 mt-1 text-right">${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
@@ -207,15 +219,12 @@
             if (data) fUrl = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
         }
 
-        const rid = replyId; msgIn.value = ''; fileIn.value = ''; cancelReply();
+        msgIn.value = ''; fileIn.value = '';
         _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text, file_url: fUrl, reply_to_id: rid }]);
+        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text, file_url: fUrl }]);
     };
 
-    window.setupReply = (id, text) => { replyId = id; document.getElementById('reply-text').textContent = text; document.getElementById('reply-preview').classList.remove('hidden'); document.getElementById('msgIn').focus(); };
-    window.cancelReply = () => { replyId = null; document.getElementById('reply-preview').classList.add('hidden'); };
     window.toggleSidebar = () => { const s = document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = s ? 'block' : 'none'; };
-    window.changeMood = async () => { const m = prompt("New Mood:"); if(m) await _db.from('chat_codes').update({ mood: m }).eq('username', me); };
     window.logout = () => { localStorage.removeItem('chat_secret_code'); window.location.reload(); };
     login();
 </script>
