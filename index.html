@@ -37,6 +37,9 @@
         #typing-reveal { padding: 10px 20px; font-size: 12px; color: #60a5fa; font-weight: 500; font-style: italic; min-height: 32px; background: rgba(10, 15, 26, 0.8); }
         
         #gallery-overlay { display: none; position: fixed; inset: 0; background: #0a0f1a; z-index: 700; flex-direction: column; }
+        .gallery-item { position: relative; cursor: pointer; }
+        .heart-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); transition: 0.3s; font-size: 40px; pointer-events: none; }
+        .heart-active { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
         .media-content { border-radius: 12px; max-height: 250px; width: 100%; object-fit: cover; margin-top: 5px; cursor: pointer; }
     </style>
 </head>
@@ -105,6 +108,7 @@
         if (!data) return;
         me = data.username; you = (me === 'RJ') ? 'Allyvia' : 'RJ';
         localStorage.setItem('chat_secret_code', code);
+        console.log(`[AUTH] Logged in as ${me}. Partner is ${you}`);
         startChat();
     }
 
@@ -113,18 +117,25 @@
         loadMessages();
         _db.removeAllChannels();
 
-        _db.channel('master-stream')
+        console.log("[SYSTEM] Initializing Realtime Channels...");
+
+        const master = _db.channel('master-stream')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_codes' }, (payload) => {
-                if (payload.new.username === you) updateTypingUI(payload.new);
+                console.log(`[REALTIME] Database Update for ${payload.new.username}:`, payload.new.typing_text);
+                if (payload.new.username === you) {
+                    console.log(`[DEBUG] Updating Typing UI with: "${payload.new.typing_text}"`);
+                    updateTypingUI(payload.new);
+                }
                 profiles[payload.new.username] = payload.new;
                 syncHeader(payload.new);
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages())
-            .subscribe();
+            .subscribe((status) => console.log(`[SYSTEM] Connection Status: ${status}`));
 
         document.getElementById('msgIn').addEventListener('input', (e) => {
             clearTimeout(typingTimeout);
             typingTimeout = setTimeout(() => {
+                console.log(`[DEBUG] Sending Typing Update: "${e.target.value}"`);
                 _db.from('chat_codes').update({ typing_text: e.target.value }).eq('username', me);
             }, 300);
         });
@@ -139,7 +150,9 @@
         const rev = document.getElementById('typing-reveal');
         if (user.typing_text && user.typing_text.length > 0) {
             rev.textContent = (me === 'RJ') ? `${you}: ${user.typing_text}` : `${you} is typing...`;
-        } else { rev.textContent = ''; }
+        } else { 
+            rev.textContent = ''; 
+        }
     }
 
     function syncHeader(u) {
@@ -153,10 +166,7 @@
 
     async function syncProfiles() {
         const { data } = await _db.from('chat_codes').select('*');
-        data.forEach(u => {
-            profiles[u.username] = u;
-            syncHeader(u);
-        });
+        data.forEach(u => { profiles[u.username] = u; syncHeader(u); });
         const m = profiles[me];
         document.getElementById('sideAv').innerHTML = m?.avatar_url ? `<img src="${m.avatar_url}" class="w-full h-full rounded-full object-cover">` : me[0];
         document.getElementById('sideName').textContent = me;
@@ -212,14 +222,26 @@
     window.setupReply = (id, text) => { replyId = id; document.getElementById('reply-text').textContent = text; document.getElementById('reply-preview').style.display = 'flex'; document.getElementById('msgIn').focus(); };
     window.cancelReply = () => { replyId = null; document.getElementById('reply-preview').style.display = 'none'; };
     window.deleteMsg = async (id, originalText) => { if(confirm("Delete?")) { await _db.from('deleted_log').insert([{ sender: me, message: originalText }]); await _db.from('private_messages').delete().eq('id', id); } };
+    
     window.toggleGallery = async () => {
         const g = document.getElementById('gallery-overlay');
         g.style.display = g.style.display === 'flex' ? 'none' : 'flex';
         if (g.style.display === 'flex') {
             const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', { ascending: false });
-            document.getElementById('gallery-grid').innerHTML = data.map(i => `<img src="${i.file_url}" class="aspect-square object-cover" onclick="window.open('${i.file_url}')">`).join('');
+            document.getElementById('gallery-grid').innerHTML = data.map(i => `
+                <div class="gallery-item" ondblclick="heartPhoto(this)">
+                    <img src="${i.file_url}" class="aspect-square object-cover w-full h-full">
+                    <div class="heart-icon">❤️</div>
+                </div>`).join('');
         }
     };
+
+    window.heartPhoto = (el) => {
+        const heart = el.querySelector('.heart-icon');
+        heart.classList.add('heart-active');
+        setTimeout(() => heart.classList.remove('heart-active'), 800);
+    };
+
     window.uploadPFP = async (input) => {
         const f = input.files[0]; if (!f) return;
         const fName = `pfp_${me}_${Date.now()}`;
