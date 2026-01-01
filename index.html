@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>ChatWebb v3</title>
+    <title>ChatWebb v2</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -28,7 +28,7 @@
         .other { background: var(--card); border: 1px solid #2d3748; border-bottom-left-radius: 4px; }
         .other::before { background-image: var(--other-pfp); }
         
-        .reply-preview { font-size: 11px; opacity: 0.7; border-left: 2px solid #3b82f6; padding-left: 8px; margin-bottom: 4px; background: rgba(255,255,255,0.05); border-radius: 4px; padding: 4px; }
+        .reply-preview { font-size: 11px; opacity: 0.8; border-left: 3px solid #3b82f6; padding: 4px 8px; margin-bottom: 6px; background: rgba(0,0,0,0.2); border-radius: 4px; }
         #reply-bar { display: none; background: #1e293b; padding: 8px 15px; border-top: 1px solid #334155; align-items: center; justify-content: space-between; font-size: 12px; }
 
         #typing-reveal { min-height: 35px; padding: 4px 20px; font-size: 13px; color: #60a5fa; font-weight: 600; display: flex; align-items: center; background: rgba(30, 41, 59, 0.8); border-top: 1px solid #1e293b; font-style: italic; }
@@ -70,7 +70,7 @@
 
     <div id="chat-form-container">
         <div id="reply-bar">
-            <div id="reply-text" class="truncate"></div>
+            <div id="reply-text" class="truncate opacity-70"></div>
             <button onclick="cancelReply()" class="text-red-400 ml-4 font-bold">✕</button>
         </div>
         <div id="typing-reveal"></div>
@@ -158,13 +158,14 @@
             const isMe = m.sender === me;
             const pfpStyle = isMe ? `--self-pfp: ${myPfp}` : `--other-pfp: ${yourPfp}`;
             const readStatus = m.is_read ? 'text-blue-400' : 'text-gray-500';
-            const cleanMsg = m.message ? m.message.replace(/"/g, '&quot;') : '';
+            // Safety for quotes in strings
+            const cleanMsg = m.message ? m.message.replace(/'/g, "\\'").replace(/"/g, "&quot;") : '';
 
             return `
             <div class="msg-row ${isMe ? 'row-self' : ''}" 
                  data-sender="${m.sender}" 
                  data-msg="${cleanMsg}"
-                 ontouchstart="handleTouchStart(event, this)" 
+                 ontouchstart="handleTouchStart(event)" 
                  ontouchmove="handleTouchMove(event, this)" 
                  ontouchend="handleTouchEnd(event, this)"
                  ondblclick="setReply('${m.sender}', '${cleanMsg}')">
@@ -182,13 +183,11 @@
         box.scrollTop = box.scrollHeight;
     }
 
-    // Touch Handling for Mobile Swipe
     let touchStartX = 0;
-    function handleTouchStart(e, el) { touchStartX = e.touches[0].clientX; }
+    function handleTouchStart(e) { touchStartX = e.touches[0].clientX; }
     function handleTouchMove(e, el) {
-        let touchX = e.touches[0].clientX;
-        let diff = touchX - touchStartX;
-        if (diff > 0 && diff < 80) el.style.transform = `translateX(${diff}px)`; // Swipe Right
+        let diff = e.touches[0].clientX - touchStartX;
+        if (diff > 0 && diff < 80) el.style.transform = `translateX(${diff}px)`;
     }
     function handleTouchEnd(e, el) {
         let diff = e.changedTouches[0].clientX - touchStartX;
@@ -226,13 +225,22 @@
         cancelReply();
 
         await _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
+        // This will only work after you add the 'reply_to' column in Supabase!
         await _db.from('private_messages').insert([{ 
             sender: me, receiver: you, message: txt, file_url: fUrl, is_read: false, reply_to: currentReply 
         }]);
     };
 
-    window.deleteM = async (e, id) => { e.stopPropagation(); if(confirm("Delete?")) await _db.from('private_messages').delete().eq('id', id); };
-    window.toggleSidebar = () => { const s = document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = s ? 'block' : 'none'; };
+    window.deleteM = async (e, id) => { 
+        e.stopPropagation(); 
+        if(confirm("Delete message?")) await _db.from('private_messages').delete().eq('id', id); 
+    };
+    
+    window.toggleSidebar = () => { 
+        const s = document.getElementById('sidebar').classList.toggle('open'); 
+        document.getElementById('overlay').style.display = s ? 'block' : 'none'; 
+    };
+
     window.toggleGallery = async () => {
         const g = document.getElementById('gallery-overlay');
         g.style.display = g.style.display === 'flex' ? 'none' : 'flex';
@@ -241,7 +249,9 @@
             document.getElementById('gallery-grid').innerHTML = data.map(i => `<img src="${i.file_url}" class="g-item">`).join('');
         }
     };
+
     window.changeMood = async () => { const m = prompt("Mood:"); if(m) await _db.from('chat_codes').update({ mood: m }).eq('username', me); };
+    
     window.uploadPFP = async (input) => {
         const f = input.files[0]; if (!f) return;
         const fName = `pfp_${me}_${Date.now()}`;
