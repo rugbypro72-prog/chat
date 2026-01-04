@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v4.2</title>
+    <title>Chat Master v4.3</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -47,7 +47,11 @@
         
         #gallery-overlay, #log-overlay { display: none; position: fixed; inset: 0; z-index: 700; background: #0b0f1a; flex-direction: column; }
         #gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 10px; overflow-y: auto; }
-        .log-item { padding: 12px; border-bottom: 1px solid #1e293b; font-size: 13px; }
+        
+        /* Log Styling */
+        .log-item { padding: 15px; border-bottom: 1px solid #1e293b; font-size: 14px; background: #161e2e; margin: 5px; border-radius: 10px; }
+        .log-meta { display: flex; justify-content: space-between; margin-bottom: 6px; }
+        .log-content { color: #cbd5e1; white-space: pre-wrap; word-break: break-word; }
         
         .reply-box { font-size: 11px; border-left: 2px solid rgba(255,255,255,0.3); padding-left: 8px; margin-bottom: 5px; opacity: 0.8; }
     </style>
@@ -65,11 +69,11 @@
 </div>
 
 <div id="log-overlay">
-    <div class="p-4 border-b border-slate-800 flex justify-between items-center">
-        <span class="font-bold">Deleted Message Log</span>
+    <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900">
+        <span class="font-bold text-red-400">📜 DELETED MESSAGES</span>
         <button onclick="document.getElementById('log-overlay').style.display='none'" class="text-xl">&times;</button>
     </div>
-    <div id="log-list" class="overflow-y-auto flex-1"></div>
+    <div id="log-list" class="overflow-y-auto flex-1 p-2"></div>
 </div>
 
 <div id="sidebar">
@@ -77,7 +81,7 @@
     <div class="font-bold text-xl mb-8" id="sideName">User</div>
     <div class="space-y-3">
         <button onclick="toggleGallery()" class="w-full text-left p-3 hover:bg-white/5 rounded-lg">🖼️ Gallery</button>
-        <button id="logBtn" onclick="viewLogs()" class="hidden w-full text-left p-3 hover:bg-white/5 rounded-lg text-red-400">📜 Deleted Logs</button>
+        <button id="logBtn" onclick="viewLogs()" class="hidden w-full text-left p-3 hover:bg-white/5 rounded-lg text-red-400 font-bold">📜 View Deleted Logs</button>
         <button onclick="document.getElementById('pfpIn').click()" class="w-full text-left p-3 hover:bg-white/5 rounded-lg">📸 Change Photo</button>
         <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadPFP(this)">
         <button onclick="changeMood()" class="w-full text-left p-3 hover:bg-white/5 rounded-xl transition">✨ Set Status</button>
@@ -130,7 +134,6 @@
         document.getElementById('headerName').textContent = you;
         localStorage.setItem('chat_secret_code', code);
         
-        // RJ Only feature: Show log button
         if (me === 'RJ') document.getElementById('logBtn').classList.remove('hidden');
 
         await syncProfiles();
@@ -212,26 +215,17 @@
         e.preventDefault();
         const input = document.getElementById('msgIn'), fileIn = document.getElementById('fileIn'), btn = document.getElementById('sendBtn');
         if (!input.value && !fileIn.files[0]) return;
-        
         btn.disabled = true;
         let fUrl = null;
-
         if (fileIn.files[0]) {
             const f = fileIn.files[0], fName = `f_${Date.now()}`;
             const { data } = await _db.storage.from('chat-files').upload(fName, f);
             if (data) fUrl = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
         }
-
-        const { error } = await _db.from('private_messages').insert([{ 
-            sender: me, receiver: you, message: input.value, file_url: fUrl, reply_to: replyId 
-        }]);
-
-        if (!error) {
-            input.value = ''; cancelReply(); fileIn.value = '';
-            await _db.from('chat_codes').update({ typing_text: '' }).eq('username', me);
-            loadMessages();
-        }
+        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: input.value, file_url: fUrl, reply_to: replyId }]);
+        input.value = ''; cancelReply(); fileIn.value = '';
         btn.disabled = false;
+        loadMessages();
     };
 
     document.getElementById('msgIn').addEventListener('input', (e) => {
@@ -244,7 +238,7 @@
     window.uploadPFP = async (input) => {
         const f = input.files[0]; if (!f) return;
         const fName = `pfp_${me}.png`;
-        const { data } = await _db.storage.from('chat-files').upload(fName, f, {upsert: true});
+        await _db.storage.from('chat-files').upload(fName, f, {upsert: true});
         const url = _db.storage.from('chat-files').getPublicUrl(fName).data.publicUrl;
         await _db.from('chat_codes').update({ avatar_url: url, last_pfp_update: Date.now().toString() }).eq('username', me);
         await syncProfiles();
@@ -259,34 +253,32 @@
         }
     };
 
-    // LOGS FETCHING (RJ ONLY)
+    // --- ENHANCED LOGGING & DELETE ---
     window.viewLogs = async () => {
         document.getElementById('log-overlay').style.display = 'flex';
         const { data } = await _db.from('deleted_log').select('*').order('deleted_at', { ascending: false });
         const list = document.getElementById('log-list');
         if (!data || data.length === 0) {
-            list.innerHTML = `<div class="p-8 text-center opacity-50">No deleted messages found.</div>`;
+            list.innerHTML = `<div class="p-8 text-center opacity-50 text-white">No deleted history.</div>`;
             return;
         }
         list.innerHTML = data.map(l => `
             <div class="log-item">
-                <div class="flex justify-between mb-1">
-                    <span class="font-bold text-blue-400">${l.sender}</span>
-                    <span class="text-[10px] opacity-50">${new Date(l.deleted_at).toLocaleString()}</span>
+                <div class="log-meta">
+                    <span class="font-bold text-blue-400">${l.sender} → ${l.receiver}</span>
+                    <span class="text-[10px] opacity-40 italic">Deleted: ${new Date(l.deleted_at).toLocaleString()}</span>
                 </div>
-                <div class="opacity-80">${l.message || (l.file_url ? "[Image]" : "")}</div>
-                ${l.file_url ? `<img src="${l.file_url}" class="mt-2 w-20 rounded">` : ''}
+                <div class="log-content">${l.message || (l.file_url ? "[Image File]" : "No text content")}</div>
+                ${l.file_url ? `<img src="${l.file_url}" class="mt-3 max-w-[150px] rounded border border-white/10 shadow-lg">` : ''}
             </div>
         `).join('');
     };
 
-    // UPDATED DELETE WITH LOGGING
     window.delM = async (id) => { 
-        if(confirm("Delete message?")) {
-            // 1. Get original message data
+        if(confirm("Permanently delete for both?")) {
+            // Fetch before delete to ensure log is accurate
             const { data: msg } = await _db.from('private_messages').select('*').eq('id', id).single();
             if (msg) {
-                // 2. Insert into log
                 await _db.from('deleted_log').insert([{
                     original_id: msg.id,
                     sender: msg.sender,
@@ -296,7 +288,6 @@
                     deleted_at: new Date().toISOString()
                 }]);
             }
-            // 3. Delete from chat
             await _db.from('private_messages').delete().eq('id', id);
         } 
     };
