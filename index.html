@@ -3,78 +3,79 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v6.3</title>
+    <title>Chat Master v6.4</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root { --bg: #0b0f1a; --accent: #3b82f6; }
-        body { background: var(--bg); color: white; font-family: -apple-system, sans-serif; height: 100vh; overflow: hidden; margin: 0; }
+        :root { --bg: #0b0f1a; --card: #1e293b; --accent: #3b82f6; --her-pink: #ec4899; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--bg); color: white; font-family: -apple-system, sans-serif; height: 100vh; overflow: hidden; margin: 0; position: fixed; width: 100%; }
         
-        #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: #111827; z-index: 2000; transition: 0.3s ease; padding: 40px 20px; border-right: 1px solid #374151; }
+        #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; background: #0f172a; }
+
+        #messages { flex: 1; overflow-y: auto; padding: 20px 15px; display: flex; flex-direction: column; gap: 12px; }
+        .msg-container { display: flex; align-items: flex-end; gap: 8px; width: 100%; }
+        .row-self { flex-direction: row-reverse; }
+
+        .msg { max-width: 78%; padding: 12px 14px; font-size: 15px; position: relative; word-wrap: break-word; }
+        .self { background: var(--accent); border-radius: 18px 18px 4px 18px; }
+        .other { background: #2d3748; border-radius: 18px 18px 18px 4px; }
+
+        .pfp-icon { width: 32px; height: 32px; border-radius: 50%; background-size: cover; background-position: center; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
+        
+        .msg-meta { display: flex; gap: 8px; font-size: 10px; opacity: 0.5; margin-top: 4px; }
+        .row-self .msg-meta { justify-content: flex-end; }
+
+        #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: #0f172a; z-index: 2000; transition: 0.3s; padding: 25px; border-right: 1px solid #334155; }
         #sidebar.open { left: 0; }
         #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1500; backdrop-filter: blur(4px); }
-        .side-btn { width: 100%; text-align: left; padding: 12px; border-radius: 12px; margin-bottom: 8px; font-weight: 600; cursor: pointer; }
 
-        #messages { flex: 1; overflow-y: auto; padding: 20px 15px; display: flex; flex-direction: column; gap: 15px; }
-        .msg-wrapper { display: flex; flex-direction: column; width: 100%; }
-        .msg-bubble { max-width: 75%; padding: 12px 16px; border-radius: 18px; font-size: 15px; line-height: 1.4; }
-        .msg-self { align-items: flex-end; }
-        .bubble-self { background: var(--accent); border-bottom-right-radius: 4px; }
-        .msg-other { align-items: flex-start; }
-        .bubble-other { background: #2d3748; border-bottom-left-radius: 4px; }
-
-        .msg-meta { display: flex; gap: 8px; font-size: 10px; opacity: 0.5; margin-top: 4px; }
-        
-        /* CALL OVERLAY */
-        #call-overlay { display: none; position: fixed; inset: 0; z-index: 5000; background: #000; flex-direction: column; }
-        .video-p { flex: 1; background: #111; display: none; }
-        .call-ctrl { position: absolute; bottom: 40px; left: 0; right: 0; display: flex; justify-content: center; gap: 20px; z-index: 100; }
-        .c-btn { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1); font-size: 24px; }
-
+        /* Media Preview */
         #media-preview-container { display: none; padding: 12px; background: #1e293b; border-top: 2px solid #3b82f6; align-items: center; gap: 12px; }
-        #img-preview-box { width: 50px; height: 50px; border-radius: 8px; object-fit: cover; }
-        #full-overlay { display: none; position: fixed; inset: 0; z-index: 4000; background: #0b0f1a; flex-direction: column; padding: 20px; }
+        #img-preview-box { width: 45px; height: 45px; border-radius: 6px; object-fit: cover; }
+
+        /* Call Overlay */
+        #call-overlay { display: none; position: fixed; inset: 0; z-index: 5000; background: #000; flex-direction: column; }
+        .video-p { flex: 1; background: #111; }
+        .call-ctrl { position: absolute; bottom: 40px; left: 0; right: 0; display: flex; justify-content: center; gap: 20px; }
+        .c-btn { width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.15); font-size: 20px; }
+        
+        .reply-box { font-size: 11px; border-left: 2px solid rgba(255,255,255,0.3); padding-left: 8px; margin-bottom: 5px; opacity: 0.8; }
     </style>
 </head>
 <body>
 
 <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
 <div id="sidebar">
-    <h3 class="font-bold text-xl" id="sideName">User</h3>
-    <p id="my-status-display" class="text-blue-400 text-xs mb-4 italic">No status</p>
-    <input id="statusIn" class="w-full bg-slate-800 p-2 rounded text-xs border border-white/10" placeholder="Update status...">
-    <button onclick="updateStatus()" class="mt-2 w-full bg-blue-600 py-1 rounded text-[10px] font-bold mb-6">UPDATE</button>
-    <div class="side-btn text-red-400" id="logs-btn" style="display:none;" onclick="viewLogs()">📜 Deleted Logs</div>
-    <div class="side-btn" onclick="viewGallery()">🖼️ Gallery</div>
-    <div class="side-btn text-slate-500" onclick="logout()">Logout</div>
+    <div id="sideAv" class="w-20 h-20 rounded-full mb-4 border-2 border-blue-500 bg-cover bg-center flex items-center justify-center text-3xl font-bold bg-slate-800"></div>
+    <div class="font-bold text-xl mb-2" id="sideName">User</div>
+    <p id="sideStatus" class="text-blue-400 text-xs italic mb-8">No status set</p>
+    <div class="space-y-2">
+        <button onclick="viewGallery()" class="w-full text-left p-3 hover:bg-white/5 rounded-lg">🖼️ Gallery</button>
+        <button id="logBtn" onclick="viewLogs()" class="hidden w-full text-left p-3 hover:bg-white/5 rounded-lg text-red-400 font-bold">📜 Deleted Logs</button>
+        <button onclick="changeMood()" class="w-full text-left p-3 hover:bg-white/5 rounded-lg">✨ Update Status</button>
+    </div>
+    <button onclick="logout()" class="absolute bottom-10 left-6 text-red-400 font-medium">Logout</button>
 </div>
 
 <div id="call-overlay">
     <div id="remote-v" class="video-p"></div>
-    <div id="local-v" class="video-p" style="position:absolute; top:20px; right:20px; width:100px; height:150px; border-radius:12px; z-index:10;"></div>
+    <div id="local-v" class="video-p" style="position:absolute; top:20px; right:20px; width:100px; height:150px; border-radius:12px; z-index:10; border: 2px solid #3b82f6;"></div>
     <div class="call-ctrl">
         <button onclick="toggleMute()" class="c-btn">🎤</button>
-        <button onclick="endCall()" class="c-btn bg-red-500">❌</button>
-        <button id="cam-toggle" onclick="toggleCamera()" class="c-btn" style="display:none;">📹</button>
+        <button onclick="endCall()" class="c-btn bg-red-600">❌</button>
+        <button id="cam-btn" onclick="toggleCamera()" class="c-btn">📹</button>
     </div>
 </div>
 
-<div id="full-overlay">
-    <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
-        <h2 id="overlay-title" class="font-bold text-blue-400"></h2>
-        <button onclick="closeOverlay()" class="text-xs bg-white/10 px-4 py-1 rounded">CLOSE</button>
-    </div>
-    <div id="overlay-content" class="overflow-y-auto flex-1"></div>
-</div>
-
-<div id="chat-main" class="flex flex-col h-screen max-w-2xl mx-auto bg-slate-950">
-    <header class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+<div id="chat-main">
+    <header class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
         <div class="flex items-center gap-3">
-            <button onclick="toggleSidebar()" class="text-2xl">☰</button>
+            <button onclick="toggleSidebar()" class="text-xl">☰</button>
             <div>
-                <div id="headerName" class="font-bold">Chat</div>
-                <div id="headerStatus" class="text-[10px] text-blue-400 italic"></div>
+                <div class="font-bold text-sm" id="headerName">Chat</div>
+                <div id="topStatus" class="text-[10px] text-blue-400 italic"></div>
             </div>
         </div>
         <div class="flex gap-2">
@@ -87,18 +88,24 @@
 
     <div id="media-preview-container">
         <img id="img-preview-box" src="" />
-        <div class="flex-1 text-xs text-blue-300">Image ready...</div>
-        <button onclick="cancelMedia()" class="text-red-400 font-bold text-xs">REMOVE</button>
+        <div class="flex-1 text-[11px] font-bold text-blue-300">Ready to send image...</div>
+        <button onclick="cancelMedia()" class="text-red-400 font-bold text-xs px-2">CANCEL</button>
     </div>
 
-    <form id="chat-form" class="p-4 bg-slate-900/50">
-        <div class="bg-slate-800 rounded-full flex items-center px-5 py-3 border border-slate-700">
-            <button type="button" onclick="document.getElementById('fileIn').click()" class="mr-3 opacity-60">🖼️</button>
-            <input id="msgIn" class="flex-1 bg-transparent outline-none text-sm" placeholder="Message..." autocomplete="off">
-            <button type="submit" class="text-blue-500 font-bold ml-2">Send</button>
+    <div id="footer">
+        <div id="reply-preview" class="hidden mx-4 p-2 bg-slate-800 rounded-t-lg border-x border-t border-slate-700 flex justify-between items-center">
+            <span id="reply-txt" class="text-xs italic truncate"></span>
+            <button onclick="cancelReply()">&times;</button>
         </div>
-        <input type="file" id="fileIn" class="hidden" accept="image/*" onchange="previewMedia(this)">
-    </form>
+        <form id="chat-form" class="p-3">
+            <div class="bg-slate-800 rounded-full flex items-center px-4 py-2 border border-slate-700">
+                <button type="button" onclick="document.getElementById('fileIn').click()" class="mr-2 opacity-60">🖼️</button>
+                <input id="msgIn" class="flex-1 bg-transparent outline-none text-sm py-1" placeholder="Message..." autocomplete="off">
+                <button type="submit" class="text-blue-500 font-bold ml-2">Send</button>
+            </div>
+            <input type="file" id="fileIn" class="hidden" accept="image/*" onchange="previewMedia(this)">
+        </form>
+    </div>
 </div>
 
 <script>
@@ -107,36 +114,73 @@
     const _db = supabase.createClient(SB_URL, SB_KEY);
     const APP_ID = '4f6c6c2002784152a8366dec12f1b4c0';
     
-    let me, you, pendingFile = null, agora = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" }), localA, localV;
+    let me, you, pendingFile = null, replyId = null, agora = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" }), localA, localV;
 
     async function init() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Code:");
         const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
         if (!data) return;
         me = data.username; you = (me === 'RJ') ? 'Allyvia' : 'RJ';
-        document.getElementById('sideName').textContent = me;
         document.getElementById('headerName').textContent = you;
-        document.getElementById('my-status-display').textContent = data.status || "";
-        if (me === "RJ") document.getElementById('logs-btn').style.display = 'block';
+        if (me === "RJ") document.getElementById('logBtn').classList.remove('hidden');
+        
         loadMessages();
-        setupSubs();
-    }
+        syncStatus();
 
-    function setupSubs() {
         _db.channel('global').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, (p) => {
-            if (p.new?.receiver === me && p.new?.message === "___VOICE___") showCallOverlay(false, true);
-            if (p.new?.receiver === me && p.new?.message === "___FACETIME___") showCallOverlay(true, true);
+            if (p.new?.receiver === me && p.new?.message === "___VOICE___") showCallOverlay(false);
+            if (p.new?.receiver === me && p.new?.message === "___FACETIME___") showCallOverlay(true);
             if (p.new?.message === "___END___") endCall(false);
             loadMessages();
         }).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_codes' }, (p) => {
-            if (p.new.username === you) document.getElementById('headerStatus').textContent = p.new.status || "";
+            if (p.new.username === you) document.getElementById('topStatus').textContent = p.new.status || "";
         }).subscribe();
     }
 
-    // --- CALLING LOGIC ---
+    // --- FORMULA: MEDIA HANDLING ---
+    window.previewMedia = (input) => {
+        const file = input.files[0];
+        if (!file) return;
+        pendingFile = file;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            document.getElementById('img-preview-box').src = e.target.result;
+            document.getElementById('media-preview-container').style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
+    };
+
+    window.cancelMedia = () => {
+        pendingFile = null;
+        document.getElementById('fileIn').value = "";
+        document.getElementById('media-preview-container').style.display = 'none';
+    };
+
+    // --- SENDING LOGIC ---
+    document.getElementById('chat-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const input = document.getElementById('msgIn');
+        let fUrl = null;
+
+        if (pendingFile) {
+            // Formula Fix: Sanitize name to prevent 400 errors
+            const safeName = `img_${Date.now()}_${pendingFile.name.replace(/[^a-z0-9.]/gi, '_')}`;
+            const { data, error } = await _db.storage.from('gallery').upload(`chat/${safeName}`, pendingFile);
+            if (!error) fUrl = _db.storage.from('gallery').getPublicUrl(`chat/${safeName}`).data.publicUrl;
+            cancelMedia();
+        }
+
+        if (!input.value && !fUrl) return;
+        await _db.from('private_messages').insert([{ 
+            sender: me, receiver: you, message: input.value, file_url: fUrl, reply_to: replyId 
+        }]);
+        input.value = ''; cancelReply();
+    };
+
+    // --- CALLING SYSTEM ---
     window.startCall = async (ft) => {
         await _db.from('private_messages').insert([{ sender: me, receiver: you, message: ft ? "___FACETIME___" : "___VOICE___" }]);
-        showCallOverlay(ft, false);
+        showCallOverlay(ft);
         connectAgora(ft);
     };
 
@@ -160,9 +204,9 @@
         });
     }
 
-    function showCallOverlay(ft, incoming) {
+    function showCallOverlay(ft) {
         document.getElementById('call-overlay').style.display = 'flex';
-        document.getElementById('cam-toggle').style.display = ft ? 'flex' : 'none';
+        document.getElementById('cam-btn').style.display = ft ? 'flex' : 'none';
         if (ft) {
             document.getElementById('remote-v').style.display = 'block';
             document.getElementById('local-v').style.display = 'block';
@@ -176,102 +220,68 @@
         document.getElementById('call-overlay').style.display = 'none';
     };
 
-    window.toggleMute = () => localA && localA.setMuted(!localA.muted);
-    window.toggleCamera = () => localV && localV.setMuted(!localV.muted);
+    window.toggleMute = () => localA.setMuted(!localA.muted);
+    window.toggleCamera = () => localV.setMuted(!localV.muted);
 
-    // --- CHAT & MEDIA ---
-    window.previewMedia = (input) => {
-        const file = input.files[0]; if (!file) return;
-        pendingFile = file;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            document.getElementById('img-preview-box').src = e.target.result;
-            document.getElementById('media-preview-container').style.display = 'flex';
-        };
-        reader.readAsDataURL(file);
-    };
-
-    window.cancelMedia = () => {
-        pendingFile = null;
-        document.getElementById('media-preview-container').style.display = 'none';
-    };
-
-    document.getElementById('chat-form').onsubmit = async (e) => {
-        e.preventDefault();
-        const i = document.getElementById('msgIn');
-        let fUrl = null;
-        if (pendingFile) {
-            const sn = `img_${Date.now()}_${pendingFile.name.replace(/[^a-z0-9.]/gi,'_')}`;
-            const { data } = await _db.storage.from('gallery').upload(`chat/${sn}`, pendingFile);
-            if (data) fUrl = _db.storage.from('gallery').getPublicUrl(`chat/${sn}`).data.publicUrl;
-            cancelMedia();
-        }
-        if (!i.value && !fUrl) return;
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: i.value, file_url: fUrl }]);
-        i.value = '';
-    };
-
+    // --- MESSAGES & UI ---
     async function loadMessages() {
         const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(50);
         if (!data) return;
-        document.getElementById('messages').innerHTML = data.reverse().filter(m => !m.message.startsWith("___")).map(m => {
+        const box = document.getElementById('messages');
+        const msgs = data.reverse();
+        box.innerHTML = msgs.filter(m => !m.message.startsWith("___")).map(m => {
             const isMe = m.sender === me;
+            const rMsg = msgs.find(x => x.id === m.reply_to);
             return `
-            <div class="msg-wrapper ${isMe ? 'msg-self' : 'msg-other'}">
-                <div class="msg-bubble ${isMe ? 'bubble-self' : 'bubble-other'}">
-                    ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-w-full">` : ''}
-                    ${m.message || ''}
-                </div>
-                <div class="msg-meta">
-                    <span>${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
-                    <span class="text-red-500 font-bold" onclick="delM('${m.id}')">Delete</span>
+            <div class="msg-container ${isMe ? 'row-self' : ''}">
+                <div class="pfp-icon ${m.sender === 'RJ' ? 'bg-black' : 'bg-pink-500'}">${m.sender[0]}</div>
+                <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[80%]">
+                    <div class="msg ${isMe ? 'self' : 'other'}">
+                        ${rMsg ? `<div class="reply-box">↳ ${rMsg.message || 'Image'}</div>` : ''}
+                        ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-1 max-w-full shadow-sm">` : ''}
+                        <div class="whitespace-pre-wrap">${m.message || ''}</div>
+                    </div>
+                    <div class="msg-meta">
+                        <span>${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                        <span class="cursor-pointer" onclick="setReply('${m.id}', '${m.message || 'Image'}')">Reply</span>
+                        <span class="text-red-500 font-bold cursor-pointer" onclick="delM('${m.id}')">Delete</span>
+                    </div>
                 </div>
             </div>`;
         }).join('');
-        const box = document.getElementById('messages'); box.scrollTop = box.scrollHeight;
+        box.scrollTop = box.scrollHeight;
     }
 
     window.delM = async (id) => {
-        if (!confirm("Delete & Log?")) return;
+        if (!confirm("Delete permanently?")) return;
         const { data: m } = await _db.from('private_messages').select('*').eq('id', id).single();
         try {
             await _db.from('deleted_log').insert([{ sender: m.sender, message: m.message || "[Image]", deleted_at: new Date() }]);
-        } catch(e) { console.log("Log fail (check deleted_at column)"); }
+        } catch(e) {}
         await _db.from('private_messages').delete().eq('id', id);
         loadMessages();
+    };
+
+    window.changeMood = async () => {
+        const s = prompt("New Status:");
+        if (s !== null) {
+            await _db.from('chat_codes').update({ status: s }).eq('username', me);
+            syncStatus();
+        }
+    };
+
+    async function syncStatus() {
+        const { data } = await _db.from('chat_codes').select('*');
+        const myP = data.find(u => u.username === me);
+        const yourP = data.find(u => u.username === you);
+        document.getElementById('sideName').textContent = me;
+        document.getElementById('sideStatus').textContent = myP?.status || "No status set";
+        document.getElementById('topStatus').textContent = yourP?.status || "";
     }
 
-    window.updateStatus = async () => {
-        const v = document.getElementById('statusIn').value;
-        await _db.from('chat_codes').update({ status: v }).eq('username', me);
-        document.getElementById('my-status-display').textContent = v;
-        document.getElementById('statusIn').value = "";
-    };
-
-    window.toggleSidebar = () => {
-        const s = document.getElementById('sidebar');
-        const o = document.getElementById('sidebar-overlay');
-        s.classList.toggle('open');
-        o.style.display = s.classList.contains('open') ? 'block' : 'none';
-    };
-    window.closeOverlay = () => document.getElementById('full-overlay').style.display = 'none';
-
-    window.viewGallery = async () => {
-        toggleSidebar();
-        document.getElementById('full-overlay').style.display = 'flex';
-        document.getElementById('overlay-title').textContent = "Gallery";
-        const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null);
-        document.getElementById('overlay-content').innerHTML = `<div class="grid grid-cols-3 gap-2">${data.map(i => `<img src="${i.file_url}" class="h-24 w-full object-cover rounded">`).join('')}</div>`;
-    };
-
-    window.viewLogs = async () => {
-        toggleSidebar();
-        document.getElementById('full-overlay').style.display = 'flex';
-        document.getElementById('overlay-title').textContent = "Logs";
-        const { data } = await _db.from('deleted_log').select('*').order('deleted_at', { ascending: false });
-        document.getElementById('overlay-content').innerHTML = data.map(l => `<div class="p-2 mb-2 bg-slate-900 rounded text-xs"><b>${l.sender}:</b> ${l.message}</div>`).join('');
-    };
-
+    window.setReply = (id, txt) => { replyId = id; document.getElementById('reply-txt').textContent = txt; document.getElementById('reply-preview').classList.remove('hidden'); document.getElementById('msgIn').focus(); };
+    window.cancelReply = () => { replyId = null; document.getElementById('reply-preview').classList.add('hidden'); };
+    window.toggleSidebar = () => { const s = document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebar-overlay').style.display = s ? 'block' : 'none'; };
     window.logout = () => { localStorage.clear(); location.reload(); };
     init();
 </script>
