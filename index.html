@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v6.0</title>
+    <title>Chat Master v6.1</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -14,11 +14,12 @@
         #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: #111827; z-index: 2000; transition: 0.3s ease; padding: 40px 20px; border-right: 1px solid #374151; }
         #sidebar.open { left: 0; }
         #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1500; backdrop-filter: blur(4px); }
-        .side-btn { width: 100%; text-align: left; padding: 15px; border-radius: 12px; margin-bottom: 8px; font-weight: 600; cursor: pointer; }
+        .side-btn { width: 100%; text-align: left; padding: 12px; border-radius: 12px; margin-bottom: 8px; font-weight: 600; cursor: pointer; }
+        .side-btn:hover { background: rgba(255,255,255,0.05); }
 
         #messages { flex: 1; overflow-y: auto; padding: 20px 15px; display: flex; flex-direction: column; gap: 15px; }
         .msg-wrapper { display: flex; flex-direction: column; width: 100%; }
-        .msg-bubble { max-width: 80%; padding: 12px 16px; border-radius: 20px; font-size: 15px; position: relative; }
+        .msg-bubble { max-width: 75%; padding: 12px 16px; border-radius: 20px; font-size: 15px; position: relative; }
         .msg-self { align-items: flex-end; }
         .bubble-self { background: var(--accent); border-bottom-right-radius: 4px; }
         .msg-other { align-items: flex-start; }
@@ -26,9 +27,8 @@
 
         .msg-meta { display: flex; gap: 10px; font-size: 10px; opacity: 0.5; margin-top: 4px; }
         
-        /* PREVIEW BOX */
-        #media-preview-container { display: none; padding: 10px; background: #1e293b; border-top: 1px solid #334155; align-items: center; gap: 10px; }
-        #img-preview-box { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; border: 1px solid #3b82f6; }
+        #media-preview-container { display: none; padding: 12px; background: #1e293b; border-top: 2px solid #3b82f6; align-items: center; gap: 12px; }
+        #img-preview-box { width: 50px; height: 50px; border-radius: 8px; object-fit: cover; border: 1px solid #3b82f6; }
 
         #full-overlay { display: none; position: fixed; inset: 0; z-index: 4000; background: #0b0f1a; flex-direction: column; padding: 20px; }
     </style>
@@ -37,8 +37,15 @@
 
 <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
 <div id="sidebar">
-    <div class="h-16 w-16 rounded-full bg-slate-700 mb-4 border-2 border-blue-500 bg-cover bg-center" id="sideAv"></div>
-    <h3 class="font-bold text-xl mb-6" id="sideName">Menu</h3>
+    <div class="h-16 w-16 rounded-full bg-slate-700 mb-2 border-2 border-blue-500 bg-cover bg-center"></div>
+    <h3 class="font-bold text-xl" id="sideName">Menu</h3>
+    <p id="my-status-display" class="text-blue-400 text-xs mb-6 italic">Set status...</p>
+    
+    <div class="mb-6">
+        <input id="statusIn" class="w-full bg-slate-800 p-2 rounded text-xs outline-none border border-white/10" placeholder="Update your status...">
+        <button onclick="updateStatus()" class="mt-2 w-full bg-blue-600 py-1 rounded text-[10px] font-bold">UPDATE STATUS</button>
+    </div>
+
     <div class="side-btn text-red-400" id="logs-btn" style="display:none;" onclick="viewLogs()">📜 Deleted Logs</div>
     <div class="side-btn" onclick="viewGallery()">🖼️ Gallery</div>
     <div class="side-btn text-slate-500" onclick="logout()">Logout</div>
@@ -46,8 +53,8 @@
 
 <div id="full-overlay">
     <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
-        <h2 id="overlay-title" class="font-bold uppercase tracking-widest">Overlay</h2>
-        <button onclick="closeOverlay()" class="text-sm bg-white/10 px-3 py-1 rounded">CLOSE</button>
+        <h2 id="overlay-title" class="font-bold uppercase tracking-widest text-blue-400">Overlay</h2>
+        <button onclick="closeOverlay()" class="text-xs bg-white/10 px-4 py-1 rounded font-bold">CLOSE</button>
     </div>
     <div id="overlay-content" class="overflow-y-auto flex-1"></div>
 </div>
@@ -56,7 +63,10 @@
     <header class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
         <div class="flex items-center gap-3">
             <button onclick="toggleSidebar()" class="text-2xl">☰</button>
-            <div id="headerName" class="font-bold text-lg">Allyvia</div>
+            <div>
+                <div id="headerName" class="font-bold">Chat</div>
+                <div id="headerStatus" class="text-[10px] text-blue-400 italic"></div>
+            </div>
         </div>
     </header>
 
@@ -64,8 +74,8 @@
 
     <div id="media-preview-container">
         <img id="img-preview-box" src="" />
-        <div class="flex-1 text-xs opacity-60">Ready to send...</div>
-        <button onclick="cancelMedia()" class="text-red-400 font-bold">Cancel</button>
+        <div class="flex-1 text-xs font-semibold text-blue-300">Ready to upload...</div>
+        <button onclick="cancelMedia()" class="text-red-400 font-bold text-xs uppercase">Cancel</button>
     </div>
 
     <form id="chat-form" class="p-4 bg-slate-900/50">
@@ -90,10 +100,32 @@
         const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
         if (!data) return;
         me = data.username; you = (me === 'RJ') ? 'Allyvia' : 'RJ';
+        document.getElementById('sideName').textContent = me;
         document.getElementById('headerName').textContent = you;
+        document.getElementById('my-status-display').textContent = data.status || "No status set";
+        
         if (me === "RJ") document.getElementById('logs-btn').style.display = 'block';
+        
         loadMessages();
-        _db.channel('global').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, loadMessages).subscribe();
+        syncStatus();
+
+        _db.channel('global').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, loadMessages)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_codes' }, (p) => {
+            if (p.new.username === you) document.getElementById('headerStatus').textContent = p.new.status || "";
+        }).subscribe();
+    }
+
+    // --- STATUS LOGIC ---
+    window.updateStatus = async () => {
+        const val = document.getElementById('statusIn').value;
+        await _db.from('chat_codes').update({ status: val }).eq('username', me);
+        document.getElementById('my-status-display').textContent = val;
+        document.getElementById('statusIn').value = "";
+    };
+
+    async function syncStatus() {
+        const { data } = await _db.from('chat_codes').select('status').eq('username', you).single();
+        if (data) document.getElementById('headerStatus').textContent = data.status || "";
     }
 
     // --- SIDEBAR & OVERLAYS ---
@@ -108,26 +140,26 @@
     window.viewGallery = async () => {
         toggleSidebar();
         const ov = document.getElementById('full-overlay');
-        document.getElementById('overlay-title').textContent = "Gallery";
+        document.getElementById('overlay-title').textContent = "Media Gallery";
         ov.style.display = 'flex';
         const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null);
-        document.getElementById('overlay-content').innerHTML = `<div class="grid grid-cols-3 gap-1 p-2">${data.map(i => `<img src="${i.file_url}" class="w-full h-32 object-cover rounded">`).join('')}</div>`;
+        document.getElementById('overlay-content').innerHTML = `<div class="grid grid-cols-3 gap-2 p-2">${data.map(i => `<img src="${i.file_url}" class="w-full h-28 object-cover rounded shadow-lg">`).join('')}</div>`;
     };
 
     window.viewLogs = async () => {
         toggleSidebar();
         const ov = document.getElementById('full-overlay');
-        document.getElementById('overlay-title').textContent = "Deleted Logs";
+        document.getElementById('overlay-title').textContent = "Deleted Logbook";
         ov.style.display = 'flex';
         const { data } = await _db.from('deleted_log').select('*').order('deleted_at', { ascending: false });
         document.getElementById('overlay-content').innerHTML = data.map(l => `
-            <div class="p-3 border-b border-white/5 text-xs">
-                <div class="text-red-400 font-bold mb-1">DELETED AT: ${new Date(l.deleted_at).toLocaleString()}</div>
-                <div><b>${l.sender}:</b> ${l.message}</div>
+            <div class="p-4 border-b border-white/5 bg-white/5 mb-2 rounded">
+                <div class="text-[10px] text-red-500 font-bold mb-1">RECORDED: ${new Date(l.deleted_at).toLocaleString()}</div>
+                <div class="text-sm"><b>${l.sender}:</b> ${l.message}</div>
             </div>`).join('');
     };
 
-    // --- MEDIA LOGIC ---
+    // --- MEDIA LOGIC (WITH FILENAME SANITIZER) ---
     window.previewMedia = (input) => {
         const file = input.files[0];
         if (!file) return;
@@ -154,16 +186,16 @@
             return `
             <div class="msg-wrapper ${isMe ? 'msg-self' : 'msg-other'}">
                 <div class="msg-bubble ${isMe ? 'bubble-self' : 'bubble-other'}">
-                    ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 w-full h-auto block" style="min-width:150px;">` : ''}
+                    ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-w-full block shadow-md">` : ''}
                     ${m.message || ''}
                 </div>
                 <div class="msg-meta">
                     <span>${t}</span>
-                    <span class="text-red-500 font-bold cursor-pointer" onclick="delM('${m.id}')">Delete</span>
+                    <span class="text-red-500 font-bold cursor-pointer hover:underline" onclick="delM('${m.id}')">Delete</span>
                 </div>
             </div>`;
         }).join('');
-        document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+        const box = document.getElementById('messages'); box.scrollTop = box.scrollHeight;
     }
 
     document.getElementById('chat-form').onsubmit = async (e) => {
@@ -172,10 +204,15 @@
         let fileUrl = null;
 
         if (pendingFile) {
-            const path = `chat/${Date.now()}_${pendingFile.name}`;
-            await _db.storage.from('gallery').upload(path, pendingFile);
-            const { data } = _db.storage.from('gallery').getPublicUrl(path);
-            fileUrl = data.publicUrl;
+            // FIX: Remove spaces and special chars to prevent 400 error
+            const safeName = pendingFile.name.replace(/[^a-z0-9.]/gi, '_').toLowerCase();
+            const path = `chat/${Date.now()}_${safeName}`;
+            
+            const { error: uploadErr } = await _db.storage.from('gallery').upload(path, pendingFile);
+            if (!uploadErr) {
+                const { data } = _db.storage.from('gallery').getPublicUrl(path);
+                fileUrl = data.publicUrl;
+            }
             cancelMedia();
         }
 
@@ -185,11 +222,11 @@
     };
 
     window.delM = async (id) => {
-        if (!confirm("Permenantly delete and log?")) return;
+        if (!confirm("Permanently log and delete?")) return;
         const { data: m } = await _db.from('private_messages').select('*').eq('id', id).single();
         await _db.from('deleted_log').insert([{ 
             sender: m.sender, 
-            message: m.message || (m.file_url ? "[Image Sent]" : "[Empty Message]"),
+            message: m.message || (m.file_url ? "[Image Message]" : "[Empty]"),
             deleted_at: new Date().toISOString()
         }]);
         await _db.from('private_messages').delete().eq('id', id);
