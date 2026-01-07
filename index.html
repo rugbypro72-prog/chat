@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v5.8</title>
+    <title>Chat Master v5.9</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -11,48 +11,57 @@
         :root { --bg: #0b0f1a; --accent: #3b82f6; }
         body { background: var(--bg); color: white; font-family: -apple-system, sans-serif; height: 100vh; overflow: hidden; margin: 0; }
         
-        /* SIDEBAR FIX */
+        /* SIDEBAR & OVERLAYS */
         #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: #111827; z-index: 2000; transition: 0.3s ease; padding: 40px 20px; border-right: 1px solid #374151; }
         #sidebar.open { left: 0; }
         #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1500; backdrop-filter: blur(4px); }
-        .side-btn { width: 100%; text-align: left; padding: 15px; border-radius: 12px; margin-bottom: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; }
-        .side-btn:active { background: rgba(255,255,255,0.1); transform: scale(0.98); }
+        .side-btn { width: 100%; text-align: left; padding: 15px; border-radius: 12px; margin-bottom: 8px; font-weight: 600; cursor: pointer; }
+        .side-btn:hover { background: rgba(255,255,255,0.05); }
 
-        /* MESSAGES */
-        #messages { flex: 1; overflow-y: auto; padding: 20px 15px; display: flex; flex-direction: column; gap: 15px; }
-        .msg { max-width: 75%; padding: 12px 16px; border-radius: 20px; font-size: 15px; position: relative; }
-        .self { background: var(--accent); align-self: flex-end; border-bottom-right-radius: 4px; }
-        .other { background: #2d3748; align-self: flex-start; border-bottom-left-radius: 4px; }
-        .msg-meta { display: flex; gap: 10px; font-size: 10px; opacity: 0.5; margin-top: 5px; }
-        .meta-self { justify-content: flex-end; }
+        /* MESSAGE ALIGNMENT FIX */
+        #messages { flex: 1; overflow-y: auto; padding: 20px 15px; display: flex; flex-direction: column; gap: 12px; }
+        .msg-wrapper { display: flex; flex-direction: column; width: 100%; }
+        .msg-bubble { max-width: 80%; padding: 12px 16px; border-radius: 20px; font-size: 15px; position: relative; line-height: 1.4; }
+        
+        /* "RJ" Style (Right) */
+        .msg-self { align-items: flex-end; }
+        .bubble-self { background: var(--accent); border-bottom-right-radius: 4px; }
+        
+        /* "Allyvia" Style (Left) */
+        .msg-other { align-items: flex-start; }
+        .bubble-other { background: #2d3748; border-bottom-left-radius: 4px; }
 
-        /* CALL OVERLAY */
+        .msg-meta { display: flex; gap: 10px; font-size: 10px; opacity: 0.5; margin-top: 4px; padding: 0 5px; }
+        .meta-btn { cursor: pointer; font-weight: bold; }
+        .meta-btn:hover { opacity: 1; color: #60a5fa; }
+
+        /* CALL SYSTEM */
         #call-overlay { display: none; position: fixed; inset: 0; z-index: 3000; background: #000; flex-direction: column; }
-        .video-pane { flex: 1; width: 100%; background: #000; position: relative; display: none; } /* Hidden by default for voice */
+        .video-pane { flex: 1; width: 100%; background: #111; position: relative; display: none; }
         .call-ui { position: absolute; inset: 0; z-index: 100; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 60px 20px; }
         .call-btn { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; pointer-events: auto; background: rgba(255,255,255,0.1); }
-        
-        #log-overlay { display: none; position: fixed; inset: 0; z-index: 4000; background: #0b0f1a; flex-direction: column; padding: 20px; overflow-y: auto; }
+        .btn-off { background: rgba(239, 68, 68, 0.4) !important; border: 1px solid #ef4444; }
+
+        #full-overlay { display: none; position: fixed; inset: 0; z-index: 4000; background: #0b0f1a; flex-direction: column; padding: 20px; }
     </style>
 </head>
 <body>
 
 <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
 <div id="sidebar">
-    <div class="h-20 w-20 rounded-full bg-slate-700 mb-4 border-2 border-blue-500 bg-cover bg-center" id="sideAv"></div>
-    <h3 class="font-bold text-xl mb-6" id="sideName">Loading...</h3>
-    
+    <div class="h-16 w-16 rounded-full bg-slate-700 mb-4 border-2 border-blue-500 bg-cover bg-center" id="sideAv"></div>
+    <h3 class="font-bold text-xl mb-6" id="sideName">Menu</h3>
     <div class="side-btn text-red-400" id="logs-btn" style="display:none;" onclick="viewLogs()">📜 Deleted Logs</div>
     <div class="side-btn" onclick="viewGallery()">🖼️ Gallery</div>
     <div class="side-btn text-slate-500" onclick="logout()">Logout</div>
 </div>
 
-<div id="log-overlay">
-    <div class="flex justify-between mb-4 border-b border-white/10 pb-2">
-        <h2 class="font-bold text-red-400">DELETED LOGS</h2>
-        <button onclick="document.getElementById('log-overlay').style.display='none'">CLOSE</button>
+<div id="full-overlay">
+    <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
+        <h2 id="overlay-title" class="font-bold uppercase tracking-widest">Overlay</h2>
+        <button onclick="closeOverlay()" class="text-sm bg-white/10 px-3 py-1 rounded">CLOSE</button>
     </div>
-    <div id="log-list" class="space-y-4"></div>
+    <div id="overlay-content" class="overflow-y-auto flex-1 space-y-3"></div>
 </div>
 
 <div id="call-overlay">
@@ -63,17 +72,14 @@
             <h2 id="call-status" class="text-2xl font-bold">Calling...</h2>
             <p id="call-timer" class="text-blue-400 font-mono">00:00</p>
         </div>
-        <div id="incoming-bar" class="hidden pointer-events-auto bg-slate-900 p-8 rounded-3xl text-center border border-white/10">
-            <p class="mb-4">Incoming Call...</p>
-            <div class="flex gap-4">
-                <button onclick="answerCall()" class="bg-green-500 px-8 py-3 rounded-full font-bold">ANSWER</button>
-                <button onclick="endCall()" class="bg-red-500 px-8 py-3 rounded-full font-bold">DECLINE</button>
-            </div>
+        <div id="incoming-bar" class="hidden pointer-events-auto bg-slate-900 p-8 rounded-3xl border border-white/10 text-center">
+            <p class="mb-4 font-bold">Incoming Call...</p>
+            <div class="flex gap-4"><button onclick="answerCall()" class="bg-green-500 px-8 py-3 rounded-full font-bold">ANSWER</button><button onclick="endCall()" class="bg-red-500 px-8 py-3 rounded-full font-bold">DECLINE</button></div>
         </div>
-        <div class="flex gap-10 pointer-events-auto mb-10">
-            <button onclick="toggleMute()" id="m-btn" class="call-btn">🎤</button>
+        <div class="flex gap-8 pointer-events-auto mb-10">
+            <button onclick="toggleMute()" id="mute-btn" class="call-btn">🎤</button>
             <button onclick="endCall()" class="call-btn bg-red-500">❌</button>
-            <button onclick="toggleCamera()" id="c-btn" class="call-btn">📹</button>
+            <button onclick="toggleCamera()" id="cam-btn" class="call-btn">📹</button>
         </div>
     </div>
 </div>
@@ -85,8 +91,8 @@
             <div id="headerName" class="font-bold">Chat</div>
         </div>
         <div class="flex gap-2">
-            <button onclick="startCall(false)" class="bg-slate-800 px-4 py-2 rounded-full text-[10px] font-bold">📞 VOICE</button>
-            <button onclick="startCall(true)" class="bg-blue-600 px-4 py-2 rounded-full text-[10px] font-bold">📹 FACETIME</button>
+            <button onclick="startCall(false)" class="bg-slate-800 px-4 py-2 rounded-full text-[10px] font-bold">VOICE</button>
+            <button onclick="startCall(true)" class="bg-blue-600 px-4 py-2 rounded-full text-[10px] font-bold">FACETIME</button>
         </div>
     </header>
 
@@ -95,9 +101,11 @@
 
     <form id="chat-form" class="p-4 bg-slate-900/50">
         <div class="bg-slate-800 rounded-full flex items-center px-5 py-3 border border-slate-700">
+            <button type="button" onclick="document.getElementById('fileIn').click()" class="mr-3 opacity-50">📎</button>
             <input id="msgIn" class="flex-1 bg-transparent outline-none text-sm" placeholder="Message..." autocomplete="off">
             <button type="submit" class="text-blue-500 font-bold ml-2">Send</button>
         </div>
+        <input type="file" id="fileIn" class="hidden" onchange="uploadMedia(this)">
     </form>
 </div>
 
@@ -107,20 +115,22 @@
     const _db = supabase.createClient(SB_URL, SB_KEY);
     const APP_ID = '4f6c6c2002784152a8366dec12f1b4c0';
     
-    let me, you, replyId = null, localA, localV, agora = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-    let timerInt, seconds = 0, isFacetime = false;
+    let me, you, localA, localV, agora = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+    let timerInt, seconds = 0, isFacetime = false, isMuted = false, isCamOff = false;
 
     async function init() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Code:");
         const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
         if (!data) return;
-        
         me = data.username; you = (me === 'RJ') ? 'Allyvia' : 'RJ';
         document.getElementById('sideName').textContent = me;
         document.getElementById('headerName').textContent = you;
         if (me === "RJ") document.getElementById('logs-btn').style.display = 'block';
-
         loadMessages();
+        setupSubs();
+    }
+
+    function setupSubs() {
         _db.channel('global').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, (p) => {
             if (p.new?.receiver === me && p.new?.message === "___CALL_REQ_V___") { isFacetime = false; showCallUI(true); }
             if (p.new?.receiver === me && p.new?.message === "___CALL_REQ_F___") { isFacetime = true; showCallUI(true); }
@@ -133,6 +143,21 @@
         }).subscribe();
     }
 
+    // --- BUTTON FUNCTIONS (FIXED) ---
+    window.toggleMute = () => {
+        if (!localA) return;
+        isMuted = !isMuted;
+        localA.setMuted(isMuted);
+        document.getElementById('mute-btn').classList.toggle('btn-off', isMuted);
+    };
+
+    window.toggleCamera = () => {
+        if (!localV) return;
+        isCamOff = !isCamOff;
+        localV.setMuted(isCamOff);
+        document.getElementById('cam-btn').classList.toggle('btn-off', isCamOff);
+    };
+
     window.toggleSidebar = () => {
         const s = document.getElementById('sidebar');
         const o = document.getElementById('sidebar-overlay');
@@ -140,22 +165,69 @@
         o.style.display = s.classList.contains('open') ? 'block' : 'none';
     };
 
+    window.closeOverlay = () => document.getElementById('full-overlay').style.display = 'none';
+
+    window.viewGallery = async () => {
+        toggleSidebar();
+        const ov = document.getElementById('full-overlay');
+        const cont = document.getElementById('overlay-content');
+        document.getElementById('overlay-title').textContent = "Gallery";
+        ov.style.display = 'flex';
+        const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null);
+        cont.innerHTML = `<div class="grid grid-cols-2 gap-2">${data.map(img => `<img src="${img.file_url}" class="rounded-lg w-full h-40 object-cover">`).join('')}</div>`;
+    };
+
+    window.viewLogs = async () => {
+        toggleSidebar();
+        const ov = document.getElementById('full-overlay');
+        const cont = document.getElementById('overlay-content');
+        document.getElementById('overlay-title').textContent = "Deleted Logs";
+        ov.style.display = 'flex';
+        const { data } = await _db.from('deleted_log').select('*').order('deleted_at', { ascending: false });
+        cont.innerHTML = data.map(l => `<div class="p-3 bg-slate-900 rounded border border-white/5 text-sm"><b>${l.sender}:</b> ${l.message}</div>`).join('');
+    };
+
+    // --- CHAT & MEDIA ---
     async function loadMessages() {
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(40);
+        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(50);
         document.getElementById('messages').innerHTML = data.reverse().filter(m => !m.message.startsWith("___")).map(m => {
             const isMe = m.sender === me;
             const t = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            return `<div class="msg-container"><div class="msg ${isMe ? 'self' : 'other'}">${m.message}</div>
-            <div class="msg-meta ${isMe ? 'meta-self' : ''}"><span>${t}</span><span onclick="delM('${m.id}')" style="color:#ef4444; font-weight:bold; cursor:pointer;">Delete</span></div></div>`;
+            return `
+            <div class="msg-wrapper ${isMe ? 'msg-self' : 'msg-other'}">
+                <div class="msg-bubble ${isMe ? 'bubble-self' : 'bubble-other'}">
+                    ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-w-full">` : ''}
+                    ${m.message || ''}
+                </div>
+                <div class="msg-meta">
+                    <span>${t}</span>
+                    <span class="meta-btn text-red-500" onclick="delM('${m.id}')">Delete</span>
+                </div>
+            </div>`;
         }).join('');
         document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
     }
 
-    async function startCall(facetime) {
-        isFacetime = facetime;
-        showCallUI(false);
-        const msg = facetime ? "___CALL_REQ_F___" : "___CALL_REQ_V___";
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: msg }]);
+    async function uploadMedia(input) {
+        const file = input.files[0]; if (!file) return;
+        const path = `chat/${Date.now()}_${file.name}`;
+        await _db.storage.from('gallery').upload(path, file);
+        const { data } = _db.storage.from('gallery').getPublicUrl(path);
+        await _db.from('private_messages').insert([{ sender: me, receiver: you, file_url: data.publicUrl, message: "" }]);
+    }
+
+    async function delM(id) {
+        if (!confirm("Delete?")) return;
+        const { data: m } = await _db.from('private_messages').select('*').eq('id', id).single();
+        await _db.from('deleted_log').insert([{ sender: m.sender, message: m.message || "[Media]" }]);
+        await _db.from('private_messages').delete().eq('id', id);
+        loadMessages();
+    }
+
+    // --- CALL LOGIC ---
+    async function startCall(f) {
+        isFacetime = f; showCallUI(false);
+        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: f ? "___CALL_REQ_F___" : "___CALL_REQ_V___" }]);
         connectAgora();
     }
 
@@ -163,14 +235,11 @@
         await agora.join(APP_ID, "main", null, null);
         localA = await AgoraRTC.createMicrophoneAudioTrack();
         let tracks = [localA];
-        
         if (isFacetime) {
             document.querySelectorAll('.video-pane').forEach(p => p.style.display = 'block');
             localV = await AgoraRTC.createCameraVideoTrack();
-            localV.play('local-v');
-            tracks.push(localV);
+            localV.play('local-v'); tracks.push(localV);
         }
-
         await agora.publish(tracks);
         agora.on("user-published", async (u, type) => {
             await agora.subscribe(u, type);
@@ -192,7 +261,6 @@
     function showCallUI(incoming) {
         document.getElementById('call-overlay').style.display = 'flex';
         document.getElementById('incoming-bar').classList.toggle('hidden', !incoming);
-        document.getElementById('call-status').textContent = isFacetime ? "FaceTime..." : "Voice Call...";
     }
 
     function answerCall() {
@@ -208,20 +276,6 @@
         document.getElementById('call-overlay').style.display = 'none';
         document.querySelectorAll('.video-pane').forEach(p => p.style.display = 'none');
     }
-
-    async function delM(id) {
-        if (!confirm("Delete this message?")) return;
-        const { data: m } = await _db.from('private_messages').select('*').eq('id', id).single();
-        await _db.from('deleted_log').insert([{ sender: m.sender, message: m.message }]);
-        await _db.from('private_messages').delete().eq('id', id);
-        loadMessages();
-    }
-
-    window.viewLogs = async () => {
-        document.getElementById('log-overlay').style.display = 'flex';
-        const { data } = await _db.from('deleted_log').select('*').order('deleted_at', { ascending: false });
-        document.getElementById('log-list').innerHTML = data.map(l => `<div class="p-3 bg-slate-800 rounded"><b>${l.sender}:</b> ${l.message}</div>`).join('');
-    };
 
     document.getElementById('msgIn').addEventListener('input', (e) => {
         _db.from('chat_codes').update({ typing_text: e.target.value }).eq('username', me).then();
