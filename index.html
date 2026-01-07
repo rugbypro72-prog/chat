@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v5.9</title>
+    <title>Chat Master v6.0</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -11,36 +11,24 @@
         :root { --bg: #0b0f1a; --accent: #3b82f6; }
         body { background: var(--bg); color: white; font-family: -apple-system, sans-serif; height: 100vh; overflow: hidden; margin: 0; }
         
-        /* SIDEBAR & OVERLAYS */
         #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: #111827; z-index: 2000; transition: 0.3s ease; padding: 40px 20px; border-right: 1px solid #374151; }
         #sidebar.open { left: 0; }
         #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1500; backdrop-filter: blur(4px); }
         .side-btn { width: 100%; text-align: left; padding: 15px; border-radius: 12px; margin-bottom: 8px; font-weight: 600; cursor: pointer; }
-        .side-btn:hover { background: rgba(255,255,255,0.05); }
 
-        /* MESSAGE ALIGNMENT FIX */
-        #messages { flex: 1; overflow-y: auto; padding: 20px 15px; display: flex; flex-direction: column; gap: 12px; }
+        #messages { flex: 1; overflow-y: auto; padding: 20px 15px; display: flex; flex-direction: column; gap: 15px; }
         .msg-wrapper { display: flex; flex-direction: column; width: 100%; }
-        .msg-bubble { max-width: 80%; padding: 12px 16px; border-radius: 20px; font-size: 15px; position: relative; line-height: 1.4; }
-        
-        /* "RJ" Style (Right) */
+        .msg-bubble { max-width: 80%; padding: 12px 16px; border-radius: 20px; font-size: 15px; position: relative; }
         .msg-self { align-items: flex-end; }
         .bubble-self { background: var(--accent); border-bottom-right-radius: 4px; }
-        
-        /* "Allyvia" Style (Left) */
         .msg-other { align-items: flex-start; }
         .bubble-other { background: #2d3748; border-bottom-left-radius: 4px; }
 
-        .msg-meta { display: flex; gap: 10px; font-size: 10px; opacity: 0.5; margin-top: 4px; padding: 0 5px; }
-        .meta-btn { cursor: pointer; font-weight: bold; }
-        .meta-btn:hover { opacity: 1; color: #60a5fa; }
-
-        /* CALL SYSTEM */
-        #call-overlay { display: none; position: fixed; inset: 0; z-index: 3000; background: #000; flex-direction: column; }
-        .video-pane { flex: 1; width: 100%; background: #111; position: relative; display: none; }
-        .call-ui { position: absolute; inset: 0; z-index: 100; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 60px 20px; }
-        .call-btn { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; pointer-events: auto; background: rgba(255,255,255,0.1); }
-        .btn-off { background: rgba(239, 68, 68, 0.4) !important; border: 1px solid #ef4444; }
+        .msg-meta { display: flex; gap: 10px; font-size: 10px; opacity: 0.5; margin-top: 4px; }
+        
+        /* PREVIEW BOX */
+        #media-preview-container { display: none; padding: 10px; background: #1e293b; border-top: 1px solid #334155; align-items: center; gap: 10px; }
+        #img-preview-box { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; border: 1px solid #3b82f6; }
 
         #full-overlay { display: none; position: fixed; inset: 0; z-index: 4000; background: #0b0f1a; flex-direction: column; padding: 20px; }
     </style>
@@ -61,51 +49,32 @@
         <h2 id="overlay-title" class="font-bold uppercase tracking-widest">Overlay</h2>
         <button onclick="closeOverlay()" class="text-sm bg-white/10 px-3 py-1 rounded">CLOSE</button>
     </div>
-    <div id="overlay-content" class="overflow-y-auto flex-1 space-y-3"></div>
-</div>
-
-<div id="call-overlay">
-    <div id="remote-v" class="video-pane"></div>
-    <div id="local-v" class="video-pane"></div>
-    <div class="call-ui">
-        <div class="text-center">
-            <h2 id="call-status" class="text-2xl font-bold">Calling...</h2>
-            <p id="call-timer" class="text-blue-400 font-mono">00:00</p>
-        </div>
-        <div id="incoming-bar" class="hidden pointer-events-auto bg-slate-900 p-8 rounded-3xl border border-white/10 text-center">
-            <p class="mb-4 font-bold">Incoming Call...</p>
-            <div class="flex gap-4"><button onclick="answerCall()" class="bg-green-500 px-8 py-3 rounded-full font-bold">ANSWER</button><button onclick="endCall()" class="bg-red-500 px-8 py-3 rounded-full font-bold">DECLINE</button></div>
-        </div>
-        <div class="flex gap-8 pointer-events-auto mb-10">
-            <button onclick="toggleMute()" id="mute-btn" class="call-btn">🎤</button>
-            <button onclick="endCall()" class="call-btn bg-red-500">❌</button>
-            <button onclick="toggleCamera()" id="cam-btn" class="call-btn">📹</button>
-        </div>
-    </div>
+    <div id="overlay-content" class="overflow-y-auto flex-1"></div>
 </div>
 
 <div id="chat-main" class="flex flex-col h-screen max-w-2xl mx-auto bg-slate-950">
     <header class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
         <div class="flex items-center gap-3">
             <button onclick="toggleSidebar()" class="text-2xl">☰</button>
-            <div id="headerName" class="font-bold">Chat</div>
-        </div>
-        <div class="flex gap-2">
-            <button onclick="startCall(false)" class="bg-slate-800 px-4 py-2 rounded-full text-[10px] font-bold">VOICE</button>
-            <button onclick="startCall(true)" class="bg-blue-600 px-4 py-2 rounded-full text-[10px] font-bold">FACETIME</button>
+            <div id="headerName" class="font-bold text-lg">Allyvia</div>
         </div>
     </header>
 
     <main id="messages"></main>
-    <div id="typing-tag" class="px-6 py-1 text-[10px] text-blue-400 italic h-5"></div>
+
+    <div id="media-preview-container">
+        <img id="img-preview-box" src="" />
+        <div class="flex-1 text-xs opacity-60">Ready to send...</div>
+        <button onclick="cancelMedia()" class="text-red-400 font-bold">Cancel</button>
+    </div>
 
     <form id="chat-form" class="p-4 bg-slate-900/50">
         <div class="bg-slate-800 rounded-full flex items-center px-5 py-3 border border-slate-700">
-            <button type="button" onclick="document.getElementById('fileIn').click()" class="mr-3 opacity-50">📎</button>
+            <button type="button" onclick="document.getElementById('fileIn').click()" class="mr-3 text-xl opacity-60">🖼️</button>
             <input id="msgIn" class="flex-1 bg-transparent outline-none text-sm" placeholder="Message..." autocomplete="off">
             <button type="submit" class="text-blue-500 font-bold ml-2">Send</button>
         </div>
-        <input type="file" id="fileIn" class="hidden" onchange="uploadMedia(this)">
+        <input type="file" id="fileIn" class="hidden" accept="image/*" onchange="previewMedia(this)">
     </form>
 </div>
 
@@ -113,81 +82,70 @@
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
-    const APP_ID = '4f6c6c2002784152a8366dec12f1b4c0';
     
-    let me, you, localA, localV, agora = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-    let timerInt, seconds = 0, isFacetime = false, isMuted = false, isCamOff = false;
+    let me, you, pendingFile = null;
 
     async function init() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Code:");
         const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
         if (!data) return;
         me = data.username; you = (me === 'RJ') ? 'Allyvia' : 'RJ';
-        document.getElementById('sideName').textContent = me;
         document.getElementById('headerName').textContent = you;
         if (me === "RJ") document.getElementById('logs-btn').style.display = 'block';
         loadMessages();
-        setupSubs();
+        _db.channel('global').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, loadMessages).subscribe();
     }
 
-    function setupSubs() {
-        _db.channel('global').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, (p) => {
-            if (p.new?.receiver === me && p.new?.message === "___CALL_REQ_V___") { isFacetime = false; showCallUI(true); }
-            if (p.new?.receiver === me && p.new?.message === "___CALL_REQ_F___") { isFacetime = true; showCallUI(true); }
-            if (p.new?.message === "___CALL_END___") endCall(false);
-            loadMessages();
-        }).on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, (p) => {
-            if (p.new.username === you) {
-                document.getElementById('typing-tag').textContent = p.new.typing_text ? (me === "RJ" ? `Allyvia: ${p.new.typing_text}` : "RJ is typing...") : "";
-            }
-        }).subscribe();
-    }
-
-    // --- BUTTON FUNCTIONS (FIXED) ---
-    window.toggleMute = () => {
-        if (!localA) return;
-        isMuted = !isMuted;
-        localA.setMuted(isMuted);
-        document.getElementById('mute-btn').classList.toggle('btn-off', isMuted);
-    };
-
-    window.toggleCamera = () => {
-        if (!localV) return;
-        isCamOff = !isCamOff;
-        localV.setMuted(isCamOff);
-        document.getElementById('cam-btn').classList.toggle('btn-off', isCamOff);
-    };
-
+    // --- SIDEBAR & OVERLAYS ---
     window.toggleSidebar = () => {
         const s = document.getElementById('sidebar');
         const o = document.getElementById('sidebar-overlay');
         s.classList.toggle('open');
         o.style.display = s.classList.contains('open') ? 'block' : 'none';
     };
-
     window.closeOverlay = () => document.getElementById('full-overlay').style.display = 'none';
 
     window.viewGallery = async () => {
         toggleSidebar();
         const ov = document.getElementById('full-overlay');
-        const cont = document.getElementById('overlay-content');
         document.getElementById('overlay-title').textContent = "Gallery";
         ov.style.display = 'flex';
         const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null);
-        cont.innerHTML = `<div class="grid grid-cols-2 gap-2">${data.map(img => `<img src="${img.file_url}" class="rounded-lg w-full h-40 object-cover">`).join('')}</div>`;
+        document.getElementById('overlay-content').innerHTML = `<div class="grid grid-cols-3 gap-1 p-2">${data.map(i => `<img src="${i.file_url}" class="w-full h-32 object-cover rounded">`).join('')}</div>`;
     };
 
     window.viewLogs = async () => {
         toggleSidebar();
         const ov = document.getElementById('full-overlay');
-        const cont = document.getElementById('overlay-content');
         document.getElementById('overlay-title').textContent = "Deleted Logs";
         ov.style.display = 'flex';
         const { data } = await _db.from('deleted_log').select('*').order('deleted_at', { ascending: false });
-        cont.innerHTML = data.map(l => `<div class="p-3 bg-slate-900 rounded border border-white/5 text-sm"><b>${l.sender}:</b> ${l.message}</div>`).join('');
+        document.getElementById('overlay-content').innerHTML = data.map(l => `
+            <div class="p-3 border-b border-white/5 text-xs">
+                <div class="text-red-400 font-bold mb-1">DELETED AT: ${new Date(l.deleted_at).toLocaleString()}</div>
+                <div><b>${l.sender}:</b> ${l.message}</div>
+            </div>`).join('');
     };
 
-    // --- CHAT & MEDIA ---
+    // --- MEDIA LOGIC ---
+    window.previewMedia = (input) => {
+        const file = input.files[0];
+        if (!file) return;
+        pendingFile = file;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            document.getElementById('img-preview-box').src = e.target.result;
+            document.getElementById('media-preview-container').style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
+    };
+
+    window.cancelMedia = () => {
+        pendingFile = null;
+        document.getElementById('fileIn').value = "";
+        document.getElementById('media-preview-container').style.display = 'none';
+    };
+
     async function loadMessages() {
         const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(50);
         document.getElementById('messages').innerHTML = data.reverse().filter(m => !m.message.startsWith("___")).map(m => {
@@ -196,96 +154,46 @@
             return `
             <div class="msg-wrapper ${isMe ? 'msg-self' : 'msg-other'}">
                 <div class="msg-bubble ${isMe ? 'bubble-self' : 'bubble-other'}">
-                    ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-w-full">` : ''}
+                    ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 w-full h-auto block" style="min-width:150px;">` : ''}
                     ${m.message || ''}
                 </div>
                 <div class="msg-meta">
                     <span>${t}</span>
-                    <span class="meta-btn text-red-500" onclick="delM('${m.id}')">Delete</span>
+                    <span class="text-red-500 font-bold cursor-pointer" onclick="delM('${m.id}')">Delete</span>
                 </div>
             </div>`;
         }).join('');
         document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
     }
 
-    async function uploadMedia(input) {
-        const file = input.files[0]; if (!file) return;
-        const path = `chat/${Date.now()}_${file.name}`;
-        await _db.storage.from('gallery').upload(path, file);
-        const { data } = _db.storage.from('gallery').getPublicUrl(path);
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, file_url: data.publicUrl, message: "" }]);
-    }
+    document.getElementById('chat-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const i = document.getElementById('msgIn');
+        let fileUrl = null;
 
-    async function delM(id) {
-        if (!confirm("Delete?")) return;
+        if (pendingFile) {
+            const path = `chat/${Date.now()}_${pendingFile.name}`;
+            await _db.storage.from('gallery').upload(path, pendingFile);
+            const { data } = _db.storage.from('gallery').getPublicUrl(path);
+            fileUrl = data.publicUrl;
+            cancelMedia();
+        }
+
+        if (!i.value && !fileUrl) return;
+        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: i.value, file_url: fileUrl }]);
+        i.value = '';
+    };
+
+    window.delM = async (id) => {
+        if (!confirm("Permenantly delete and log?")) return;
         const { data: m } = await _db.from('private_messages').select('*').eq('id', id).single();
-        await _db.from('deleted_log').insert([{ sender: m.sender, message: m.message || "[Media]" }]);
+        await _db.from('deleted_log').insert([{ 
+            sender: m.sender, 
+            message: m.message || (m.file_url ? "[Image Sent]" : "[Empty Message]"),
+            deleted_at: new Date().toISOString()
+        }]);
         await _db.from('private_messages').delete().eq('id', id);
         loadMessages();
-    }
-
-    // --- CALL LOGIC ---
-    async function startCall(f) {
-        isFacetime = f; showCallUI(false);
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: f ? "___CALL_REQ_F___" : "___CALL_REQ_V___" }]);
-        connectAgora();
-    }
-
-    async function connectAgora() {
-        await agora.join(APP_ID, "main", null, null);
-        localA = await AgoraRTC.createMicrophoneAudioTrack();
-        let tracks = [localA];
-        if (isFacetime) {
-            document.querySelectorAll('.video-pane').forEach(p => p.style.display = 'block');
-            localV = await AgoraRTC.createCameraVideoTrack();
-            localV.play('local-v'); tracks.push(localV);
-        }
-        await agora.publish(tracks);
-        agora.on("user-published", async (u, type) => {
-            await agora.subscribe(u, type);
-            if (type === "audio") { u.audioTrack.play(); startTimer(); document.getElementById('call-status').textContent="Connected"; }
-            if (type === "video") u.videoTrack.play('remote-v');
-        });
-    }
-
-    function startTimer() {
-        clearInterval(timerInt); seconds = 0;
-        timerInt = setInterval(() => {
-            seconds++;
-            const m = Math.floor(seconds/60).toString().padStart(2,'0');
-            const s = (seconds%60).toString().padStart(2,'0');
-            document.getElementById('call-timer').textContent = `${m}:${s}`;
-        }, 1000);
-    }
-
-    function showCallUI(incoming) {
-        document.getElementById('call-overlay').style.display = 'flex';
-        document.getElementById('incoming-bar').classList.toggle('hidden', !incoming);
-    }
-
-    function answerCall() {
-        document.getElementById('incoming-bar').classList.add('hidden');
-        connectAgora();
-    }
-
-    async function endCall(sig = true) {
-        if (sig) await _db.from('private_messages').insert([{ sender: me, receiver: you, message: "___CALL_END___" }]);
-        clearInterval(timerInt);
-        if (localA) localA.close(); if (localV) localV.close();
-        await agora.leave();
-        document.getElementById('call-overlay').style.display = 'none';
-        document.querySelectorAll('.video-pane').forEach(p => p.style.display = 'none');
-    }
-
-    document.getElementById('msgIn').addEventListener('input', (e) => {
-        _db.from('chat_codes').update({ typing_text: e.target.value }).eq('username', me).then();
-    });
-
-    document.getElementById('chat-form').onsubmit = async (e) => {
-        e.preventDefault(); const i = document.getElementById('msgIn');
-        if (!i.value) return;
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: i.value }]);
-        i.value = ''; _db.from('chat_codes').update({ typing_text: "" }).eq('username', me).then();
     };
 
     window.logout = () => { localStorage.clear(); location.reload(); };
