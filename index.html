@@ -12,81 +12,64 @@
         body { background: var(--bg); color: white; font-family: -apple-system, sans-serif; height: 100vh; overflow: hidden; margin: 0; position: fixed; width: 100%; }
         #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; background: #0f172a; position: relative; }
         #messages { flex: 1; overflow-y: auto; padding: 20px 15px; display: flex; flex-direction: column; gap: 8px; }
-        .msg-container { display: flex; align-items: flex-end; gap: 8px; }
-        .row-self { flex-direction: row-reverse; }
-        .msg { max-width: 78%; padding: 10px 14px; font-size: 15px; border-radius: 18px; }
-        .self { background: var(--accent); border-radius: 18px 18px 4px 18px; }
-        .other { background: #2d3748; border-radius: 18px 18px 18px 4px; }
         
-        /* CALL UI ENHANCEMENTS */
-        #call-overlay { display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(10, 15, 25, 0.98); flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(20px); }
-        .control-btn { width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; background: rgba(255,255,255,0.1); transition: 0.2s; }
+        /* CALL OVERLAY */
+        #call-overlay { display: none; position: fixed; inset: 0; z-index: 1000; background: #0a0f19; flex-direction: column; align-items: center; justify-content: center; transition: 0.3s; }
+        .control-btn { width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; background: rgba(255,255,255,0.1); }
         .active-red { background: #ef4444 !important; }
-        .active-blue { background: #3b82f6 !important; }
         
-        #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: #0f172a; z-index: 600; transition: 0.3s; padding: 25px; border-right: 1px solid #334155; }
-        #sidebar.open { left: 0; }
-        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 550; }
-        .pfp-icon { width: 32px; height: 32px; border-radius: 50%; background-size: cover; background-position: center; border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; }
+        /* Video Containers (Hidden for now) */
+        #local-video, #remote-video { position: absolute; inset: 0; width: 100%; height: 100%; background: #000; display: none; object-fit: cover; }
+        #local-video { width: 100px; height: 150px; top: 20px; right: 20px; border-radius: 12px; z-index: 10; border: 2px solid rgba(255,255,255,0.2); }
     </style>
 </head>
 <body>
 
-<div id="overlay" onclick="toggleSidebar()"></div>
-
 <div id="call-overlay">
-    <div id="call-pfp" class="w-32 h-32 rounded-full mb-6 bg-cover bg-center border-4 border-blue-500 shadow-2xl"></div>
-    <h2 id="call-status" class="text-2xl font-bold mb-2">Connecting...</h2>
-    <p id="call-name" class="opacity-40 mb-16">Voice Call</p>
-    
-    <div id="call-controls" class="flex gap-6 items-center">
-        <div id="mute-btn" onclick="toggleMute()" class="control-btn">🎤</div>
-        <div onclick="endCall()" class="control-btn active-red" style="width:70px; height:70px; font-size: 28px;">❌</div>
-        <div id="speaker-btn" onclick="toggleSpeaker()" class="control-btn">🔊</div>
-    </div>
-    
-    <div id="incoming-bar" class="hidden mt-10">
-        <button onclick="answerCall()" class="bg-green-500 p-4 px-10 rounded-full font-bold shadow-lg">ANSWER</button>
-    </div>
-</div>
+    <div id="remote-video"></div>
+    <div id="local-video"></div>
 
-<div id="sidebar">
-    <div id="sideAv" class="w-20 h-20 rounded-full mb-4 border-2 border-blue-500 bg-cover bg-center"></div>
-    <div class="font-bold text-xl mb-8" id="sideName">User</div>
-    <button onclick="logout()" class="absolute bottom-10 left-6 text-red-400 font-medium">Logout</button>
+    <div id="call-ui-content" class="relative z-20 flex flex-col items-center">
+        <div id="call-pfp" class="w-32 h-32 rounded-full mb-6 bg-cover bg-center border-4 border-blue-500 shadow-2xl"></div>
+        <h2 id="call-status" class="text-2xl font-bold mb-1 text-white">Connecting...</h2>
+        <p id="call-timer" class="text-blue-400 font-mono text-lg mb-16">00:00</p>
+        
+        <div id="call-controls" class="flex gap-6 items-center">
+            <div id="mute-btn" onclick="toggleMute()" class="control-btn">🎤</div>
+            <div onclick="endCall()" class="control-btn active-red" style="width:70px; height:70px; font-size: 28px;">❌</div>
+            <div id="video-btn" onclick="toggleVideo()" class="control-btn opacity-30">📹</div>
+        </div>
+        
+        <div id="incoming-bar" class="hidden mt-10 text-center">
+            <p class="mb-4 text-sm opacity-50">Allyvia is calling...</p>
+            <button onclick="answerCall()" class="bg-green-500 p-4 px-12 rounded-full font-bold shadow-lg animate-pulse">ANSWER</button>
+        </div>
+    </div>
 </div>
 
 <div id="chat-main">
     <header class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
         <div class="flex items-center gap-3">
-            <button onclick="toggleSidebar()" class="text-xl">☰</button>
+            <button onclick="document.getElementById('sidebar').classList.toggle('open')" class="text-xl">☰</button>
             <div class="font-bold" id="headerName">Chat</div>
         </div>
-        <button onclick="startCall()" class="bg-blue-600 p-2 px-5 rounded-full text-xs font-bold">📞 CALL</button>
+        <div class="flex gap-2">
+            <button onclick="startCall(false)" class="bg-slate-800 p-2 px-4 rounded-full text-xs font-bold">📞 Voice</button>
+            <button onclick="startCall(true)" class="bg-blue-600 p-2 px-4 rounded-full text-xs font-bold">📹 Video</button>
+        </div>
     </header>
-
     <main id="messages"></main>
-
-    <div id="footer">
-        <form id="chat-form">
-            <div class="bg-slate-800 p-2 m-3 rounded-full flex items-center border border-slate-700">
-                <input id="msgIn" class="flex-1 bg-transparent border-none outline-none px-4 text-sm" placeholder="Message..." autocomplete="off">
-                <button type="submit" class="text-blue-500 font-bold px-3">Send</button>
-            </div>
-        </form>
-    </div>
 </div>
 
 <script>
     const AGORA_APP_ID = '4f6c6c2002784152a8366dec12f1b4c0'; 
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // Your key
     const _db = supabase.createClient(SB_URL, SB_KEY);
     
     let me, you, profiles = {};
     let agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-    let localAudioTrack;
-    let isMuted = false, isSpeaker = true;
+    let localAudio, localVideo, timerInterval, seconds = 0;
 
     async function init() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
@@ -94,109 +77,83 @@
         if (!data) return; 
         me = data.username; you = (me === 'RJ') ? 'Allyvia' : 'RJ';
         document.getElementById('headerName').textContent = you;
-        localStorage.setItem('chat_secret_code', code);
-        
-        await syncProfiles();
-        loadMessages();
         
         _db.channel('global').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
             if (p.new.receiver === me && p.new.message === "___CALL_REQ___") showCallUI(true);
             if (p.new.message === "___CALL_END___") endCall(false);
-            loadMessages();
         }).subscribe();
     }
 
-    // --- CALLING LOGIC ---
-    async function startCall() {
+    async function startCall(isVideo) {
         showCallUI(false);
         await _db.from('private_messages').insert([{ sender: me, receiver: you, message: "___CALL_REQ___" }]);
-        connectAgora();
+        connectAgora(isVideo);
     }
 
-    async function connectAgora() {
+    async function connectAgora(isVideo) {
+        document.getElementById('call-status').textContent = "Connecting...";
         await agoraClient.join(AGORA_APP_ID, "chat_room", null, null);
-        localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-        await agoraClient.publish([localAudioTrack]);
+        
+        localAudio = await AgoraRTC.createMicrophoneAudioTrack();
+        let tracks = [localAudio];
+        
+        if (isVideo) {
+            localVideo = await AgoraRTC.createCameraVideoTrack();
+            document.getElementById('local-video').style.display = 'block';
+            localVideo.play('local-video');
+            tracks.push(localVideo);
+        }
+
+        await agoraClient.publish(tracks);
         
         agoraClient.on("user-published", async (user, mediaType) => {
             await agoraClient.subscribe(user, mediaType);
             if (mediaType === "audio") {
                 user.audioTrack.play();
+                startTimer(); // Timer starts only when other person's audio is heard!
                 document.getElementById('call-status').textContent = "Connected";
+            }
+            if (mediaType === "video") {
+                document.getElementById('remote-video').style.display = 'block';
+                user.videoTrack.play('remote-video');
             }
         });
     }
 
+    function startTimer() {
+        if (timerInterval) return;
+        seconds = 0;
+        timerInterval = setInterval(() => {
+            seconds++;
+            const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const secs = (seconds % 60).toString().padStart(2, '0');
+            document.getElementById('call-timer').textContent = `${mins}:${secs}`;
+        }, 1000);
+    }
+
     function showCallUI(incoming) {
         document.getElementById('call-overlay').style.display = 'flex';
-        document.getElementById('call-status').textContent = incoming ? "Incoming Call..." : "Calling...";
         document.getElementById('incoming-bar').style.display = incoming ? 'block' : 'none';
         document.getElementById('call-controls').style.display = incoming ? 'none' : 'flex';
-        const p = profiles[you];
-        if (p?.avatar_url) document.getElementById('call-pfp').style.backgroundImage = `url('${p.avatar_url}')`;
     }
 
     async function answerCall() {
         document.getElementById('incoming-bar').style.display = 'none';
         document.getElementById('call-controls').style.display = 'flex';
-        connectAgora();
-    }
-
-    // --- VOICE CONTROLS ---
-    function toggleMute() {
-        isMuted = !isMuted;
-        localAudioTrack.setEnabled(!isMuted);
-        const btn = document.getElementById('mute-btn');
-        btn.textContent = isMuted ? '🔇' : '🎤';
-        btn.classList.toggle('active-red', isMuted);
-    }
-
-    function toggleSpeaker() {
-        // Simple toggle for UI; Agora uses default browser output routing
-        isSpeaker = !isSpeaker;
-        const btn = document.getElementById('speaker-btn');
-        btn.textContent = isSpeaker ? '🔊' : '🔈';
-        btn.classList.toggle('active-blue', !isSpeaker);
-        // Note: Actual device routing is restricted by browser security policies
+        connectAgora(false); // Can change to true for FaceTime
     }
 
     async function endCall(signal = true) {
         if (signal) await _db.from('private_messages').insert([{ sender: me, receiver: you, message: "___CALL_END___" }]);
-        if (localAudioTrack) { localAudioTrack.stop(); localAudioTrack.close(); }
+        clearInterval(timerInterval);
+        timerInterval = null;
+        if (localAudio) { localAudio.close(); }
+        if (localVideo) { localVideo.close(); }
         await agoraClient.leave();
         document.getElementById('call-overlay').style.display = 'none';
-        isMuted = false;
+        document.getElementById('call-timer').textContent = "00:00";
     }
 
-    // --- MESSAGING ---
-    async function syncProfiles() {
-        const { data } = await _db.from('chat_codes').select('*');
-        if(data) data.forEach(u => profiles[u.username] = u);
-        const p = profiles[me];
-        if (p?.avatar_url) document.getElementById('sideAv').style.backgroundImage = `url('${p.avatar_url}')`;
-        document.getElementById('sideName').textContent = me;
-    }
-
-    async function loadMessages() {
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(50);
-        if (!data) return;
-        document.getElementById('messages').innerHTML = data.reverse().filter(m => !m.message.startsWith("___CALL")).map(m => {
-            const isMe = m.sender === me;
-            return `<div class="msg-container ${isMe ? 'row-self' : ''} mb-2">
-                <div class="msg ${isMe ? 'self' : 'other'}">${m.message}</div>
-            </div>`;
-        }).join('');
-        const box = document.getElementById('messages'); box.scrollTop = box.scrollHeight;
-    }
-
-    document.getElementById('chat-form').onsubmit = async (e) => {
-        e.preventDefault(); const i = document.getElementById('msgIn');
-        if (i.value) await _db.from('private_messages').insert([{ sender: me, receiver: you, message: i.value }]);
-        i.value = ''; loadMessages();
-    };
-
-    window.toggleSidebar = () => { const s = document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = s ? 'block' : 'none'; };
-    window.logout = () => { localStorage.clear(); location.reload(); };
     init();
 </script>
 </body>
