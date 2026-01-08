@@ -235,35 +235,42 @@
     }
 
     // --- CALL SYSTEM ---
-    window.initCall = async (video) => {
-        document.getElementById('call-ui').style.display = 'flex';
-        rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-        await rtc.client.join(AGORA_APP_ID, "chat_room", null);
-        
-        rtc.localAudio = await AgoraRTC.createMicrophoneAudioTrack();
-        let tracks = [rtc.localAudio];
+window.initCall = async (video) => {
+    // This sends the specific code to the database
+    const signal = video ? "**CALL STARTED**" : "***CALL STARTED***";
+    await _db.from('private_messages').insert([{ sender: me, receiver: you, message: signal }]);
 
-        if (video) {
-            rtc.localVideo = await AgoraRTC.createCameraVideoTrack();
-            rtc.localVideo.play("local-container");
-            tracks.push(rtc.localVideo);
-        }
+    document.getElementById('call-ui').style.display = 'flex';
+    rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+    await rtc.client.join(AGORA_APP_ID, "chat_room", null);
+    
+    rtc.localAudio = await AgoraRTC.createMicrophoneAudioTrack();
+    let tracks = [rtc.localAudio];
 
-        await rtc.client.publish(tracks);
-        
-        rtc.client.on("user-published", async (user, mediaType) => {
-            await rtc.client.subscribe(user, mediaType);
-            if (mediaType === "video") user.videoTrack.play("remote-container");
-            if (mediaType === "audio") user.audioTrack.play();
-        });
-    };
+    if (video) {
+        rtc.localVideo = await AgoraRTC.createCameraVideoTrack();
+        rtc.localVideo.play("local-container");
+        tracks.push(rtc.localVideo);
+    }
 
-    window.endCall = async () => {
-        if (rtc.localAudio) rtc.localAudio.close();
-        if (rtc.localVideo) rtc.localVideo.close();
-        if (rtc.client) await rtc.client.leave();
-        document.getElementById('call-ui').style.display = 'none';
-    };
+    await rtc.client.publish(tracks);
+    
+    rtc.client.on("user-published", async (user, mediaType) => {
+        await rtc.client.subscribe(user, mediaType);
+        if (mediaType === "video") user.videoTrack.play("remote-container");
+        if (mediaType === "audio") user.audioTrack.play();
+    });
+};
+
+window.endCall = async () => {
+    // This sends the specific hang-up code you wanted
+    await _db.from('private_messages').insert([{ sender: me, receiver: you, message: "𝖈𝖆𝖑𝖑 𝖊𝖓𝖉𝖊𝖉" }]);
+
+    if (rtc.localAudio) rtc.localAudio.close();
+    if (rtc.localVideo) rtc.localVideo.close();
+    if (rtc.client) await rtc.client.leave();
+    document.getElementById('call-ui').style.display = 'none';
+};
 
     window.toggleMute = () => {
         const muted = rtc.localAudio.muted;
