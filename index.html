@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v5.0 - Midnight Complete</title>
+    <title>Chat Master v5.2</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
@@ -22,10 +22,10 @@
         .self { background: #111827; border: 1px solid #1e293b; color: #f8fafc; border-bottom-right-radius: 4px; }
         .other { background: #1e293b; color: #cbd5e1; border-bottom-left-radius: 4px; }
         
-        .msg-tools { font-size: 10px; opacity: 0; transition: 0.2s; margin-top: 4px; display: flex; gap: 10px; color: #3b82f6; font-weight: bold; text-transform: uppercase; }
+        .msg-tools { font-size: 10px; opacity: 0; transition: 0.2s; margin-top: 4px; display: flex; gap: 10px; color: #3b82f6; font-weight: bold; text-transform: uppercase; cursor: pointer; }
         .msg-container:hover .msg-tools { opacity: 1; }
 
-        /* Call UI Elements */
+        /* Call UI & Overlays */
         #call-ui, #ring-ui { display: none; position: fixed; inset: 0; background: #000; z-index: 999; flex-direction: column; align-items: center; justify-content: center; }
         .remote-player { width: 100%; height: 100%; position: absolute; inset: 0; }
         .local-player { width: 110px; height: 150px; position: absolute; bottom: 120px; right: 20px; border-radius: 12px; overflow: hidden; border: 1px solid #3b82f6; z-index: 10; background: #000; }
@@ -33,7 +33,6 @@
         #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: #05070a; z-index: 600; transition: 0.3s; padding: 30px 20px; border-right: 1px solid #111827; }
         #sidebar.open { left: 0; }
         #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 550; backdrop-filter: blur(8px); }
-        
         .full-overlay { display: none; position: fixed; inset: 0; z-index: 700; background: #000; flex-direction: column; }
     </style>
 </head>
@@ -43,7 +42,7 @@
 
 <div id="ring-ui">
     <div id="ring-name" class="text-4xl font-bold mb-2">...</div>
-    <div class="text-blue-500 animate-pulse tracking-widest text-xs mb-24">INCOMING CALL</div>
+    <div class="text-blue-500 animate-pulse tracking-widest text-xs mb-24 uppercase">Incoming Call</div>
     <div class="flex gap-14">
         <button onclick="endCall(true)" class="bg-red-500/20 text-red-500 w-16 h-16 rounded-full border border-red-500/50 text-2xl">✖</button>
         <button id="acceptBtn" class="bg-green-500/20 text-green-500 w-16 h-16 rounded-full border border-green-500/50 text-2xl">✔</button>
@@ -51,13 +50,14 @@
 </div>
 
 <div id="call-ui">
-    <div id="call-status" class="absolute top-16 text-blue-400 text-xs tracking-[0.3em] font-bold z-20">RINGING...</div>
+    <div id="call-status" class="absolute top-16 text-blue-400 text-xs tracking-[0.3em] font-bold z-20 uppercase">Ringing...</div>
     <div id="call-timer" class="absolute top-24 text-4xl font-light z-20">00:00</div>
     <div id="remote-container" class="remote-player"></div>
     <div id="local-container" class="local-player"></div>
-    <div class="absolute bottom-12 flex gap-10 z-20">
-        <button onclick="toggleMute()" id="muteBtn" class="bg-white/5 p-5 rounded-full border border-white/10">🎤</button>
-        <button onclick="endCall(true)" class="bg-red-600 p-5 rounded-full px-12 font-bold tracking-tighter">HANG UP</button>
+    <div class="absolute bottom-12 flex gap-4 z-20">
+        <button onclick="toggleMute()" id="muteBtn" class="bg-white/5 p-4 rounded-full border border-white/10 text-xl">🎤</button>
+        <button onclick="toggleScreenShare()" id="shareBtn" class="bg-white/5 p-4 rounded-full border border-white/10 text-xl">🖥️</button>
+        <button onclick="endCall(true)" class="bg-red-600 p-4 rounded-full px-8 font-bold">HANG UP</button>
     </div>
 </div>
 
@@ -66,7 +66,7 @@
     <div id="gallery-grid" class="grid grid-cols-3 gap-1 p-1 overflow-y-auto bg-black"></div>
 </div>
 <div id="log-overlay" class="full-overlay">
-    <div class="p-4 border-b border-red-900/50 flex justify-between bg-black"><span class="font-bold text-red-500">Deleted Logs</span><button onclick="document.getElementById('log-overlay').style.display='none'" class="text-2xl">&times;</button></div>
+    <div class="p-4 border-b border-red-900/50 flex justify-between bg-black"><span class="font-bold text-red-500 uppercase">Deleted Messages</span><button onclick="document.getElementById('log-overlay').style.display='none'" class="text-2xl">&times;</button></div>
     <div id="log-list" class="p-4 space-y-4 overflow-y-auto bg-black flex-1"></div>
 </div>
 
@@ -75,10 +75,10 @@
     <div class="text-center font-bold text-2xl mb-12" id="sideName">...</div>
     <div class="space-y-3">
         <button onclick="toggleGallery()" class="w-full text-left p-4 hover:bg-white/5 rounded-xl transition">Gallery</button>
-        <button id="logBtn" onclick="viewLogs()" class="hidden w-full text-left p-4 hover:bg-red-500/5 rounded-xl text-red-400 font-bold">Deleted Logs</button>
-        <button onclick="document.getElementById('pfpIn').click()" class="w-full text-left p-4 hover:bg-white/5 rounded-xl">Change Photo</button>
+        <button id="logBtn" onclick="viewLogs()" class="hidden w-full text-left p-4 hover:bg-red-500/5 rounded-xl text-red-400 font-bold transition">Logs</button>
+        <button onclick="document.getElementById('pfpIn').click()" class="w-full text-left p-4 hover:bg-white/5 rounded-xl transition">Profile Photo</button>
         <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadPFP(this)">
-        <button onclick="changeMood()" class="w-full text-left p-4 hover:bg-white/5 rounded-xl">Edit Status</button>
+        <button onclick="changeMood()" class="w-full text-left p-4 hover:bg-white/5 rounded-xl transition">Edit Status</button>
     </div>
 </div>
 
@@ -91,9 +91,9 @@
                 <div id="topMood" class="text-[10px] text-blue-500"></div>
             </div>
         </div>
-        <div class="flex gap-3">
-            <button onclick="initCall(false)" class="bg-white/5 px-5 py-2 rounded-full text-[10px] font-bold">VOICE</button>
-            <button onclick="initCall(true)" class="bg-blue-600 px-5 py-2 rounded-full text-[10px] font-bold shadow-lg shadow-blue-900/40">FACETIME</button>
+        <div class="flex gap-2">
+            <button onclick="initCall(false)" class="bg-white/5 px-4 py-2 rounded-full text-[10px] font-bold">VOICE</button>
+            <button onclick="initCall(true)" class="bg-blue-600 px-4 py-2 rounded-full text-[10px] font-bold shadow-lg">FACETIME</button>
         </div>
     </header>
 
@@ -105,7 +105,7 @@
             <button onclick="cancelReply()">✕</button>
         </div>
         <form id="chat-form" class="bg-[#0a0f1d] border border-white/5 rounded-full flex items-center px-4">
-            <label class="p-2 opacity-30 cursor-pointer"><input type="file" class="hidden" accept="image/*" onchange="previewMedia(this)">📎</label>
+            <label class="p-2 opacity-30 cursor-pointer">📎<input type="file" class="hidden" accept="image/*" onchange="previewMedia(this)"></label>
             <input id="msgIn" placeholder="Message..." class="flex-1 bg-transparent p-3 outline-none text-sm" autocomplete="off">
             <button type="submit" class="text-blue-500 font-bold px-3">Send</button>
         </form>
@@ -118,7 +118,7 @@
     const _db = supabase.createClient(SB_URL, SB_KEY);
     const AGORA_APP_ID = "4f6c6c2002784152a8366dec12f1b4c0"; 
     
-    let me, you, rtc = { client: null, localAudio: null, localVideo: null }, pendingFile = null, replyId = null, callInt;
+    let me, you, rtc = { client: null, localAudio: null, localVideo: null, screenTrack: null }, callInt, isSharing = false, replyId = null, pendingFile = null;
 
     async function init() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
@@ -133,47 +133,28 @@
             if (p.eventType === 'INSERT' && p.new.receiver === me) {
                 if (p.new.message === "___CALL_REQ_F___") ringUI(true);
                 if (p.new.message === "___CALL_REQ_V___") ringUI(false);
-                if (p.new.message === "___CALL_ACCEPTED___") {
-                    document.getElementById('call-status').textContent = "CONNECTED";
-                    startTimer();
-                }
+                if (p.new.message === "___CALL_ACCEPTED___") { document.getElementById('call-status').textContent = "Connected"; startTimer(); }
                 if (p.new.message === "___CALL_END___") endCall(false);
             }
             loadMessages();
         }).subscribe();
-        
         syncProfiles(); loadMessages();
     }
 
-    // --- CALL TIMER LOGIC ---
-    function startTimer() {
-        clearInterval(callInt);
-        let sec = 0;
-        document.getElementById('call-timer').textContent = "00:00";
-        callInt = setInterval(() => {
-            sec++;
-            let m = Math.floor(sec / 60).toString().padStart(2, '0');
-            let s = (sec % 60).toString().padStart(2, '0');
-            document.getElementById('call-timer').textContent = `${m}:${s}`;
-        }, 1000);
-    }
-
-    // --- CALL SYSTEM ---
+    // --- CALLING & SCREEN SHARE ---
     function ringUI(v) {
         document.getElementById('ring-ui').style.display = 'flex';
         document.getElementById('acceptBtn').onclick = async () => {
             document.getElementById('ring-ui').style.display = 'none';
             await _db.from('private_messages').insert([{ sender: me, receiver: you, message: "___CALL_ACCEPTED___" }]);
-            document.getElementById('call-status').textContent = "CONNECTED";
-            startTimer();
-            startAgora(v);
+            document.getElementById('call-status').textContent = "Connected";
+            startTimer(); startAgora(v);
         };
     }
 
     window.initCall = async (v) => {
         await _db.from('private_messages').insert([{ sender: me, receiver: you, message: v ? "___CALL_REQ_F___" : "___CALL_REQ_V___" }]);
-        document.getElementById('call-status').textContent = "RINGING...";
-        document.getElementById('call-timer').textContent = "00:00";
+        document.getElementById('call-status').textContent = "Ringing...";
         startAgora(v);
     };
 
@@ -181,15 +162,13 @@
         document.getElementById('call-ui').style.display = 'flex';
         rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         await rtc.client.join(AGORA_APP_ID, "chat_room", null);
-        try {
-            rtc.localAudio = await AgoraRTC.createMicrophoneAudioTrack({ AEC: true, ANS: true });
-            await rtc.client.publish([rtc.localAudio]);
-            if (v) {
-                rtc.localVideo = await AgoraRTC.createCameraVideoTrack();
-                rtc.localVideo.play("local-container");
-                await rtc.client.publish([rtc.localVideo]);
-            }
-        } catch (e) { console.log(e); }
+        rtc.localAudio = await AgoraRTC.createMicrophoneAudioTrack({ AEC: true, ANS: true });
+        await rtc.client.publish([rtc.localAudio]);
+        if (v) {
+            rtc.localVideo = await AgoraRTC.createCameraVideoTrack();
+            rtc.localVideo.play("local-container");
+            await rtc.client.publish([rtc.localVideo]);
+        }
         rtc.client.on("user-published", async (u, mt) => {
             await rtc.client.subscribe(u, mt);
             if (mt === "video") u.videoTrack.play("remote-container");
@@ -197,26 +176,51 @@
         });
     }
 
+    window.toggleScreenShare = async () => {
+        if (!isSharing) {
+            rtc.screenTrack = await AgoraRTC.createScreenVideoTrack();
+            if (rtc.localVideo) { await rtc.client.unpublish([rtc.localVideo]); rtc.localVideo.stop(); }
+            await rtc.client.publish([rtc.screenTrack]);
+            rtc.screenTrack.play("local-container");
+            isSharing = true;
+            document.getElementById('shareBtn').classList.add('bg-blue-600');
+        } else {
+            await rtc.client.unpublish([rtc.screenTrack]);
+            rtc.screenTrack.stop(); rtc.screenTrack.close();
+            if (rtc.localVideo) { await rtc.client.publish([rtc.localVideo]); rtc.localVideo.play("local-container"); }
+            isSharing = false;
+            document.getElementById('shareBtn').classList.remove('bg-blue-600');
+        }
+    };
+
     window.endCall = async (sig = true) => {
         clearInterval(callInt);
         if (sig) await _db.from('private_messages').insert([{ sender: me, receiver: you, message: "___CALL_END___" }]);
         if (rtc.localAudio) rtc.localAudio.close();
         if (rtc.localVideo) rtc.localVideo.close();
+        if (rtc.screenTrack) rtc.screenTrack.close();
         if (rtc.client) await rtc.client.leave();
         document.querySelectorAll('#call-ui, #ring-ui').forEach(el => el.style.display = 'none');
+        isSharing = false;
     };
 
-    // --- CHAT FUNCTIONS ---
+    function startTimer() {
+        let sec = 0; clearInterval(callInt);
+        callInt = setInterval(() => {
+            sec++;
+            let m = Math.floor(sec/60).toString().padStart(2,'0'), s = (sec%60).toString().padStart(2,'0');
+            document.getElementById('call-timer').textContent = `${m}:${s}`;
+        }, 1000);
+    }
+
+    // --- SIDEBAR & CHAT ---
     async function loadMessages() {
         const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(40);
         const box = document.getElementById('messages');
         box.innerHTML = data.reverse().filter(m => !m.message.startsWith("___")).map(m => {
             const isMe = m.sender === me;
             return `<div class="msg-container ${isMe ? 'row-self' : 'row-other'}">
-                <div class="msg ${isMe ? 'self' : 'other'}">
-                    ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-w-full">` : ''}
-                    <div>${m.message || ''}</div>
-                </div>
+                <div class="msg ${isMe ? 'self' : 'other'}">${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-w-full">` : ''}${m.message || ''}</div>
                 <div class="msg-tools">
                     <span onclick="setReply('${m.id}', '${m.message}')">Reply</span>
                     <span onclick="delM('${m.id}')">Delete</span>
@@ -226,29 +230,22 @@
         box.scrollTop = box.scrollHeight;
     }
 
+    window.delM = async (id) => {
+        const { data: msg } = await _db.from('private_messages').select('*').eq('id', id).single();
+        if (msg) await _db.from('deleted_log').insert([{ sender: msg.sender, message: msg.message, file_url: msg.file_url, deleted_at: new Date().toISOString() }]);
+        await _db.from('private_messages').delete().eq('id', id);
+    };
+
     window.setReply = (id, txt) => { replyId = id; document.getElementById('reply-text').textContent = txt; document.getElementById('reply-bar').classList.remove('hidden'); };
     window.cancelReply = () => { replyId = null; document.getElementById('reply-bar').classList.add('hidden'); };
 
     document.getElementById('chat-form').onsubmit = async (e) => {
         e.preventDefault();
         const input = document.getElementById('msgIn');
-        let fUrl = null;
-        if (pendingFile) {
-            const name = `img_${Date.now()}`;
-            const { data } = await _db.storage.from('chat-files').upload(name, pendingFile);
-            if (data) fUrl = _db.storage.from('chat-files').getPublicUrl(name).data.publicUrl;
-            document.getElementById('media-preview-container')?.remove();
-        }
-        if (input.value || fUrl) {
-            await _db.from('private_messages').insert([{ sender: me, receiver: you, message: input.value, file_url: fUrl, reply_to: replyId }]);
+        if (input.value) {
+            await _db.from('private_messages').insert([{ sender: me, receiver: you, message: input.value, reply_to: replyId }]);
             input.value = ""; cancelReply();
         }
-    };
-
-    window.delM = async (id) => {
-        const { data: msg } = await _db.from('private_messages').select('*').eq('id', id).single();
-        if (msg) await _db.from('deleted_log').insert([{ sender: msg.sender, message: msg.message, file_url: msg.file_url, deleted_at: new Date().toISOString() }]);
-        await _db.from('private_messages').delete().eq('id', id);
     };
 
     window.toggleGallery = async () => {
@@ -256,23 +253,19 @@
         g.style.display = (g.style.display === 'flex') ? 'none' : 'flex';
         if (g.style.display === 'flex') {
             const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null);
-            document.getElementById('gallery-grid').innerHTML = data.map(i => `<img src="${i.file_url}" class="w-full aspect-square object-cover border border-white/5">`).join('');
+            document.getElementById('gallery-grid').innerHTML = data.map(i => `<img src="${i.file_url}" class="w-full aspect-square object-cover">`).join('');
         }
     };
 
     window.viewLogs = async () => {
         document.getElementById('log-overlay').style.display = 'flex';
         const { data } = await _db.from('deleted_log').select('*').order('deleted_at', { ascending: false });
-        document.getElementById('log-list').innerHTML = data.map(l => `<div class="p-3 bg-white/5 rounded border border-white/5">
-            <div class="text-[10px] text-blue-500 uppercase font-black mb-1">${l.sender}</div>
-            <div class="text-sm">${l.message || "[Image]"}</div>
-        </div>`).join('');
+        document.getElementById('log-list').innerHTML = data.map(l => `<div class="p-3 bg-white/5 rounded"><div class="text-[10px] text-blue-500 uppercase font-bold">${l.sender}</div><div>${l.message || "[Image]"}</div></div>`).join('');
     };
 
     window.syncProfiles = async () => {
         const { data } = await _db.from('chat_codes').select('*');
-        const p = data.find(u => u.username === me);
-        const y = data.find(u => u.username === you);
+        const p = data.find(u => u.username === me), y = data.find(u => u.username === you);
         document.getElementById('sideAv').style.backgroundImage = p.avatar_url ? `url('${p.avatar_url}')` : '';
         document.getElementById('sideName').textContent = me;
         document.getElementById('topMood').textContent = y.mood || "";
@@ -287,7 +280,7 @@
 
     window.toggleSidebar = () => { const s = document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = s ? 'block' : 'none'; };
     window.toggleMute = () => { const m = rtc.localAudio.muted; rtc.localAudio.setMuted(!m); document.getElementById('muteBtn').textContent = !m ? "🔇" : "🎤"; };
-    window.changeMood = async () => { const m = prompt("New Status:"); if(m) await _db.from('chat_codes').update({ mood: m }).eq('username', me); };
+    window.changeMood = async () => { const m = prompt("Status:"); if(m) await _db.from('chat_codes').update({ mood: m }).eq('username', me); };
     
     init();
 </script>
