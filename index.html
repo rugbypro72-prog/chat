@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v6.0 </title>
+    <title>Chat Master v6.1</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
@@ -12,71 +12,46 @@
         body { background: var(--bg); color: #e2e8f0; font-family: -apple-system, sans-serif; height: 100vh; overflow: hidden; margin: 0; position: fixed; width: 100%; }
         #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; background: var(--bg); position: relative; }
         #messages { flex: 1; overflow-y: auto; padding: 20px 15px; display: flex; flex-direction: column; gap: 12px; }
-        .msg-container { display: flex; flex-direction: column; width: 100%; }
-        .row-self { align-items: flex-end; } .row-other { align-items: flex-start; }
         .msg { max-width: 80%; padding: 12px 16px; font-size: 15px; border-radius: 20px; line-height: 1.4; position: relative; }
-        .self { background: #111827; border: 1px solid #1e293b; color: #f8fafc; border-bottom-right-radius: 4px; }
-        .other { background: #1e293b; color: #cbd5e1; border-bottom-left-radius: 4px; }
-        .msg-tools { font-size: 10px; opacity: 0; transition: 0.2s; margin-top: 4px; display: flex; gap: 10px; color: #3b82f6; font-weight: bold; text-transform: uppercase; cursor: pointer; }
-        .msg-container:hover .msg-tools { opacity: 1; }
+        .self { background: #111827; border: 1px solid #1e293b; color: #f8fafc; border-bottom-right-radius: 4px; align-self: flex-end; }
+        .other { background: #1e293b; color: #cbd5e1; border-bottom-left-radius: 4px; align-self: flex-start; }
 
         /* RJ OVERLAY & GLOW */
         #rj-overlay { 
-            display: none; position: fixed; top: 20px; right: 20px; width: 240px; 
+            display: none; position: fixed; top: 20px; right: 20px; width: 260px; 
             background: rgba(10, 15, 29, 0.98); border: 1.5px solid #3b82f6; 
             border-radius: 12px; z-index: 9999; padding: 12px; backdrop-filter: blur(15px); 
-            box-shadow: 0 15px 40px rgba(0,0,0,0.7); cursor: grab; touch-action: none;
-            transition: border-color 0.5s, box-shadow 0.5s;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.7); cursor: grab;
+            transition: border-color 0.4s, box-shadow 0.4s;
         }
-        #rj-overlay.new-msg-glow { 
-            border-color: #ef4444 !important; 
-            box-shadow: 0 0 20px rgba(239, 68, 68, 0.6); 
-        }
+        #rj-overlay.new-msg-glow { border-color: #ef4444 !important; box-shadow: 0 0 20px rgba(239, 68, 68, 0.6); }
         .close-ov { position: absolute; top: 5px; right: 8px; color: #ef4444; font-size: 14px; font-weight: bold; cursor: pointer; }
         
-        #call-ui, #ring-ui { display: none; position: fixed; inset: 0; background: #000; z-index: 999; flex-direction: column; align-items: center; justify-content: center; }
-        #call-ui.minimized { inset: auto; width: 100px; height: 140px; border-radius: 12px; border: 2px solid #3b82f6; overflow: hidden; cursor: move; }
-        .remote-player { width: 100%; height: 100%; position: absolute; inset: 0; }
-        .local-player { width: 110px; height: 150px; position: absolute; bottom: 120px; right: 20px; border-radius: 12px; overflow: hidden; border: 1px solid #3b82f6; z-index: 10; background: #000; }
+        /* HIDDEN CANVAS FOR PIP */
+        #pip-canvas { display: none; }
+        #pip-video { width: 1px; height: 1px; opacity: 0; position: absolute; }
 
         #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: #05070a; z-index: 600; transition: 0.3s; padding: 30px 20px; border-right: 1px solid #111827; }
         #sidebar.open { left: 0; }
-        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 550; backdrop-filter: blur(8px); }
-        .full-overlay { display: none; position: fixed; inset: 0; z-index: 700; background: #000; flex-direction: column; }
+        #overlay-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 550; backdrop-filter: blur(8px); }
     </style>
 </head>
 <body>
 
-<div id="rj-overlay" onmousedown="ovStartDrag(event)" ontouchstart="ovStartDrag(event)">
+<canvas id="pip-canvas" width="400" height="200"></canvas>
+<video id="pip-video" autoplay muted playsinline></video>
+
+<div id="rj-overlay" onmousedown="ovStartDrag(event)">
     <span class="close-ov" onclick="toggleRJOverlay(false)">×</span>
-    <div class="text-[10px] text-blue-500 font-bold uppercase mb-1 pointer-events-none">Allyvia • Active</div>
-    <div id="ov-text" class="text-xs opacity-90 mb-2 truncate italic pointer-events-none">No messages yet...</div>
-    <input id="ov-reply" placeholder="Quick reply..." class="w-full bg-white/5 border border-white/10 rounded-md p-2 text-[11px] outline-none focus:border-blue-500">
-</div>
-
-<div id="overlay" onclick="toggleSidebar()"></div>
-
-<div id="ring-ui">
-    <div id="ring-name" class="text-4xl font-bold mb-2">...</div>
-    <div class="text-blue-500 animate-pulse tracking-widest text-xs mb-24 uppercase">Incoming</div>
-    <div class="flex gap-14">
-        <button onclick="endCall(true)" class="bg-red-500/20 text-red-500 w-16 h-16 rounded-full border border-red-500/50 text-2xl">✖</button>
-        <button id="acceptBtn" class="bg-green-500/20 text-green-500 w-16 h-16 rounded-full border border-green-500/50 text-2xl">✔</button>
+    <div class="text-[10px] text-blue-500 font-bold uppercase mb-1">Allyvia • Active</div>
+    <div id="ov-text" class="text-xs opacity-90 mb-2 truncate italic">No messages yet...</div>
+    <div class="flex gap-2">
+        <input id="ov-reply" placeholder="Quick reply..." class="flex-1 bg-white/5 border border-white/10 rounded-md p-2 text-[11px] outline-none focus:border-blue-500">
+        <button onclick="requestPiP()" class="bg-blue-600 px-2 py-1 rounded text-[10px] font-bold">POP OUT</button>
     </div>
 </div>
 
-<div id="call-ui" onmousedown="startDrag(event)" ontouchstart="startDrag(event)">
-    <div id="call-status" class="absolute top-16 text-blue-400 text-xs tracking-[0.3em] font-bold z-20 uppercase">Voice Syncing...</div>
-    <div id="call-timer" class="absolute top-24 text-4xl font-light z-20">00:00</div>
-    <div id="remote-container" class="remote-player" onclick="maximizeCall()"></div>
-    <div id="local-container" class="local-player"></div>
-    <div class="absolute bottom-12 flex gap-4 z-20 call-btns">
-        <button onclick="toggleMute()" id="muteBtn" class="bg-white/5 p-4 rounded-full border border-white/10 text-xl">🎤</button>
-        <button onclick="toggleScreenShare()" id="shareBtn" class="bg-white/5 p-4 rounded-full border border-white/10 text-xl">🖥️</button>
-        <button onclick="minimizeCall()" class="bg-white/5 p-4 rounded-full border border-white/10 text-xl">💬</button>
-        <button onclick="endCall(true)" class="bg-red-600 p-4 rounded-full px-8 font-bold">END</button>
-    </div>
-</div>
+<div id="overlay-bg" onclick="toggleSidebar()"></div>
 
 <div id="chat-main">
     <header class="p-5 flex items-center justify-between border-b border-white/5">
@@ -87,19 +62,10 @@
                 <div id="typing-status" class="text-[10px] text-blue-500 h-3"></div>
             </div>
         </div>
-        <div class="flex gap-2">
-            <button onclick="initCall(false)" class="bg-white/5 px-4 py-2 rounded-full text-[10px] font-bold">VOICE</button>
-            <button onclick="initCall(true)" class="bg-blue-600 px-4 py-2 rounded-full text-[10px] font-bold shadow-lg">FACETIME</button>
-        </div>
     </header>
-    <main id="messages"></main>
-    <footer>
-        <div id="reply-bar" class="hidden px-4 py-2 bg-blue-900/20 border-t border-blue-500/30 flex justify-between items-center">
-            <span id="reply-text" class="text-xs opacity-60 truncate"></span>
-            <button onclick="cancelReply()" class="text-xs ml-2">✕</button>
-        </div>
-        <form id="chat-form" class="bg-[#0a0f1d] border border-white/5 rounded-full flex items-center px-4 m-4">
-            <label class="p-2 opacity-30 cursor-pointer">📎<input type="file" id="fileIn" class="hidden" accept="image/*" onchange="previewMedia(this)"></label>
+    <main id="messages" class="flex flex-col"></main>
+    <footer class="p-4">
+        <form id="chat-form" class="bg-[#0a0f1d] border border-white/5 rounded-full flex items-center px-4">
             <input id="msgIn" placeholder="Message..." class="flex-1 bg-transparent p-3 outline-none text-sm" autocomplete="off" oninput="sendTyping()">
             <button type="submit" class="text-blue-500 font-bold px-3">Send</button>
         </form>
@@ -107,23 +73,16 @@
 </div>
 
 <div id="sidebar">
-    <div id="sideAv" class="w-20 h-20 rounded-full mb-4 mx-auto bg-cover border border-white/10"></div>
     <div id="sideName" class="text-center font-bold mb-8 text-xl"></div>
-    <div class="space-y-2">
-        <button onclick="toggleGallery()" class="w-full text-left p-3 hover:bg-white/5 rounded-lg">Gallery</button>
-        <button id="ovToggleBtn" onclick="toggleRJOverlay(true); toggleSidebar();" class="hidden w-full text-left p-3 hover:bg-blue-500/10 text-blue-400 rounded-lg">Open Overlay</button>
-        <button onclick="viewLogs()" id="logBtn" class="hidden w-full text-left p-3 text-red-400 rounded-lg">Logs</button>
-        <button onclick="changeMood()" class="w-full text-left p-3 rounded-lg">Edit Status</button>
-    </div>
+    <button id="ovToggleBtn" onclick="toggleRJOverlay(true); toggleSidebar();" class="hidden w-full text-left p-3 hover:bg-blue-500/10 text-blue-400 rounded-lg">Open Overlay</button>
 </div>
 
 <script>
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
-    const AGORA_APP_ID = "4f6c6c2002784152a8366dec12f1b4c0"; 
     
-    let me, you, rtc = { client: null, localAudio: null, localVideo: null }, replyId = null, pendingFile = null;
+    let me, you, lastMsg = "No messages";
 
     async function init() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
@@ -131,117 +90,113 @@
         if (!data) return; me = data.username; you = (me === 'RJ') ? 'Allyvia' : 'RJ';
         
         localStorage.setItem('chat_secret_code', code);
-        document.getElementById('headerName').textContent = you;
-        document.getElementById('ring-name').textContent = you;
+        document.getElementById('sideName').textContent = me;
 
         if (me === 'RJ') {
             document.getElementById('rj-overlay').style.display = 'block';
             document.getElementById('ovToggleBtn').classList.remove('hidden');
-            document.getElementById('logBtn').classList.remove('hidden');
+            updatePiPCanvas(); // Start the ghost stream
         }
 
         _db.channel('master').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
             if (p.new.receiver === me) {
                 if (p.new.message === "___TYPING___") showTyping();
-                else if (p.new.message.startsWith("___")) handleSignals(p.new.message);
-                else {
-                    if (me === 'RJ') triggerOverlayGlow(p.new.message);
+                else if (!p.new.message.startsWith("___")) {
+                    lastMsg = p.new.message;
+                    if (me === 'RJ') {
+                        document.getElementById('ov-text').textContent = lastMsg;
+                        triggerOverlayGlow();
+                        updatePiPCanvas(); // Update the pop-out video
+                    }
                     loadMessages();
                 }
             }
         }).subscribe();
 
-        loadMessages(); syncProfiles();
+        loadMessages();
     }
 
-    // OVERLAY GLOW & DRAG
-    function triggerOverlayGlow(msg) {
+    // --- TRUE POP-OUT (PICTURE IN PICTURE) LOGIC ---
+    function updatePiPCanvas() {
+        const canvas = document.getElementById('pip-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Draw Background
+        ctx.fillStyle = '#0a0f1d';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw Border
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw Text
+        ctx.fillStyle = '#3b82f6';
+        ctx.font = 'bold 16px Arial';
+        ctx.fillText('ALLYVIA:', 20, 40);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '20px Arial';
+        // Wrap text logic
+        const words = lastMsg.split(' ');
+        let line = '';
+        let y = 80;
+        for(let n = 0; n < words.length; n++) {
+            let testLine = line + words[n] + ' ';
+            if (testLine.length > 30) {
+                ctx.fillText(line, 20, y);
+                line = words[n] + ' ';
+                y += 30;
+            } else { line = testLine; }
+        }
+        ctx.fillText(line, 20, y);
+
+        // Update the video stream
+        const video = document.getElementById('pip-video');
+        if (!video.srcObject) {
+            video.srcObject = canvas.captureStream();
+        }
+    }
+
+    async function requestPiP() {
+        const video = document.getElementById('pip-video');
+        try {
+            await video.requestPictureInPicture();
+        } catch (error) {
+            alert("To pop out: Click the 'Pop Out' button and allow the browser to open Picture-in-Picture.");
+        }
+    }
+
+    // --- REGULAR OVERLAY LOGIC ---
+    function triggerOverlayGlow() {
         const ov = document.getElementById('rj-overlay');
-        const txt = document.getElementById('ov-text');
-        txt.textContent = msg;
         ov.classList.add('new-msg-glow');
         setTimeout(() => ov.classList.remove('new-msg-glow'), 2000);
     }
 
     let ovDragging = false, ovOffset = { x: 0, y: 0 };
     function ovStartDrag(e) {
-        if (e.target.tagName === 'INPUT' || e.target.classList.contains('close-ov')) return;
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
         ovDragging = true;
         const el = document.getElementById('rj-overlay');
-        const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-        const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
-        ovOffset.x = clientX - el.offsetLeft;
-        ovOffset.y = clientY - el.offsetTop;
-        document.addEventListener('mousemove', ovMoveDrag);
-        document.addEventListener('mouseup', ovStopDrag);
-        document.addEventListener('touchmove', ovMoveDrag);
-        document.addEventListener('touchend', ovStopDrag);
-    }
-    function ovMoveDrag(e) {
-        if (!ovDragging) return;
-        const el = document.getElementById('rj-overlay');
-        const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
-        const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
-        el.style.left = (clientX - ovOffset.x) + 'px';
-        el.style.top = (clientY - ovOffset.y) + 'px';
-        el.style.right = 'auto';
-    }
-    function ovStopDrag() { ovDragging = false; }
-    function toggleRJOverlay(show) { document.getElementById('rj-overlay').style.display = show ? 'block' : 'none'; }
-
-    // TYPING
-    let typeT;
-    function sendTyping() { _db.from('private_messages').insert([{ sender: me, receiver: you, message: "___TYPING___" }]); }
-    function showTyping() {
-        const s = document.getElementById('typing-status');
-        s.textContent = `${you} is typing...`;
-        clearTimeout(typeT);
-        typeT = setTimeout(() => s.textContent = "", 2000);
+        ovOffset.x = e.clientX - el.offsetLeft;
+        ovOffset.y = e.clientY - el.offsetTop;
+        document.onmousemove = (ev) => {
+            if (!ovDragging) return;
+            el.style.left = (ev.clientX - ovOffset.x) + 'px';
+            el.style.top = (ev.clientY - ovOffset.y) + 'px';
+            el.style.right = 'auto';
+        };
+        document.onmouseup = () => ovDragging = false;
     }
 
-    // OVERLAY QUICK REPLY
-    document.getElementById('ov-reply').onkeydown = async (e) => {
-        if (e.key === 'Enter' && e.target.value) {
-            await _db.from('private_messages').insert([{ sender: me, receiver: you, message: e.target.value }]);
-            e.target.value = "";
-            document.getElementById('ov-text').textContent = "Replied!";
-            loadMessages();
-        }
-    };
-
-    // STABLE AUDIO
-    async function startAgora(v) {
-        document.getElementById('call-ui').style.display = 'flex';
-        rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-        await rtc.client.join(AGORA_APP_ID, "chat_room", null);
-        rtc.localAudio = await AgoraRTC.createMicrophoneAudioTrack({ AEC: true, ANS: true, AGC: true });
-        await rtc.client.publish([rtc.localAudio]);
-        
-        rtc.client.on("user-published", async (u, mt) => {
-            await rtc.client.subscribe(u, mt);
-            if (mt === "audio") { u.audioTrack.play(); if (AgoraRTC.getAudioContext) AgoraRTC.getAudioContext().resume(); }
-            if (mt === "video") u.videoTrack.play("remote-container");
-        });
-        document.getElementById('call-status').textContent = "Connected";
-    }
-
-    function handleSignals(msg) {
-        if (msg === "___CALL_REQ_V___") ringUI(false);
-        if (msg === "___CALL_REQ_F___") ringUI(true);
-        if (msg === "___CALL_ACCEPTED___") { document.getElementById('call-status').textContent = "Active"; }
-        if (msg === "___CALL_END___") endCall(false);
-    }
-
+    // --- CORE MESSAGING ---
     async function loadMessages() {
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(35);
+        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(20);
         const box = document.getElementById('messages');
-        box.innerHTML = data.reverse().filter(m => !m.message.startsWith("___")).map(m => {
-            const isMe = m.sender === me;
-            return `<div class="msg-container ${isMe ? 'row-self' : 'row-other'}">
-                <div class="msg ${isMe ? 'self' : 'other'}">${m.message}</div>
-                <div class="msg-tools"><span onclick="setReply('${m.id}', '${m.message}')">Reply</span></div>
-            </div>`;
-        }).join('');
+        box.innerHTML = data.reverse().filter(m => !m.message.startsWith("___")).map(m => 
+            `<div class="msg ${m.sender === me ? 'self' : 'other'}">${m.message}</div>`
+        ).join('');
         box.scrollTop = box.scrollHeight;
     }
 
@@ -249,29 +204,31 @@
         e.preventDefault();
         const val = document.getElementById('msgIn').value;
         if (val) {
-            await _db.from('private_messages').insert([{ sender: me, receiver: you, message: val, reply_to: replyId }]);
+            await _db.from('private_messages').insert([{ sender: me, receiver: you, message: val }]);
             document.getElementById('msgIn').value = "";
-            cancelReply();
             loadMessages();
         }
     };
 
-    window.setReply = (id, txt) => { replyId = id; document.getElementById('reply-text').textContent = txt; document.getElementById('reply-bar').classList.remove('hidden'); };
-    window.cancelReply = () => { replyId = null; document.getElementById('reply-bar').classList.add('hidden'); };
-    window.toggleSidebar = () => { const s = document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = s ? 'block' : 'none'; };
-    
-    async function syncProfiles() {
-        const { data } = await _db.from('chat_codes').select('*');
-        const p = data.find(u => u.username === me), y = data.find(u => u.username === you);
-        document.getElementById('sideAv').style.backgroundImage = p.avatar_url ? `url('${p.avatar_url}')` : '';
-        document.getElementById('sideName').textContent = me;
-    }
-
-    window.endCall = async (sig = true) => {
-        if (sig) await _db.from('private_messages').insert([{ sender: me, receiver: you, message: "___CALL_END___" }]);
-        if (rtc.localAudio) rtc.localAudio.close(); if (rtc.client) await rtc.client.leave();
-        document.getElementById('call-ui').style.display = 'none';
+    document.getElementById('ov-reply').onkeydown = async (e) => {
+        if (e.key === 'Enter' && e.target.value) {
+            await _db.from('private_messages').insert([{ sender: me, receiver: you, message: e.target.value }]);
+            e.target.value = "";
+            loadMessages();
+        }
     };
+
+    function toggleRJOverlay(show) { document.getElementById('rj-overlay').style.display = show ? 'block' : 'none'; }
+    function toggleSidebar() { 
+        const s = document.getElementById('sidebar').classList.toggle('open'); 
+        document.getElementById('overlay-bg').style.display = s ? 'block' : 'none'; 
+    }
+    function sendTyping() { _db.from('private_messages').insert([{ sender: me, receiver: you, message: "___TYPING___" }]); }
+    function showTyping() {
+        const s = document.getElementById('typing-status');
+        s.textContent = `${you} is typing...`;
+        setTimeout(() => s.textContent = "", 2000);
+    }
 
     init();
 </script>
