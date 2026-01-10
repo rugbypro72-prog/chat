@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v5.8 - RJ Overlay Edition</title>
+    <title>Chat Master v6.0 </title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
@@ -20,23 +20,38 @@
         .msg-tools { font-size: 10px; opacity: 0; transition: 0.2s; margin-top: 4px; display: flex; gap: 10px; color: #3b82f6; font-weight: bold; text-transform: uppercase; cursor: pointer; }
         .msg-container:hover .msg-tools { opacity: 1; }
 
-        /* RJ DISCORD OVERLAY */
-        #rj-overlay { display: none; position: fixed; top: 20px; right: 20px; width: 220px; background: rgba(15, 23, 42, 0.95); border: 1px solid #3b82f6; border-radius: 12px; z-index: 1000; padding: 10px; backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        /* RJ OVERLAY & GLOW */
+        #rj-overlay { 
+            display: none; position: fixed; top: 20px; right: 20px; width: 240px; 
+            background: rgba(10, 15, 29, 0.98); border: 1.5px solid #3b82f6; 
+            border-radius: 12px; z-index: 9999; padding: 12px; backdrop-filter: blur(15px); 
+            box-shadow: 0 15px 40px rgba(0,0,0,0.7); cursor: grab; touch-action: none;
+            transition: border-color 0.5s, box-shadow 0.5s;
+        }
+        #rj-overlay.new-msg-glow { 
+            border-color: #ef4444 !important; 
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.6); 
+        }
+        .close-ov { position: absolute; top: 5px; right: 8px; color: #ef4444; font-size: 14px; font-weight: bold; cursor: pointer; }
         
         #call-ui, #ring-ui { display: none; position: fixed; inset: 0; background: #000; z-index: 999; flex-direction: column; align-items: center; justify-content: center; }
         #call-ui.minimized { inset: auto; width: 100px; height: 140px; border-radius: 12px; border: 2px solid #3b82f6; overflow: hidden; cursor: move; }
-        
+        .remote-player { width: 100%; height: 100%; position: absolute; inset: 0; }
+        .local-player { width: 110px; height: 150px; position: absolute; bottom: 120px; right: 20px; border-radius: 12px; overflow: hidden; border: 1px solid #3b82f6; z-index: 10; background: #000; }
+
         #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: #05070a; z-index: 600; transition: 0.3s; padding: 30px 20px; border-right: 1px solid #111827; }
         #sidebar.open { left: 0; }
+        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 550; backdrop-filter: blur(8px); }
         .full-overlay { display: none; position: fixed; inset: 0; z-index: 700; background: #000; flex-direction: column; }
     </style>
 </head>
 <body>
 
-<div id="rj-overlay">
-    <div class="text-[9px] text-blue-500 font-bold uppercase mb-1">Recent: Allyvia</div>
-    <div id="ov-text" class="text-xs opacity-80 mb-2 truncate italic">No new messages</div>
-    <input id="ov-reply" placeholder="Reply..." class="w-full bg-white/5 border border-white/10 rounded-md p-1 text-[10px] outline-none mb-1">
+<div id="rj-overlay" onmousedown="ovStartDrag(event)" ontouchstart="ovStartDrag(event)">
+    <span class="close-ov" onclick="toggleRJOverlay(false)">×</span>
+    <div class="text-[10px] text-blue-500 font-bold uppercase mb-1 pointer-events-none">Allyvia • Active</div>
+    <div id="ov-text" class="text-xs opacity-90 mb-2 truncate italic pointer-events-none">No messages yet...</div>
+    <input id="ov-reply" placeholder="Quick reply..." class="w-full bg-white/5 border border-white/10 rounded-md p-2 text-[11px] outline-none focus:border-blue-500">
 </div>
 
 <div id="overlay" onclick="toggleSidebar()"></div>
@@ -79,9 +94,9 @@
     </header>
     <main id="messages"></main>
     <footer>
-        <div id="reply-bar" class="hidden px-4 py-2 bg-blue-900/20 border-t border-blue-500/30 flex justify-between">
+        <div id="reply-bar" class="hidden px-4 py-2 bg-blue-900/20 border-t border-blue-500/30 flex justify-between items-center">
             <span id="reply-text" class="text-xs opacity-60 truncate"></span>
-            <button onclick="cancelReply()">✕</button>
+            <button onclick="cancelReply()" class="text-xs ml-2">✕</button>
         </div>
         <form id="chat-form" class="bg-[#0a0f1d] border border-white/5 rounded-full flex items-center px-4 m-4">
             <label class="p-2 opacity-30 cursor-pointer">📎<input type="file" id="fileIn" class="hidden" accept="image/*" onchange="previewMedia(this)"></label>
@@ -92,11 +107,14 @@
 </div>
 
 <div id="sidebar">
-    <div id="sideAv" class="w-20 h-20 rounded-full mb-4 mx-auto bg-cover"></div>
-    <div id="sideName" class="text-center font-bold mb-8"></div>
-    <button onclick="toggleGallery()" class="w-full text-left p-3 hover:bg-white/5">Gallery</button>
-    <button onclick="viewLogs()" id="logBtn" class="hidden w-full text-left p-3 text-red-400">Logs</button>
-    <button onclick="changeMood()" class="w-full text-left p-3">Edit Status</button>
+    <div id="sideAv" class="w-20 h-20 rounded-full mb-4 mx-auto bg-cover border border-white/10"></div>
+    <div id="sideName" class="text-center font-bold mb-8 text-xl"></div>
+    <div class="space-y-2">
+        <button onclick="toggleGallery()" class="w-full text-left p-3 hover:bg-white/5 rounded-lg">Gallery</button>
+        <button id="ovToggleBtn" onclick="toggleRJOverlay(true); toggleSidebar();" class="hidden w-full text-left p-3 hover:bg-blue-500/10 text-blue-400 rounded-lg">Open Overlay</button>
+        <button onclick="viewLogs()" id="logBtn" class="hidden w-full text-left p-3 text-red-400 rounded-lg">Logs</button>
+        <button onclick="changeMood()" class="w-full text-left p-3 rounded-lg">Edit Status</button>
+    </div>
 </div>
 
 <script>
@@ -108,22 +126,26 @@
     let me, you, rtc = { client: null, localAudio: null, localVideo: null }, replyId = null, pendingFile = null;
 
     async function init() {
-        const code = localStorage.getItem('chat_secret_code') || prompt("Code:");
+        const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
         const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
         if (!data) return; me = data.username; you = (me === 'RJ') ? 'Allyvia' : 'RJ';
         
+        localStorage.setItem('chat_secret_code', code);
         document.getElementById('headerName').textContent = you;
+        document.getElementById('ring-name').textContent = you;
+
         if (me === 'RJ') {
             document.getElementById('rj-overlay').style.display = 'block';
+            document.getElementById('ovToggleBtn').classList.remove('hidden');
             document.getElementById('logBtn').classList.remove('hidden');
         }
 
-        _db.channel('room1').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
+        _db.channel('master').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
             if (p.new.receiver === me) {
                 if (p.new.message === "___TYPING___") showTyping();
                 else if (p.new.message.startsWith("___")) handleSignals(p.new.message);
                 else {
-                    if (me === 'RJ') document.getElementById('ov-text').textContent = p.new.message;
+                    if (me === 'RJ') triggerOverlayGlow(p.new.message);
                     loadMessages();
                 }
             }
@@ -132,7 +154,42 @@
         loadMessages(); syncProfiles();
     }
 
-    // TYPING LOGIC
+    // OVERLAY GLOW & DRAG
+    function triggerOverlayGlow(msg) {
+        const ov = document.getElementById('rj-overlay');
+        const txt = document.getElementById('ov-text');
+        txt.textContent = msg;
+        ov.classList.add('new-msg-glow');
+        setTimeout(() => ov.classList.remove('new-msg-glow'), 2000);
+    }
+
+    let ovDragging = false, ovOffset = { x: 0, y: 0 };
+    function ovStartDrag(e) {
+        if (e.target.tagName === 'INPUT' || e.target.classList.contains('close-ov')) return;
+        ovDragging = true;
+        const el = document.getElementById('rj-overlay');
+        const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+        ovOffset.x = clientX - el.offsetLeft;
+        ovOffset.y = clientY - el.offsetTop;
+        document.addEventListener('mousemove', ovMoveDrag);
+        document.addEventListener('mouseup', ovStopDrag);
+        document.addEventListener('touchmove', ovMoveDrag);
+        document.addEventListener('touchend', ovStopDrag);
+    }
+    function ovMoveDrag(e) {
+        if (!ovDragging) return;
+        const el = document.getElementById('rj-overlay');
+        const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+        el.style.left = (clientX - ovOffset.x) + 'px';
+        el.style.top = (clientY - ovOffset.y) + 'px';
+        el.style.right = 'auto';
+    }
+    function ovStopDrag() { ovDragging = false; }
+    function toggleRJOverlay(show) { document.getElementById('rj-overlay').style.display = show ? 'block' : 'none'; }
+
+    // TYPING
     let typeT;
     function sendTyping() { _db.from('private_messages').insert([{ sender: me, receiver: you, message: "___TYPING___" }]); }
     function showTyping() {
@@ -142,21 +199,22 @@
         typeT = setTimeout(() => s.textContent = "", 2000);
     }
 
-    // RJ OVERLAY REPLY
+    // OVERLAY QUICK REPLY
     document.getElementById('ov-reply').onkeydown = async (e) => {
         if (e.key === 'Enter' && e.target.value) {
             await _db.from('private_messages').insert([{ sender: me, receiver: you, message: e.target.value }]);
             e.target.value = "";
             document.getElementById('ov-text').textContent = "Replied!";
+            loadMessages();
         }
-    }
+    };
 
-    // STABLE AUDIO CALLING
+    // STABLE AUDIO
     async function startAgora(v) {
         document.getElementById('call-ui').style.display = 'flex';
         rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         await rtc.client.join(AGORA_APP_ID, "chat_room", null);
-        rtc.localAudio = await AgoraRTC.createMicrophoneAudioTrack();
+        rtc.localAudio = await AgoraRTC.createMicrophoneAudioTrack({ AEC: true, ANS: true, AGC: true });
         await rtc.client.publish([rtc.localAudio]);
         
         rtc.client.on("user-published", async (u, mt) => {
@@ -164,30 +222,18 @@
             if (mt === "audio") { u.audioTrack.play(); if (AgoraRTC.getAudioContext) AgoraRTC.getAudioContext().resume(); }
             if (mt === "video") u.videoTrack.play("remote-container");
         });
+        document.getElementById('call-status').textContent = "Connected";
     }
 
     function handleSignals(msg) {
         if (msg === "___CALL_REQ_V___") ringUI(false);
         if (msg === "___CALL_REQ_F___") ringUI(true);
-        if (msg === "___CALL_ACCEPTED___") { document.getElementById('call-status').textContent = "Connected"; }
+        if (msg === "___CALL_ACCEPTED___") { document.getElementById('call-status').textContent = "Active"; }
         if (msg === "___CALL_END___") endCall(false);
     }
 
-    // RESTORED HELPERS
-    window.setReply = (id, txt) => { replyId = id; document.getElementById('reply-text').textContent = txt; document.getElementById('reply-bar').classList.remove('hidden'); };
-    window.cancelReply = () => { replyId = null; document.getElementById('reply-bar').classList.add('hidden'); };
-    window.previewMedia = (i) => {
-        pendingFile = i.files[0];
-        const r = new FileReader();
-        r.onload = (e) => { document.getElementById('img-preview-box').src = e.target.result; document.getElementById('media-preview-container').style.display = 'flex'; };
-        r.readAsDataURL(pendingFile);
-    };
-
-    // DRAG LOGIC (Simplified for stability)
-    function startDrag(e) { /* existing drag code from v5.7 */ }
-
     async function loadMessages() {
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(30);
+        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(35);
         const box = document.getElementById('messages');
         box.innerHTML = data.reverse().filter(m => !m.message.startsWith("___")).map(m => {
             const isMe = m.sender === me;
@@ -210,7 +256,23 @@
         }
     };
 
-    function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+    window.setReply = (id, txt) => { replyId = id; document.getElementById('reply-text').textContent = txt; document.getElementById('reply-bar').classList.remove('hidden'); };
+    window.cancelReply = () => { replyId = null; document.getElementById('reply-bar').classList.add('hidden'); };
+    window.toggleSidebar = () => { const s = document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = s ? 'block' : 'none'; };
+    
+    async function syncProfiles() {
+        const { data } = await _db.from('chat_codes').select('*');
+        const p = data.find(u => u.username === me), y = data.find(u => u.username === you);
+        document.getElementById('sideAv').style.backgroundImage = p.avatar_url ? `url('${p.avatar_url}')` : '';
+        document.getElementById('sideName').textContent = me;
+    }
+
+    window.endCall = async (sig = true) => {
+        if (sig) await _db.from('private_messages').insert([{ sender: me, receiver: you, message: "___CALL_END___" }]);
+        if (rtc.localAudio) rtc.localAudio.close(); if (rtc.client) await rtc.client.leave();
+        document.getElementById('call-ui').style.display = 'none';
+    };
+
     init();
 </script>
 </body>
