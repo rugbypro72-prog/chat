@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v6.8</title>
+    <title>Chat Master v7.0 - RJ Ultimate Elite</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
@@ -27,10 +27,6 @@
         #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: #05070a; z-index: 1000; transition: 0.3s; padding: 30px 20px; border-right: 1px solid #111827; }
         #sidebar.open { left: 0; }
         #overlay-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 900; backdrop-filter: blur(4px); }
-        
-        /* TIMER ANIMATION */
-        .timer-glow { animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
@@ -46,9 +42,9 @@
             <div>
                 <div class="font-bold text-lg flex items-center gap-2">
                     <span id="headerName">...</span>
-                    <span id="call-timer" class="hidden text-xs bg-red-600/20 text-red-500 px-2 py-0.5 rounded timer-glow font-mono">00:00</span>
+                    <span id="call-timer" class="hidden text-xs bg-red-600/20 text-red-500 px-2 py-0.5 rounded font-mono">00:00</span>
                 </div>
-                <div id="live-typing" class="text-[10px] text-blue-500 h-3 font-bold uppercase truncate max-w-[150px]"></div>
+                <div id="live-typing-status" class="text-[10px] text-slate-500 h-3 font-medium italic truncate max-w-[200px]"></div>
             </div>
         </div>
         <div class="flex gap-2">
@@ -66,7 +62,7 @@
         </div>
         <form id="chat-form" class="bg-[#0a0f1d] border border-white/5 rounded-full flex items-center px-4">
             <label class="p-2 opacity-30 hover:opacity-100 cursor-pointer">📎<input type="file" id="fileIn" class="hidden" accept="image/*" onchange="sendImage(this)"></label>
-            <input id="msgIn" placeholder="Message..." class="flex-1 bg-transparent p-4 outline-none text-sm" oninput="broadcastTyping(this.value)">
+            <input id="msgIn" placeholder="Message..." class="flex-1 bg-transparent p-4 outline-none text-sm" oninput="broadcastLiveText(this.value)">
             <button type="submit" class="text-blue-500 font-bold px-2">SEND</button>
         </form>
     </footer>
@@ -80,6 +76,7 @@
             <button onclick="requestPiP()" class="w-full text-left p-3 bg-blue-600/10 text-blue-400 rounded-lg font-bold">Pop-out Gaming Mode</button>
             <button onclick="takeSystemSnap()" class="w-full text-left p-3 bg-red-600/10 text-red-400 rounded-lg font-bold">Capture Entire Screen</button>
         </div>
+        <button onclick="location.reload()" class="w-full text-left p-3 opacity-30 mt-10">Reload</button>
     </div>
 </div>
 
@@ -87,9 +84,8 @@
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
-    const AGORA_APP_ID = "4f6c6c2002784152a8366dec12f1b4c0";
     
-    let me, you, unread = 0, lastMsg = "Ready", replyId = null, callInt;
+    let me, you, unread = 0, lastMsg = "Ready", replyId = null, typingTimeout;
 
     async function init() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
@@ -101,60 +97,31 @@
         document.getElementById('sideName').textContent = me;
         if (me === 'RJ') { document.getElementById('rj-tools').classList.remove('hidden'); updatePiPCanvas(); }
 
-        _db.channel('live').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, (p) => {
-            if (p.eventType === 'INSERT' && p.new.receiver === me) {
-                if (p.new.message.startsWith("___LIVE___")) {
-                    const text = p.new.message.replace("___LIVE___", "");
-                    document.getElementById('live-typing').textContent = text ? `${you}: ${text}` : "";
-                } else if (!p.new.message.startsWith("___")) {
-                    unread++; lastMsg = p.new.message;
-                    document.getElementById('live-typing').textContent = "";
+        _db.channel('global').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
+            const m = p.new;
+            if (m.receiver === me) {
+                if (m.message.startsWith("___LIVE___")) {
+                    const text = m.message.replace("___LIVE___", "");
+                    document.getElementById('live-typing-status').textContent = text ? `Typing: ${text}...` : "";
+                } else {
+                    document.getElementById('live-typing-status').textContent = "";
+                    unread++; lastMsg = m.message;
                     if (me === 'RJ') updatePiPCanvas();
                     loadMessages();
                 }
-            } else { loadMessages(); }
+            } else if (m.sender === me && !m.message.startsWith("___")) {
+                loadMessages();
+            }
         }).subscribe();
         loadMessages();
     }
 
-    // --- LIVE CALL TIMER ---
-    function startTimer() {
-        let sec = 0;
-        const el = document.getElementById('call-timer');
-        el.classList.remove('hidden');
-        clearInterval(callInt);
-        callInt = setInterval(() => {
-            sec++;
-            let m = Math.floor(sec / 60), s = sec % 60;
-            el.textContent = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-        }, 1000);
+    async function broadcastLiveText(val) {
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(async () => {
+            await _db.from('private_messages').insert([{ sender: me, receiver: you, message: "___LIVE___" + val }]);
+        }, 150); 
     }
-
-    async function initiateCall(v) {
-        const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-        await client.join(AGORA_APP_ID, "main", null);
-        const mic = await AgoraRTC.createMicrophoneAudioTrack();
-        await client.publish([mic]);
-        startTimer();
-        alert("Call started...");
-    }
-
-    // --- LIVE TEXT PREVIEW ---
-    function broadcastTyping(val) {
-        _db.from('private_messages').insert([{ sender: me, receiver: you, message: "___LIVE___" + val }]);
-    }
-
-    // --- PIP & SNAP (RJ ONLY) ---
-    function updatePiPCanvas() {
-        const c = document.getElementById('pip-canvas'); const x = c.getContext('2d');
-        x.fillStyle = '#0a0f1d'; x.fillRect(0,0,400,200);
-        x.fillStyle = unread > 0 ? '#ef4444' : '#3b82f6';
-        x.font = 'bold 24px Arial'; x.fillText(`Allyvia ${unread > 0 ? '+'+unread : ''}`, 20, 50);
-        x.fillStyle = 'white'; x.font = '18px Arial'; x.fillText(lastMsg.substring(0, 35), 20, 100);
-        const vid = document.getElementById('pip-video'); if (!vid.srcObject) vid.srcObject = c.captureStream();
-    }
-
-    async function requestPiP() { unread = 0; updatePiPCanvas(); document.getElementById('pip-video').requestPictureInPicture(); }
 
     async function takeSystemSnap() {
         const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
@@ -175,7 +142,17 @@
         };
     }
 
-    // --- CORE ---
+    function updatePiPCanvas() {
+        const c = document.getElementById('pip-canvas'); const x = c.getContext('2d');
+        x.fillStyle = '#0a0f1d'; x.fillRect(0,0,400,200);
+        x.fillStyle = unread > 0 ? '#ef4444' : '#3b82f6';
+        x.font = 'bold 24px Arial'; x.fillText(`Allyvia ${unread > 0 ? '+'+unread : ''}`, 20, 50);
+        x.fillStyle = 'white'; x.font = '18px Arial'; x.fillText(lastMsg.substring(0, 35), 20, 100);
+        const vid = document.getElementById('pip-video'); if (!vid.srcObject) vid.srcObject = c.captureStream();
+    }
+
+    async function requestPiP() { unread = 0; updatePiPCanvas(); document.getElementById('pip-video').requestPictureInPicture(); }
+
     async function loadMessages() {
         const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(30);
         const box = document.getElementById('messages');
@@ -192,26 +169,16 @@
     }
 
     window.deleteMsg = async (id) => { if(confirm("Delete?")) await _db.from('private_messages').delete().eq('id', id); };
-    window.setReply = (id, txt) => { replyId = id; document.getElementById('reply-txt').textContent = `Replying to: ${txt}`; document.getElementById('reply-bar').classList.remove('hidden'); };
+    window.setReply = (id, txt) => { replyId = id; document.getElementById('reply-txt').textContent = `Reply: ${txt.substring(0,15)}...`; document.getElementById('reply-bar').classList.remove('hidden'); };
     window.cancelReply = () => { replyId = null; document.getElementById('reply-bar').classList.add('hidden'); };
 
     document.getElementById('chat-form').onsubmit = async (e) => {
         e.preventDefault(); const i = document.getElementById('msgIn');
         if (i.value) {
             await _db.from('private_messages').insert([{ sender: me, receiver: you, message: i.value, reply_to: replyId }]);
-            i.value = ""; cancelReply(); loadMessages();
+            i.value = ""; broadcastLiveText(""); cancelReply(); loadMessages();
         }
     };
-
-    async function sendImage(input) {
-        const file = input.files[0]; if (!file) return;
-        const name = `img_${Date.now()}`;
-        const { data } = await _db.storage.from('chat-files').upload(name, file);
-        if (data) {
-            const u = _db.storage.from('chat-files').getPublicUrl(name).data.publicUrl;
-            await _db.from('private_messages').insert([{ sender: me, receiver: you, message: "", file_url: u }]);
-        }
-    }
 
     function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay-bg').style.display = document.getElementById('sidebar').classList.contains('open') ? 'block' : 'none'; }
     init();
