@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v10.1 </title>
+    <title>Chat Master v10.2</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
@@ -108,7 +108,7 @@
     
     let me, you, unread = 0, lastTwo = [], replyId = null, chatChannel;
     let rtc = { client: null, localVideoTrack: null, localAudioTrack: null };
-    const AGORA_APP_ID = "216894086e3f4963be84a329be49495c"; // Restored
+    const AGORA_APP_ID = "4f6c6c2002784152a8366dec12f1b4c0";
 
     async function init() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
@@ -121,7 +121,7 @@
         document.getElementById('me-name').textContent = me;
         if(me === 'RJ') { document.getElementById('rj-suite').classList.remove('hidden'); setInterval(drawPiP, 1000); }
 
-        chatChannel = _db.channel('chat-v10.1', { config: { broadcast: { self: false } } });
+        chatChannel = _db.channel('chat-v10.2', { config: { broadcast: { self: false } } });
         chatChannel
             .on('broadcast', { event: 'typing' }, (p) => {
                 const el = document.getElementById('live-preview');
@@ -130,7 +130,9 @@
             })
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
                 if(p.new.receiver === me) { unread++; loadMessages(); }
-            }).subscribe();
+            })
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'private_messages' }, loadMessages) // Listen for deletes!
+            .subscribe();
 
         document.getElementById('msg-input').oninput = (e) => {
             chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: e.target.value } });
@@ -138,22 +140,49 @@
         loadMessages();
     }
 
-    // --- AGORA CALLING LOGIC ---
+    // --- DELETE FIX: EXPLICITLY GLOBAL ---
+    window.deleteMsg = async (id) => {
+        if(confirm("Delete this message?")) {
+            const { error } = await _db.from('private_messages').delete().eq('id', id);
+            if(error) console.error("Delete failed:", error);
+            else loadMessages(); // Refresh UI locally immediately
+        }
+    };
+
+    async function loadMessages() {
+        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(40);
+        const filtered = data ? data.reverse().filter(m => !m.message.startsWith("___")) : [];
+        lastTwo = filtered.slice(-2);
+        
+        const box = document.getElementById('messages');
+        box.innerHTML = filtered.map(m => {
+            const isMe = m.sender === me;
+            const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+            return `<div class="msg-wrap ${isMe ? 'row-me' : 'row-you'}">
+                <div class="msg-tools">
+                    <span class="tool-btn" onclick="setReply('${m.id}', '${m.message.replace(/'/g, "\\'")}')">Reply</span>
+                    ${isMe ? `<span class="tool-btn text-red-500" onclick="window.deleteMsg('${m.id}')">Delete</span>` : ''}
+                </div>
+                <div class="bubble ${isMe ? 'me' : 'you'}">
+                    ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 w-full h-auto">` : ''}${m.message || ''}
+                    <span class="ts-inside">${time}</span>
+                </div>
+            </div>`;
+        }).join('');
+        box.scrollTop = box.scrollHeight;
+    }
+
+    // --- AGORA & OTHER TOOLS ---
     async function initCall(video) {
         rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         document.getElementById('video-grid').style.display = 'block';
-        
         const uid = await rtc.client.join(AGORA_APP_ID, "main", null, null);
         rtc.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-        
         if (video) {
             rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
             rtc.localVideoTrack.play("local-video");
             await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack]);
-        } else {
-            await rtc.client.publish([rtc.localAudioTrack]);
-        }
-
+        } else { await rtc.client.publish([rtc.localAudioTrack]); }
         rtc.client.on("user-published", async (user, mediaType) => {
             await rtc.client.subscribe(user, mediaType);
             if (mediaType === "video") user.videoTrack.play("remote-video");
@@ -166,26 +195,6 @@
         if(rtc.localVideoTrack) rtc.localVideoTrack.close();
         if(rtc.client) await rtc.client.leave();
         document.getElementById('video-grid').style.display = 'none';
-    }
-
-    // --- MESSAGING & OVERLAY ---
-    async function loadMessages() {
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(40);
-        const filtered = data.reverse().filter(m => !m.message.startsWith("___"));
-        lastTwo = filtered.slice(-2);
-        const box = document.getElementById('messages');
-        box.innerHTML = filtered.map(m => {
-            const isMe = m.sender === me;
-            const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-            return `<div class="msg-wrap ${isMe ? 'row-me' : 'row-you'}">
-                <div class="msg-tools"><span class="tool-btn" onclick="setReply('${m.id}', '${m.message}')">Reply</span>${isMe ? `<span class="tool-btn text-red-500" onclick="deleteMsg('${m.id}')">Delete</span>` : ''}</div>
-                <div class="bubble ${isMe ? 'me' : 'you'}">
-                    ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 w-full h-auto">` : ''}${m.message || ''}
-                    <span class="ts-inside">${time}</span>
-                </div>
-            </div>`;
-        }).join('');
-        box.scrollTop = box.scrollHeight;
     }
 
     function drawPiP() {
@@ -205,7 +214,6 @@
     async function sendMsg(txt, url = null) { await _db.from('private_messages').insert([{ sender: me, receiver: you, message: txt, file_url: url, reply_to: replyId }]); document.getElementById('msg-input').value = ""; chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: "" } }); cancelReply(); loadMessages(); }
     async function toggleGallery(show) { const modal = document.getElementById('gallery-modal'); if(show) { modal.style.display = 'block'; const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', { ascending: false }); document.getElementById('gallery-content').innerHTML = data.map(i => `<img src="${i.file_url}" class="gallery-full-img">`).join(''); } else { modal.style.display = 'none'; } }
     async function handleImage(input) { if(!input.files[0]) return; const file = input.files[0]; const name = `img_${Date.now()}`; const { data } = await _db.storage.from('chat-files').upload(name, file); if(data) sendMsg("", _db.storage.from('chat-files').getPublicUrl(name).data.publicUrl); }
-    window.deleteMsg = async (id) => { if(confirm("Delete?")) await _db.from('private_messages').delete().eq('id', id); };
     function setReply(id, txt) { replyId = id; document.getElementById('reply-text').textContent = `Reply: ${txt.substring(0,25)}...`; document.getElementById('reply-box').classList.remove('hidden'); }
     function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
     function openSidebar() { document.getElementById('sidebar').classList.add('open'); document.getElementById('overlay-bg').style.display = 'block'; }
