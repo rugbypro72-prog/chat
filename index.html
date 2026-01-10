@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v5.67</title>
+    <title>Chat Master v5.7</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
@@ -20,7 +20,6 @@
         .msg-tools { font-size: 10px; opacity: 0; transition: 0.2s; margin-top: 4px; display: flex; gap: 10px; color: #3b82f6; font-weight: bold; text-transform: uppercase; cursor: pointer; }
         .msg-container:hover .msg-tools { opacity: 1; }
 
-        /* Draggable Call UI */
         #call-ui, #ring-ui { display: none; position: fixed; inset: 0; background: #000; z-index: 999; flex-direction: column; align-items: center; justify-content: center; }
         #call-ui.minimized { 
             inset: auto; width: 100px; height: 140px; border-radius: 12px; 
@@ -54,7 +53,7 @@
 </div>
 
 <div id="call-ui" onmousedown="startDrag(event)" ontouchstart="startDrag(event)">
-    <div id="call-status" class="absolute top-16 text-blue-400 text-xs tracking-[0.3em] font-bold z-20 uppercase">Voice Active</div>
+    <div id="call-status" class="absolute top-16 text-blue-400 text-xs tracking-[0.3em] font-bold z-20 uppercase">Voice Syncing...</div>
     <div id="call-timer" class="absolute top-24 text-4xl font-light z-20">00:00</div>
     <div id="remote-container" class="remote-player" onclick="maximizeCall()"></div>
     <div id="local-container" class="local-player"></div>
@@ -127,7 +126,7 @@
     
     let me, you, rtc = { client: null, localAudio: null, localVideo: null, screenTrack: null }, callInt, isSharing = false, replyId = null, pendingFile = null;
 
-    // DRAGGABLE LOGIC
+    // DRAG (STABLE)
     let isDragging = false, offset = { x: 0, y: 0 };
     function startDrag(e) {
         const el = document.getElementById('call-ui');
@@ -158,13 +157,13 @@
         document.getElementById('headerName').textContent = you;
         document.getElementById('ring-name').textContent = you;
         localStorage.setItem('chat_secret_code', code);
-        if (me === 'RJ') document.getElementById('logBtn').classList.remove('hidden');
+        if (me === 'RJ') document.getElementById('logBtn')?.classList.remove('hidden');
 
         _db.channel('master').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, (p) => {
             if (p.eventType === 'INSERT' && p.new.receiver === me) {
                 if (p.new.message === "___CALL_REQ_F___") ringUI(true);
                 if (p.new.message === "___CALL_REQ_V___") ringUI(false);
-                if (p.new.message === "___CALL_ACCEPTED___") { document.getElementById('call-status').textContent = "Connected"; startTimer(); }
+                if (p.new.message === "___CALL_ACCEPTED___") { document.getElementById('call-status').textContent = "Active"; startTimer(); }
                 if (p.new.message === "___CALL_END___") endCall(false);
             }
             loadMessages();
@@ -172,17 +171,15 @@
         syncProfiles(); loadMessages();
     }
 
-    // CALL LOGIC (AUDIO FIXES)
+    // CALL (SYNC FIX)
     window.minimizeCall = () => { 
         const el = document.getElementById('call-ui');
-        el.classList.add('minimized'); 
-        el.style.top = '20px'; el.style.right = '20px'; el.style.left = 'auto';
+        if(el) { el.classList.add('minimized'); el.style.top = '20px'; el.style.right = '20px'; el.style.left = 'auto'; }
     };
     window.maximizeCall = () => { 
         const el = document.getElementById('call-ui');
         if (!el || !el.classList.contains('minimized')) return;
-        el.classList.remove('minimized'); 
-        el.style.inset = '0';
+        el.classList.remove('minimized'); el.style.inset = '0';
     };
 
     function ringUI(v) {
@@ -202,49 +199,38 @@
     async function startAgora(v) {
         document.getElementById('call-ui').style.display = 'flex';
         rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-        await rtc.client.join(AGORA_APP_ID, "chat_room", null);
         
-        // AUDIO FIX: Speech-optimized profile to force bypass mobile silent modes
-        rtc.localAudio = await AgoraRTC.createMicrophoneAudioTrack({ 
-            AEC: true, ANS: true, AGC: true, encoderConfig: "speech_standard" 
-        });
-        await rtc.client.publish([rtc.localAudio]);
-        
-        if (v) {
-            rtc.localVideo = await AgoraRTC.createCameraVideoTrack();
-            rtc.localVideo.play("local-container");
-            await rtc.client.publish([rtc.localVideo]);
-        }
-
-        rtc.client.on("user-published", async (u, mt) => {
-            await rtc.client.subscribe(u, mt);
-            if (mt === "video") u.videoTrack.play("remote-container");
-            if (mt === "audio") {
-                // Ensure audio is unmuted and played after short delay to bypass autoplay blocks
-                setTimeout(() => { u.audioTrack.play(); }, 500);
+        // FIX: Sequential Join -> Create -> Publish
+        try {
+            await rtc.client.join(AGORA_APP_ID, "chat_room", null);
+            rtc.localAudio = await AgoraRTC.createMicrophoneAudioTrack({ AEC: true, ANS: true, AGC: true });
+            await rtc.client.publish([rtc.localAudio]);
+            
+            if (v) {
+                rtc.localVideo = await AgoraRTC.createCameraVideoTrack();
+                rtc.localVideo.play("local-container");
+                await rtc.client.publish([rtc.localVideo]);
             }
-        });
-    }
 
-    window.toggleScreenShare = async () => {
-        if (!isSharing) {
-            rtc.screenTrack = await AgoraRTC.createScreenVideoTrack();
-            if (rtc.localVideo) { await rtc.client.unpublish([rtc.localVideo]); rtc.localVideo.stop(); }
-            await rtc.client.publish([rtc.screenTrack]); rtc.screenTrack.play("local-container");
-            isSharing = true; document.getElementById('shareBtn').style.color = '#3b82f6';
-        } else {
-            await rtc.client.unpublish([rtc.screenTrack]); rtc.screenTrack.close();
-            if (rtc.localVideo) { await rtc.client.publish([rtc.localVideo]); rtc.localVideo.play("local-container"); }
-            isSharing = false; document.getElementById('shareBtn').style.color = '#fff';
-        }
-    };
+            rtc.client.on("user-published", async (u, mt) => {
+                await rtc.client.subscribe(u, mt);
+                if (mt === "video") u.videoTrack.play("remote-container");
+                if (mt === "audio") {
+                    u.audioTrack.play();
+                    // Chrome Fix: Ensure audio context resumes
+                    if (AgoraRTC.getAudioContext) AgoraRTC.getAudioContext().resume();
+                }
+            });
+            document.getElementById('call-status').textContent = "Connected";
+        } catch(e) { console.error("Agora Failed", e); }
+    }
 
     window.endCall = async (sig = true) => {
         clearInterval(callInt);
         if (sig) await _db.from('private_messages').insert([{ sender: me, receiver: you, message: "___CALL_END___" }]);
         if (rtc.localAudio) rtc.localAudio.close(); if (rtc.localVideo) rtc.localVideo.close();
         if (rtc.screenTrack) rtc.screenTrack.close(); if (rtc.client) await rtc.client.leave();
-        const el = document.getElementById('call-ui'); el.style.display = 'none'; el.classList.remove('minimized'); el.style.inset = '0';
+        const el = document.getElementById('call-ui'); if(el){ el.style.display = 'none'; el.classList.remove('minimized'); el.style.inset = '0'; }
         document.getElementById('ring-ui').style.display = 'none';
         isSharing = false;
     };
@@ -254,11 +240,12 @@
         callInt = setInterval(() => {
             sec++;
             let m = Math.floor(sec/60).toString().padStart(2,'0'), s = (sec%60).toString().padStart(2,'0');
-            document.getElementById('call-timer').textContent = `${m}:${s}`;
+            const timer = document.getElementById('call-timer');
+            if(timer) timer.textContent = `${m}:${s}`;
         }, 1000);
     }
 
-    // IMAGE PREVIEW & MESSAGING
+    // MESSAGING (STABLE)
     window.previewMedia = (i) => {
         if (!i.files || !i.files[0]) return;
         pendingFile = i.files[0];
@@ -274,10 +261,10 @@
 
     window.cancelMedia = () => { 
         pendingFile = null; 
-        const container = document.getElementById('media-preview-container');
-        if (container) container.style.display = 'none'; 
-        const fileInput = document.getElementById('fileIn');
-        if (fileInput) fileInput.value = ""; 
+        const c = document.getElementById('media-preview-container');
+        if (c) c.style.display = 'none'; 
+        const f = document.getElementById('fileIn');
+        if (f) f.value = ""; 
     };
 
     document.getElementById('chat-form').onsubmit = async (e) => {
@@ -290,7 +277,7 @@
             if (data) fUrl = _db.storage.from('chat-files').getPublicUrl(cleanName).data.publicUrl;
             cancelMedia();
         }
-        if (input.value || fUrl) {
+        if (input?.value || fUrl) {
             await _db.from('private_messages').insert([{ sender: me, receiver: you, message: input.value, file_url: fUrl, reply_to: replyId }]);
             input.value = ""; cancelReply();
         }
@@ -299,6 +286,7 @@
     async function loadMessages() {
         const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(40);
         const box = document.getElementById('messages');
+        if(!box) return;
         box.innerHTML = data.reverse().filter(m => !m.message.startsWith("___")).map(m => {
             const isMe = m.sender === me;
             return `<div class="msg-container ${isMe ? 'row-self' : 'row-other'}">
@@ -315,7 +303,7 @@
         box.scrollTop = box.scrollHeight;
     }
 
-    // TOOLS & REPLIES
+    // TOOLS (FIXED)
     window.delM = async (id) => {
         const { data: msg } = await _db.from('private_messages').select('*').eq('id', id).single();
         if (msg) await _db.from('deleted_log').insert([{ sender: msg.sender, message: msg.message, file_url: msg.file_url, deleted_at: new Date().toISOString() }]);
@@ -323,33 +311,37 @@
     };
     window.setReply = (id, txt) => { 
         replyId = id; 
-        const rTxt = document.getElementById('reply-text');
-        const rBar = document.getElementById('reply-bar');
-        if (rTxt) rTxt.textContent = txt; 
-        if (rBar) rBar.style.display = 'block'; 
+        const t = document.getElementById('reply-text');
+        const b = document.getElementById('reply-bar');
+        if(t) t.textContent = txt; if(b) b.style.display = 'block';
     };
     window.cancelReply = () => { 
         replyId = null; 
-        const rBar = document.getElementById('reply-bar');
-        if (rBar) rBar.style.display = 'none'; 
+        const b = document.getElementById('reply-bar');
+        if(b) b.style.display = 'none'; 
     };
     window.toggleGallery = async () => {
-        const g = document.getElementById('gallery-overlay'); g.style.display = (g.style.display === 'flex') ? 'none' : 'flex';
+        const g = document.getElementById('gallery-overlay'); if(!g) return;
+        g.style.display = (g.style.display === 'flex') ? 'none' : 'flex';
         if (g.style.display === 'flex') {
             const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null);
-            document.getElementById('gallery-grid').innerHTML = data.map(i => `<img src="${i.file_url}" class="w-full aspect-square object-cover">`).join('');
+            const grid = document.getElementById('gallery-grid');
+            if(grid) grid.innerHTML = data.map(i => `<img src="${i.file_url}" class="w-full aspect-square object-cover">`).join('');
         }
     };
     window.viewLogs = async () => {
-        document.getElementById('log-overlay').style.display = 'flex';
+        const lOverlay = document.getElementById('log-overlay'); if(!lOverlay) return;
+        lOverlay.style.display = 'flex';
         const { data } = await _db.from('deleted_log').select('*').order('deleted_at', { ascending: false });
-        document.getElementById('log-list').innerHTML = data.map(l => `<div class="p-3 bg-white/5 rounded border border-white/10"><div class="text-[10px] text-blue-500 font-bold uppercase">${l.sender}</div><div>${l.message || "[Image]"}</div></div>`).join('');
+        const list = document.getElementById('log-list');
+        if(list) list.innerHTML = data.map(l => `<div class="p-3 bg-white/5 rounded border border-white/10"><div class="text-[10px] text-blue-500 font-bold uppercase">${l.sender}</div><div>${l.message || "[Image]"}</div></div>`).join('');
     };
     window.syncProfiles = async () => {
         const { data } = await _db.from('chat_codes').select('*');
         const p = data.find(u => u.username === me), y = data.find(u => u.username === you);
-        document.getElementById('sideAv').style.backgroundImage = p.avatar_url ? `url('${p.avatar_url}')` : '';
-        document.getElementById('sideName').textContent = me; document.getElementById('topMood').textContent = y.mood || "";
+        const av = document.getElementById('sideAv'); if(av) av.style.backgroundImage = p.avatar_url ? `url('${p.avatar_url}')` : '';
+        const sn = document.getElementById('sideName'); if(sn) sn.textContent = me;
+        const tm = document.getElementById('topMood'); if(tm) tm.textContent = y.mood || "";
     };
     window.uploadPFP = async (i) => {
         const f = i.files[0]; await _db.storage.from('chat-files').upload(`pfp_${me}.png`, f, {upsert:true});
@@ -358,7 +350,7 @@
         location.reload();
     };
     window.toggleSidebar = () => { const s = document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').style.display = s ? 'block' : 'none'; };
-    window.toggleMute = () => { const m = rtc.localAudio.muted; rtc.localAudio.setMuted(!m); document.getElementById('muteBtn').textContent = !m ? "🔇" : "🎤"; };
+    window.toggleMute = () => { if(rtc.localAudio) { const m = rtc.localAudio.muted; rtc.localAudio.setMuted(!m); document.getElementById('muteBtn').textContent = !m ? "🔇" : "🎤"; } };
     window.changeMood = async () => { const m = prompt("Status:"); if(m) await _db.from('chat_codes').update({ mood: m }).eq('username', me); };
     init();
 </script>
