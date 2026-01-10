@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>MidNight v12</title>
+    <title>Chat Master v5.67</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
@@ -20,7 +20,7 @@
         .msg-tools { font-size: 10px; opacity: 0; transition: 0.2s; margin-top: 4px; display: flex; gap: 10px; color: #3b82f6; font-weight: bold; text-transform: uppercase; cursor: pointer; }
         .msg-container:hover .msg-tools { opacity: 1; }
 
-        /* Call UI & Draggable State */
+        /* Draggable Call UI */
         #call-ui, #ring-ui { display: none; position: fixed; inset: 0; background: #000; z-index: 999; flex-direction: column; align-items: center; justify-content: center; }
         #call-ui.minimized { 
             inset: auto; width: 100px; height: 140px; border-radius: 12px; 
@@ -37,6 +37,7 @@
         #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 550; backdrop-filter: blur(8px); }
         .full-overlay { display: none; position: fixed; inset: 0; z-index: 700; background: #000; flex-direction: column; }
         #media-preview-container { display: none; padding: 10px; background: #0f172a; border-radius: 15px; margin: 10px; align-items: center; gap: 10px; border: 1px solid #1e293b; }
+        #reply-bar { display: none; padding: 8px; background: #1e3a8a33; border-top: 1px solid #1e40af; }
     </style>
 </head>
 <body>
@@ -53,7 +54,7 @@
 </div>
 
 <div id="call-ui" onmousedown="startDrag(event)" ontouchstart="startDrag(event)">
-    <div id="call-status" class="absolute top-16 text-blue-400 text-xs tracking-[0.3em] font-bold z-20 uppercase">Connected</div>
+    <div id="call-status" class="absolute top-16 text-blue-400 text-xs tracking-[0.3em] font-bold z-20 uppercase">Voice Active</div>
     <div id="call-timer" class="absolute top-24 text-4xl font-light z-20">00:00</div>
     <div id="remote-container" class="remote-player" onclick="maximizeCall()"></div>
     <div id="local-container" class="local-player"></div>
@@ -78,6 +79,12 @@
     </header>
     <main id="messages"></main>
     <footer>
+        <div id="reply-bar">
+            <div class="flex justify-between items-center px-2">
+                <span id="reply-text" class="text-xs italic opacity-50 truncate"></span>
+                <button onclick="cancelReply()" class="text-xs">✕</button>
+            </div>
+        </div>
         <div id="media-preview-container">
             <img id="img-preview-box" class="w-12 h-12 rounded object-cover">
             <span class="text-xs text-blue-400 font-bold">Ready</span>
@@ -120,11 +127,11 @@
     
     let me, you, rtc = { client: null, localAudio: null, localVideo: null, screenTrack: null }, callInt, isSharing = false, replyId = null, pendingFile = null;
 
-    // DRAG LOGIC
+    // DRAGGABLE LOGIC
     let isDragging = false, offset = { x: 0, y: 0 };
     function startDrag(e) {
         const el = document.getElementById('call-ui');
-        if (!el.classList.contains('minimized')) return;
+        if (!el || !el.classList.contains('minimized')) return;
         isDragging = true;
         const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
         const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
@@ -165,7 +172,7 @@
         syncProfiles(); loadMessages();
     }
 
-    // CALLING (AUDIO FIX INCLUDED)
+    // CALL LOGIC (AUDIO FIXES)
     window.minimizeCall = () => { 
         const el = document.getElementById('call-ui');
         el.classList.add('minimized'); 
@@ -173,7 +180,7 @@
     };
     window.maximizeCall = () => { 
         const el = document.getElementById('call-ui');
-        if (!el.classList.contains('minimized')) return;
+        if (!el || !el.classList.contains('minimized')) return;
         el.classList.remove('minimized'); 
         el.style.inset = '0';
     };
@@ -197,9 +204,9 @@
         rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         await rtc.client.join(AGORA_APP_ID, "chat_room", null);
         
-        // AUDIO FIX: Optimized microphone settings
+        // AUDIO FIX: Speech-optimized profile to force bypass mobile silent modes
         rtc.localAudio = await AgoraRTC.createMicrophoneAudioTrack({ 
-            AEC: true, ANS: true, AGC: true, encoderConfig: "high_quality_stereo" 
+            AEC: true, ANS: true, AGC: true, encoderConfig: "speech_standard" 
         });
         await rtc.client.publish([rtc.localAudio]);
         
@@ -208,13 +215,13 @@
             rtc.localVideo.play("local-container");
             await rtc.client.publish([rtc.localVideo]);
         }
+
         rtc.client.on("user-published", async (u, mt) => {
             await rtc.client.subscribe(u, mt);
             if (mt === "video") u.videoTrack.play("remote-container");
             if (mt === "audio") {
-                u.audioTrack.play();
-                // Ensure audio is unblocked
-                AgoraRTC.onAutoplayFailed = () => { u.audioTrack.play(); };
+                // Ensure audio is unmuted and played after short delay to bypass autoplay blocks
+                setTimeout(() => { u.audioTrack.play(); }, 500);
             }
         });
     }
@@ -251,19 +258,27 @@
         }, 1000);
     }
 
-    // FIXED PREVIEWMEDIA & MESSAGING
+    // IMAGE PREVIEW & MESSAGING
     window.previewMedia = (i) => {
         if (!i.files || !i.files[0]) return;
         pendingFile = i.files[0];
         const r = new FileReader();
         r.onload = (e) => {
-            document.getElementById('img-preview-box').src = e.target.result;
-            document.getElementById('media-preview-container').style.display = 'flex';
+            const box = document.getElementById('img-preview-box');
+            const container = document.getElementById('media-preview-container');
+            if (box) box.src = e.target.result;
+            if (container) container.style.display = 'flex';
         };
         r.readAsDataURL(pendingFile);
     };
 
-    window.cancelMedia = () => { pendingFile = null; document.getElementById('media-preview-container').style.display = 'none'; document.getElementById('fileIn').value = ""; };
+    window.cancelMedia = () => { 
+        pendingFile = null; 
+        const container = document.getElementById('media-preview-container');
+        if (container) container.style.display = 'none'; 
+        const fileInput = document.getElementById('fileIn');
+        if (fileInput) fileInput.value = ""; 
+    };
 
     document.getElementById('chat-form').onsubmit = async (e) => {
         e.preventDefault();
@@ -300,14 +315,24 @@
         box.scrollTop = box.scrollHeight;
     }
 
-    // SIDEBAR & TOOLS (RESTORED VIEWLOGS/GALLERY)
+    // TOOLS & REPLIES
     window.delM = async (id) => {
         const { data: msg } = await _db.from('private_messages').select('*').eq('id', id).single();
         if (msg) await _db.from('deleted_log').insert([{ sender: msg.sender, message: msg.message, file_url: msg.file_url, deleted_at: new Date().toISOString() }]);
         await _db.from('private_messages').delete().eq('id', id);
     };
-    window.setReply = (id, txt) => { replyId = id; document.getElementById('reply-text').textContent = txt; document.getElementById('reply-bar').classList.remove('hidden'); };
-    window.cancelReply = () => { replyId = null; document.getElementById('reply-bar').classList.add('hidden'); };
+    window.setReply = (id, txt) => { 
+        replyId = id; 
+        const rTxt = document.getElementById('reply-text');
+        const rBar = document.getElementById('reply-bar');
+        if (rTxt) rTxt.textContent = txt; 
+        if (rBar) rBar.style.display = 'block'; 
+    };
+    window.cancelReply = () => { 
+        replyId = null; 
+        const rBar = document.getElementById('reply-bar');
+        if (rBar) rBar.style.display = 'none'; 
+    };
     window.toggleGallery = async () => {
         const g = document.getElementById('gallery-overlay'); g.style.display = (g.style.display === 'flex') ? 'none' : 'flex';
         if (g.style.display === 'flex') {
