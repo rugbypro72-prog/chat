@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v5.3</title>
+    <title>MidNight v12</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
@@ -20,12 +20,14 @@
         .msg-tools { font-size: 10px; opacity: 0; transition: 0.2s; margin-top: 4px; display: flex; gap: 10px; color: #3b82f6; font-weight: bold; text-transform: uppercase; cursor: pointer; }
         .msg-container:hover .msg-tools { opacity: 1; }
 
-        /* Call UI & Floating State */
+        /* Call UI & Draggable State */
         #call-ui, #ring-ui { display: none; position: fixed; inset: 0; background: #000; z-index: 999; flex-direction: column; align-items: center; justify-content: center; }
-        #call-ui.minimized { inset: auto; top: 20px; right: 20px; width: 120px; height: 180px; border-radius: 15px; border: 2px solid #3b82f6; overflow: hidden; }
+        #call-ui.minimized { 
+            inset: auto; width: 100px; height: 140px; border-radius: 12px; 
+            border: 2px solid #3b82f6; overflow: hidden; cursor: move; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); touch-action: none;
+        }
         #call-ui.minimized #call-timer, #call-ui.minimized #call-status, #call-ui.minimized .call-btns { display: none; }
-        #call-ui.minimized #remote-container { position: relative; }
-        
         .remote-player { width: 100%; height: 100%; position: absolute; inset: 0; }
         .local-player { width: 110px; height: 150px; position: absolute; bottom: 120px; right: 20px; border-radius: 12px; overflow: hidden; border: 1px solid #3b82f6; z-index: 10; background: #000; }
         #call-ui.minimized .local-player { display: none; }
@@ -43,44 +45,23 @@
 
 <div id="ring-ui">
     <div id="ring-name" class="text-4xl font-bold mb-2">...</div>
-    <div class="text-blue-500 animate-pulse tracking-widest text-xs mb-24 uppercase">Incoming Call</div>
+    <div class="text-blue-500 animate-pulse tracking-widest text-xs mb-24 uppercase">Incoming</div>
     <div class="flex gap-14">
         <button onclick="endCall(true)" class="bg-red-500/20 text-red-500 w-16 h-16 rounded-full border border-red-500/50 text-2xl">✖</button>
         <button id="acceptBtn" class="bg-green-500/20 text-green-500 w-16 h-16 rounded-full border border-green-500/50 text-2xl">✔</button>
     </div>
 </div>
 
-<div id="call-ui" onclick="maximizeCall()">
+<div id="call-ui" onmousedown="startDrag(event)" ontouchstart="startDrag(event)">
     <div id="call-status" class="absolute top-16 text-blue-400 text-xs tracking-[0.3em] font-bold z-20 uppercase">Connected</div>
     <div id="call-timer" class="absolute top-24 text-4xl font-light z-20">00:00</div>
-    <div id="remote-container" class="remote-player"></div>
+    <div id="remote-container" class="remote-player" onclick="maximizeCall()"></div>
     <div id="local-container" class="local-player"></div>
     <div class="absolute bottom-12 flex gap-4 z-20 call-btns">
-        <button onclick="event.stopPropagation(); toggleMute()" id="muteBtn" class="bg-white/5 p-4 rounded-full border border-white/10 text-xl">🎤</button>
-        <button onclick="event.stopPropagation(); toggleScreenShare()" id="shareBtn" class="bg-white/5 p-4 rounded-full border border-white/10 text-xl">🖥️</button>
-        <button onclick="event.stopPropagation(); minimizeCall()" class="bg-white/5 p-4 rounded-full border border-white/10 text-xl">💬</button>
-        <button onclick="event.stopPropagation(); endCall(true)" class="bg-red-600 p-4 rounded-full px-8 font-bold">END</button>
-    </div>
-</div>
-
-<div id="gallery-overlay" class="full-overlay">
-    <div class="p-4 border-b border-white/10 flex justify-between bg-black"><span class="font-bold">Gallery</span><button onclick="toggleGallery()" class="text-2xl">&times;</button></div>
-    <div id="gallery-grid" class="grid grid-cols-3 gap-1 p-1 overflow-y-auto bg-black"></div>
-</div>
-<div id="log-overlay" class="full-overlay">
-    <div class="p-4 border-b border-red-900/50 flex justify-between bg-black"><span class="font-bold text-red-500 uppercase">Deleted Messages</span><button onclick="document.getElementById('log-overlay').style.display='none'" class="text-2xl">&times;</button></div>
-    <div id="log-list" class="p-4 space-y-4 overflow-y-auto bg-black flex-1"></div>
-</div>
-
-<div id="sidebar">
-    <div id="sideAv" class="w-24 h-24 rounded-full mb-6 border border-white/10 bg-cover bg-center flex items-center justify-center text-4xl mx-auto"></div>
-    <div class="text-center font-bold text-2xl mb-12" id="sideName">...</div>
-    <div class="space-y-3">
-        <button onclick="toggleGallery()" class="w-full text-left p-4 hover:bg-white/5 rounded-xl transition">Gallery</button>
-        <button id="logBtn" onclick="viewLogs()" class="hidden w-full text-left p-4 hover:bg-red-500/5 rounded-xl text-red-400 font-bold transition">Logs</button>
-        <button onclick="document.getElementById('pfpIn').click()" class="w-full text-left p-4 hover:bg-white/5 rounded-xl transition">Profile Photo</button>
-        <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadPFP(this)">
-        <button onclick="changeMood()" class="w-full text-left p-4 hover:bg-white/5 rounded-xl transition">Edit Status</button>
+        <button onclick="toggleMute()" id="muteBtn" class="bg-white/5 p-4 rounded-full border border-white/10 text-xl">🎤</button>
+        <button onclick="toggleScreenShare()" id="shareBtn" class="bg-white/5 p-4 rounded-full border border-white/10 text-xl">🖥️</button>
+        <button onclick="minimizeCall()" class="bg-white/5 p-4 rounded-full border border-white/10 text-xl">💬</button>
+        <button onclick="endCall(true)" class="bg-red-600 p-4 rounded-full px-8 font-bold">END</button>
     </div>
 </div>
 
@@ -99,12 +80,8 @@
     <footer>
         <div id="media-preview-container">
             <img id="img-preview-box" class="w-12 h-12 rounded object-cover">
-            <span class="text-xs text-blue-400 font-bold">Image Ready</span>
-            <button onclick="cancelMedia()" class="ml-auto text-red-500 text-xs font-bold">CANCEL</button>
-        </div>
-        <div id="reply-bar" class="hidden p-2 bg-blue-900/20 border-x border-t border-white/5 rounded-t-xl text-xs flex justify-between">
-            <span id="reply-text" class="italic opacity-60 truncate"></span>
-            <button onclick="cancelReply()">✕</button>
+            <span class="text-xs text-blue-400 font-bold">Ready</span>
+            <button onclick="cancelMedia()" class="ml-auto text-red-500 text-xs font-bold">✕</button>
         </div>
         <form id="chat-form" class="bg-[#0a0f1d] border border-white/5 rounded-full flex items-center px-4 m-4">
             <label class="p-2 opacity-30 cursor-pointer">📎<input type="file" id="fileIn" class="hidden" accept="image/*" onchange="previewMedia(this)"></label>
@@ -114,6 +91,27 @@
     </footer>
 </div>
 
+<div id="gallery-overlay" class="full-overlay">
+    <div class="p-4 border-b border-white/10 flex justify-between bg-black"><span>Gallery</span><button onclick="toggleGallery()" class="text-2xl">&times;</button></div>
+    <div id="gallery-grid" class="grid grid-cols-3 gap-1 p-1 overflow-y-auto bg-black"></div>
+</div>
+<div id="log-overlay" class="full-overlay">
+    <div class="p-4 border-b border-red-900/50 flex justify-between bg-black"><span class="text-red-500 uppercase">Logs</span><button onclick="document.getElementById('log-overlay').style.display='none'" class="text-2xl">&times;</button></div>
+    <div id="log-list" class="p-4 space-y-4 overflow-y-auto bg-black flex-1"></div>
+</div>
+
+<div id="sidebar">
+    <div id="sideAv" class="w-24 h-24 rounded-full mb-6 border border-white/10 bg-cover bg-center flex items-center justify-center text-4xl mx-auto"></div>
+    <div class="text-center font-bold text-2xl mb-12" id="sideName">...</div>
+    <div class="space-y-3">
+        <button onclick="toggleGallery()" class="w-full text-left p-4 hover:bg-white/5 rounded-xl">Gallery</button>
+        <button id="logBtn" onclick="viewLogs()" class="hidden w-full text-left p-4 hover:bg-red-500/5 rounded-xl text-red-400 font-bold">Logs</button>
+        <button onclick="document.getElementById('pfpIn').click()" class="w-full text-left p-4 hover:bg-white/5 rounded-xl">Change PFP</button>
+        <input type="file" id="pfpIn" class="hidden" accept="image/*" onchange="uploadPFP(this)">
+        <button onclick="changeMood()" class="w-full text-left p-4 hover:bg-white/5 rounded-xl">Edit Status</button>
+    </div>
+</div>
+
 <script>
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
@@ -121,6 +119,30 @@
     const AGORA_APP_ID = "4f6c6c2002784152a8366dec12f1b4c0"; 
     
     let me, you, rtc = { client: null, localAudio: null, localVideo: null, screenTrack: null }, callInt, isSharing = false, replyId = null, pendingFile = null;
+
+    // DRAG LOGIC
+    let isDragging = false, offset = { x: 0, y: 0 };
+    function startDrag(e) {
+        const el = document.getElementById('call-ui');
+        if (!el.classList.contains('minimized')) return;
+        isDragging = true;
+        const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+        offset.x = clientX - el.offsetLeft;
+        offset.y = clientY - el.offsetTop;
+        document.addEventListener(e.type === 'touchstart' ? 'touchmove' : 'mousemove', dragging);
+        document.addEventListener(e.type === 'touchstart' ? 'touchend' : 'mouseup', stopDrag);
+    }
+    function dragging(e) {
+        if (!isDragging) return;
+        const el = document.getElementById('call-ui');
+        const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+        el.style.left = (clientX - offset.x) + 'px';
+        el.style.top = (clientY - offset.y) + 'px';
+        el.style.right = 'auto'; el.style.bottom = 'auto';
+    }
+    function stopDrag() { isDragging = false; }
 
     async function init() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
@@ -143,9 +165,18 @@
         syncProfiles(); loadMessages();
     }
 
-    // --- CALL MANAGEMENT ---
-    window.minimizeCall = () => { document.getElementById('call-ui').classList.add('minimized'); };
-    window.maximizeCall = () => { document.getElementById('call-ui').classList.remove('minimized'); };
+    // CALLING (AUDIO FIX INCLUDED)
+    window.minimizeCall = () => { 
+        const el = document.getElementById('call-ui');
+        el.classList.add('minimized'); 
+        el.style.top = '20px'; el.style.right = '20px'; el.style.left = 'auto';
+    };
+    window.maximizeCall = () => { 
+        const el = document.getElementById('call-ui');
+        if (!el.classList.contains('minimized')) return;
+        el.classList.remove('minimized'); 
+        el.style.inset = '0';
+    };
 
     function ringUI(v) {
         document.getElementById('ring-ui').style.display = 'flex';
@@ -165,8 +196,13 @@
         document.getElementById('call-ui').style.display = 'flex';
         rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         await rtc.client.join(AGORA_APP_ID, "chat_room", null);
-        rtc.localAudio = await AgoraRTC.createMicrophoneAudioTrack({ AEC: true, ANS: true });
+        
+        // AUDIO FIX: Optimized microphone settings
+        rtc.localAudio = await AgoraRTC.createMicrophoneAudioTrack({ 
+            AEC: true, ANS: true, AGC: true, encoderConfig: "high_quality_stereo" 
+        });
         await rtc.client.publish([rtc.localAudio]);
+        
         if (v) {
             rtc.localVideo = await AgoraRTC.createCameraVideoTrack();
             rtc.localVideo.play("local-container");
@@ -175,7 +211,11 @@
         rtc.client.on("user-published", async (u, mt) => {
             await rtc.client.subscribe(u, mt);
             if (mt === "video") u.videoTrack.play("remote-container");
-            if (mt === "audio") u.audioTrack.play();
+            if (mt === "audio") {
+                u.audioTrack.play();
+                // Ensure audio is unblocked
+                AgoraRTC.onAutoplayFailed = () => { u.audioTrack.play(); };
+            }
         });
     }
 
@@ -197,7 +237,9 @@
         if (sig) await _db.from('private_messages').insert([{ sender: me, receiver: you, message: "___CALL_END___" }]);
         if (rtc.localAudio) rtc.localAudio.close(); if (rtc.localVideo) rtc.localVideo.close();
         if (rtc.screenTrack) rtc.screenTrack.close(); if (rtc.client) await rtc.client.leave();
-        document.querySelectorAll('#call-ui, #ring-ui').forEach(el => { el.style.display = 'none'; el.classList.remove('minimized'); });
+        const el = document.getElementById('call-ui'); el.style.display = 'none'; el.classList.remove('minimized'); el.style.inset = '0';
+        document.getElementById('ring-ui').style.display = 'none';
+        isSharing = false;
     };
 
     function startTimer() {
@@ -209,8 +251,9 @@
         }, 1000);
     }
 
-    // --- IMAGES & MESSAGING ---
+    // FIXED PREVIEWMEDIA & MESSAGING
     window.previewMedia = (i) => {
+        if (!i.files || !i.files[0]) return;
         pendingFile = i.files[0];
         const r = new FileReader();
         r.onload = (e) => {
@@ -228,7 +271,7 @@
         let fUrl = null;
         if (pendingFile) {
             const cleanName = `img_${Date.now()}_${pendingFile.name.replace(/[^a-z0-9.]/gi, '_')}`;
-            const { data, error } = await _db.storage.from('chat-files').upload(cleanName, pendingFile);
+            const { data } = await _db.storage.from('chat-files').upload(cleanName, pendingFile);
             if (data) fUrl = _db.storage.from('chat-files').getPublicUrl(cleanName).data.publicUrl;
             cancelMedia();
         }
@@ -245,7 +288,7 @@
             const isMe = m.sender === me;
             return `<div class="msg-container ${isMe ? 'row-self' : 'row-other'}">
                 <div class="msg ${isMe ? 'self' : 'other'}">
-                    ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-w-full border border-white/5">` : ''}
+                    ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-w-full">` : ''}
                     <div>${m.message || ''}</div>
                 </div>
                 <div class="msg-tools">
@@ -257,7 +300,7 @@
         box.scrollTop = box.scrollHeight;
     }
 
-    // --- LEGACY SIDEBAR STUFF ---
+    // SIDEBAR & TOOLS (RESTORED VIEWLOGS/GALLERY)
     window.delM = async (id) => {
         const { data: msg } = await _db.from('private_messages').select('*').eq('id', id).single();
         if (msg) await _db.from('deleted_log').insert([{ sender: msg.sender, message: msg.message, file_url: msg.file_url, deleted_at: new Date().toISOString() }]);
