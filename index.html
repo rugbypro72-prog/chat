@@ -3,15 +3,17 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v9.7</title>
+    <title>Chat Master v10.1 </title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
     <style>
         :root { --bg: #03050a; --me: #1e293b; --you: #0f172a; }
         body { background: var(--bg); color: #f1f5f9; font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; margin: 0; }
         #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; background: var(--bg); position: relative; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
 
+        /* Bubbles & Timestamps */
         .msg-wrap { display: flex; flex-direction: column; width: 100%; position: relative; margin-bottom: 2px; }
         .row-me { align-items: flex-end; } .row-you { align-items: flex-start; }
         .bubble { max-width: 85%; padding: 10px 14px 22px 14px; font-size: 15px; border-radius: 18px; position: relative; }
@@ -19,20 +21,33 @@
         .you { background: var(--you); border: 1px solid #1e293b; border-bottom-left-radius: 4px; }
         .ts-inside { position: absolute; bottom: 4px; right: 10px; font-size: 9px; opacity: 0.3; font-weight: 600; }
 
+        /* Tools */
         .msg-tools { opacity: 0; transition: 0.1s; display: flex; gap: 12px; margin-bottom: 2px; }
         .msg-wrap:hover .msg-tools { opacity: 1; }
         .tool-btn { color: #3b82f6; font-size: 9px; font-weight: 900; cursor: pointer; text-transform: uppercase; }
 
+        /* Calling UI */
+        #video-grid { position: fixed; inset: 0; z-index: 3000; background: #000; display: none; }
+        .video-box { width: 100%; height: 100%; object-fit: cover; }
+
         #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: #080c14; z-index: 1000; transition: 0.3s; padding: 40px 20px; border-right: 1px solid #1e293b; }
         #sidebar.open { left: 0; }
-        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 900; backdrop-filter: blur(4px); }
+        #overlay-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 900; backdrop-filter: blur(4px); }
         #gallery-modal { display: none; position: fixed; inset: 0; background: #03050a; z-index: 2000; overflow-y: auto; padding: 25px; }
-        .gallery-full-img { width: 100%; margin-bottom: 15px; border-radius: 8px; }
+        #pip-src { width: 1px; height: 1px; position: fixed; opacity: 0; }
     </style>
 </head>
 <body>
 
-<div id="overlay" onclick="closeSidebar()"></div>
+<div id="video-grid">
+    <div id="remote-video" class="video-box"></div>
+    <div id="local-video" class="absolute bottom-10 right-10 w-32 h-48 border-2 border-white/20 rounded-xl overflow-hidden shadow-2xl"></div>
+    <button onclick="endCall()" class="absolute bottom-10 left-1/2 -translate-x-1/2 bg-red-600 p-4 rounded-full font-bold">End Call</button>
+</div>
+
+<video id="pip-src" autoplay muted playsinline></video>
+<canvas id="pip-canvas" width="400" height="250" class="hidden"></canvas>
+<div id="overlay-bg" onclick="closeSidebar()"></div>
 
 <div id="gallery-modal">
     <div class="flex justify-between items-center mb-6 sticky top-0 bg-[#03050a] py-4">
@@ -52,8 +67,8 @@
             </div>
         </div>
         <div class="flex gap-2">
-            <button onclick="alert('Calling...')" class="bg-white/5 px-4 py-2 rounded-full text-[10px] font-bold uppercase">Voice</button>
-            <button onclick="alert('FaceTime...')" class="bg-blue-600 px-4 py-2 rounded-full text-[10px] font-bold uppercase">FaceTime</button>
+            <button onclick="initCall(false)" class="bg-white/5 px-4 py-2 rounded-full text-[10px] font-bold uppercase">Voice</button>
+            <button onclick="initCall(true)" class="bg-blue-600 px-4 py-2 rounded-full text-[10px] font-bold uppercase">FaceTime</button>
         </div>
     </header>
 
@@ -77,7 +92,12 @@
 <div id="sidebar">
     <h2 id="me-name" class="text-center text-xl font-bold mb-8">...</h2>
     <div class="space-y-3">
-        <button onclick="toggleGallery(true)" class="w-full text-left p-3 bg-white/5 rounded-xl">🖼️ Gallery</button>
+        <button onclick="toggleGallery(true)" class="w-full text-left p-4 bg-white/5 rounded-xl">🖼️ View Gallery</button>
+        <div id="rj-suite" class="hidden pt-6 mt-6 border-t border-white/10 space-y-3">
+            <p class="text-[10px] text-blue-500 font-bold uppercase px-2">Gaming Command</p>
+            <button onclick="launchPiP()" class="w-full text-left p-4 bg-blue-600/10 text-blue-400 rounded-xl font-bold">🚀 Pop-out Gaming</button>
+            <button onclick="snapScreen()" class="w-full text-left p-4 bg-red-600/10 text-red-400 rounded-xl font-bold">📸 Snap Screen</button>
+        </div>
     </div>
 </div>
 
@@ -86,7 +106,9 @@
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
     
-    let me, you, replyId = null, chatChannel;
+    let me, you, unread = 0, lastTwo = [], replyId = null, chatChannel;
+    let rtc = { client: null, localVideoTrack: null, localAudioTrack: null };
+    const AGORA_APP_ID = "216894086e3f4963be84a329be49495c"; // Restored
 
     async function init() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
@@ -97,87 +119,97 @@
         localStorage.setItem('chat_secret_code', code);
         document.getElementById('partner-name').textContent = you;
         document.getElementById('me-name').textContent = me;
+        if(me === 'RJ') { document.getElementById('rj-suite').classList.remove('hidden'); setInterval(drawPiP, 1000); }
 
-        chatChannel = _db.channel('chat-room', { config: { broadcast: { self: false } } });
-
+        chatChannel = _db.channel('chat-v10.1', { config: { broadcast: { self: false } } });
         chatChannel
-            .on('broadcast', { event: 'typing' }, (payload) => {
-                const preview = document.getElementById('live-preview');
-                const text = payload.payload.text;
-                
-                if (!text) {
-                    preview.textContent = "";
-                } else {
-                    // RJ sees what Allyvia types, Allyvia sees "RJ is typing..."
-                    preview.textContent = (me === 'RJ') ? `Typing: ${text}...` : `${you} is typing...`;
-                }
+            .on('broadcast', { event: 'typing' }, (p) => {
+                const el = document.getElementById('live-preview');
+                const text = p.payload.text;
+                el.textContent = !text ? "" : (me === 'RJ' ? `Typing: ${text}...` : `${you} is typing...`);
             })
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, loadMessages)
-            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'private_messages' }, loadMessages)
-            .subscribe();
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
+                if(p.new.receiver === me) { unread++; loadMessages(); }
+            }).subscribe();
 
         document.getElementById('msg-input').oninput = (e) => {
-            chatChannel.send({
-                type: 'broadcast',
-                event: 'typing',
-                payload: { text: e.target.value }
-            });
+            chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: e.target.value } });
         };
-
         loadMessages();
     }
 
+    // --- AGORA CALLING LOGIC ---
+    async function initCall(video) {
+        rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+        document.getElementById('video-grid').style.display = 'block';
+        
+        const uid = await rtc.client.join(AGORA_APP_ID, "main", null, null);
+        rtc.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        
+        if (video) {
+            rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+            rtc.localVideoTrack.play("local-video");
+            await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack]);
+        } else {
+            await rtc.client.publish([rtc.localAudioTrack]);
+        }
+
+        rtc.client.on("user-published", async (user, mediaType) => {
+            await rtc.client.subscribe(user, mediaType);
+            if (mediaType === "video") user.videoTrack.play("remote-video");
+            if (mediaType === "audio") user.audioTrack.play();
+        });
+    }
+
+    async function endCall() {
+        if(rtc.localAudioTrack) rtc.localAudioTrack.close();
+        if(rtc.localVideoTrack) rtc.localVideoTrack.close();
+        if(rtc.client) await rtc.client.leave();
+        document.getElementById('video-grid').style.display = 'none';
+    }
+
+    // --- MESSAGING & OVERLAY ---
     async function loadMessages() {
         const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(40);
+        const filtered = data.reverse().filter(m => !m.message.startsWith("___"));
+        lastTwo = filtered.slice(-2);
         const box = document.getElementById('messages');
-        box.innerHTML = data.reverse().map(m => {
+        box.innerHTML = filtered.map(m => {
             const isMe = m.sender === me;
             const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-            return `
-                <div class="msg-wrap ${isMe ? 'row-me' : 'row-you'}">
-                    <div class="msg-tools">
-                        <span class="tool-btn" onclick="setReply('${m.id}', '${m.message}')">Reply</span>
-                        ${isMe ? `<span class="tool-btn text-red-500" onclick="deleteMsg('${m.id}')">Delete</span>` : ''}
-                    </div>
-                    <div class="bubble ${isMe ? 'me' : 'you'}">
-                        ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 w-full h-auto">` : ''}
-                        ${m.message || ''}
-                        <span class="ts-inside">${time}</span>
-                    </div>
-                </div>`;
+            return `<div class="msg-wrap ${isMe ? 'row-me' : 'row-you'}">
+                <div class="msg-tools"><span class="tool-btn" onclick="setReply('${m.id}', '${m.message}')">Reply</span>${isMe ? `<span class="tool-btn text-red-500" onclick="deleteMsg('${m.id}')">Delete</span>` : ''}</div>
+                <div class="bubble ${isMe ? 'me' : 'you'}">
+                    ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 w-full h-auto">` : ''}${m.message || ''}
+                    <span class="ts-inside">${time}</span>
+                </div>
+            </div>`;
         }).join('');
         box.scrollTop = box.scrollHeight;
     }
 
-    async function sendMsg(txt, url = null) {
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: txt, file_url: url, reply_to: replyId }]);
-        document.getElementById('msg-input').value = "";
-        chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: "" } });
-        cancelReply();
-        loadMessages();
+    function drawPiP() {
+        const c = document.getElementById('pip-canvas'); const x = c.getContext('2d');
+        x.fillStyle = '#080c14'; x.fillRect(0,0,400,250);
+        x.fillStyle = unread > 0 ? '#ef4444' : '#3b82f6';
+        x.font = 'bold 28px Arial'; x.fillText(`${unread > 0 ? unread + '+' : 'Chat'}`, 20, 45);
+        x.font = '16px Arial';
+        lastTwo.forEach((m, i) => {
+            x.fillStyle = m.sender === 'RJ' ? '#60a5fa' : '#94a3b8';
+            x.fillText(`${m.sender}: ${(m.message || "Image").substring(0, 30)}`, 20, 100 + (i * 40));
+        });
+        const v = document.getElementById('pip-src'); if(!v.srcObject) v.srcObject = c.captureStream();
     }
 
-    async function toggleGallery(show) {
-        const modal = document.getElementById('gallery-modal');
-        if(show) {
-            modal.style.display = 'block';
-            const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', { ascending: false });
-            document.getElementById('gallery-content').innerHTML = data.map(i => `<img src="${i.file_url}" class="gallery-full-img">`).join('');
-        } else { modal.style.display = 'none'; }
-    }
-
-    async function handleImage(input) {
-        if(!input.files[0]) return;
-        const file = input.files[0]; const name = `img_${Date.now()}`;
-        const { data } = await _db.storage.from('chat-files').upload(name, file);
-        if(data) sendMsg("", _db.storage.from('chat-files').getPublicUrl(name).data.publicUrl);
-    }
-
+    async function launchPiP() { unread = 0; drawPiP(); try { await document.getElementById('pip-src').play(); await document.getElementById('pip-src').requestPictureInPicture(); } catch(e) {} }
+    async function sendMsg(txt, url = null) { await _db.from('private_messages').insert([{ sender: me, receiver: you, message: txt, file_url: url, reply_to: replyId }]); document.getElementById('msg-input').value = ""; chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: "" } }); cancelReply(); loadMessages(); }
+    async function toggleGallery(show) { const modal = document.getElementById('gallery-modal'); if(show) { modal.style.display = 'block'; const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', { ascending: false }); document.getElementById('gallery-content').innerHTML = data.map(i => `<img src="${i.file_url}" class="gallery-full-img">`).join(''); } else { modal.style.display = 'none'; } }
+    async function handleImage(input) { if(!input.files[0]) return; const file = input.files[0]; const name = `img_${Date.now()}`; const { data } = await _db.storage.from('chat-files').upload(name, file); if(data) sendMsg("", _db.storage.from('chat-files').getPublicUrl(name).data.publicUrl); }
     window.deleteMsg = async (id) => { if(confirm("Delete?")) await _db.from('private_messages').delete().eq('id', id); };
     function setReply(id, txt) { replyId = id; document.getElementById('reply-text').textContent = `Reply: ${txt.substring(0,25)}...`; document.getElementById('reply-box').classList.remove('hidden'); }
     function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
-    function openSidebar() { document.getElementById('sidebar').classList.add('open'); document.getElementById('overlay').style.display = 'block'; }
-    function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').style.display = 'none'; }
+    function openSidebar() { document.getElementById('sidebar').classList.add('open'); document.getElementById('overlay-bg').style.display = 'block'; }
+    function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay-bg').style.display = 'none'; }
     document.getElementById('chat-form').onsubmit = (e) => { e.preventDefault(); const v = document.getElementById('msg-input').value; if(v.trim()) sendMsg(v); };
 
     init();
