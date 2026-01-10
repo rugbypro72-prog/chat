@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v6.1</title>
+    <title>Chat Master v6.2</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
@@ -15,25 +15,24 @@
         .msg { max-width: 80%; padding: 12px 16px; font-size: 15px; border-radius: 20px; line-height: 1.4; position: relative; }
         .self { background: #111827; border: 1px solid #1e293b; color: #f8fafc; border-bottom-right-radius: 4px; align-self: flex-end; }
         .other { background: #1e293b; color: #cbd5e1; border-bottom-left-radius: 4px; align-self: flex-start; }
-
-        /* RJ OVERLAY & GLOW */
+        
+        /* RJ OVERLAY & COUNTER */
         #rj-overlay { 
             display: none; position: fixed; top: 20px; right: 20px; width: 260px; 
-            background: rgba(10, 15, 29, 0.98); border: 1.5px solid #3b82f6; 
+            background: rgba(10, 15, 29, 0.95); border: 1.5px solid #3b82f6; 
             border-radius: 12px; z-index: 9999; padding: 12px; backdrop-filter: blur(15px); 
             box-shadow: 0 15px 40px rgba(0,0,0,0.7); cursor: grab;
-            transition: border-color 0.4s, box-shadow 0.4s;
         }
-        #rj-overlay.new-msg-glow { border-color: #ef4444 !important; box-shadow: 0 0 20px rgba(239, 68, 68, 0.6); }
+        #unread-tag { color: #ef4444; font-weight: bold; margin-left: 5px; font-size: 12px; display: none; }
         .close-ov { position: absolute; top: 5px; right: 8px; color: #ef4444; font-size: 14px; font-weight: bold; cursor: pointer; }
         
-        /* HIDDEN CANVAS FOR PIP */
+        #media-preview-container { display: none; padding: 10px; background: #0f172a; border-radius: 15px; margin: 10px; align-items: center; gap: 10px; border: 1px solid #1e293b; }
         #pip-canvas { display: none; }
         #pip-video { width: 1px; height: 1px; opacity: 0; position: absolute; }
-
+        
+        .full-overlay { display: none; position: fixed; inset: 0; z-index: 700; background: #000; flex-direction: column; }
         #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: #05070a; z-index: 600; transition: 0.3s; padding: 30px 20px; border-right: 1px solid #111827; }
         #sidebar.open { left: 0; }
-        #overlay-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 550; backdrop-filter: blur(8px); }
     </style>
 </head>
 <body>
@@ -43,33 +42,47 @@
 
 <div id="rj-overlay" onmousedown="ovStartDrag(event)">
     <span class="close-ov" onclick="toggleRJOverlay(false)">×</span>
-    <div class="text-[10px] text-blue-500 font-bold uppercase mb-1">Allyvia • Active</div>
+    <div class="flex items-center mb-1">
+        <div class="text-[10px] text-blue-500 font-bold uppercase">Allyvia</div>
+        <div id="unread-tag"></div>
+    </div>
     <div id="ov-text" class="text-xs opacity-90 mb-2 truncate italic">No messages yet...</div>
     <div class="flex gap-2">
-        <input id="ov-reply" placeholder="Quick reply..." class="flex-1 bg-white/5 border border-white/10 rounded-md p-2 text-[11px] outline-none focus:border-blue-500">
+        <input id="ov-reply" onfocus="clearUnread()" placeholder="Quick reply..." class="flex-1 bg-white/5 border border-white/10 rounded-md p-2 text-[11px] outline-none focus:border-blue-500">
         <button onclick="requestPiP()" class="bg-blue-600 px-2 py-1 rounded text-[10px] font-bold">POP OUT</button>
     </div>
 </div>
 
-<div id="overlay-bg" onclick="toggleSidebar()"></div>
+<div id="overlay-bg" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 hidden z-[500]"></div>
 
 <div id="chat-main">
     <header class="p-5 flex items-center justify-between border-b border-white/5">
         <div class="flex items-center gap-4">
             <button onclick="toggleSidebar()" class="text-xl opacity-40">☰</button>
-            <div>
-                <div class="font-bold" id="headerName">...</div>
-                <div id="typing-status" class="text-[10px] text-blue-500 h-3"></div>
-            </div>
+            <div><div class="font-bold" id="headerName">...</div><div id="typing-status" class="text-[10px] text-blue-500 h-3"></div></div>
         </div>
+        <button onclick="toggleGallery()" class="text-xs bg-white/5 px-3 py-1 rounded-full">GALLERY</button>
     </header>
+    
     <main id="messages" class="flex flex-col"></main>
-    <footer class="p-4">
-        <form id="chat-form" class="bg-[#0a0f1d] border border-white/5 rounded-full flex items-center px-4">
+
+    <footer>
+        <div id="media-preview-container">
+            <img id="img-preview-box" class="w-12 h-12 rounded object-cover">
+            <span class="text-xs text-blue-400 font-bold">Ready</span>
+            <button onclick="cancelMedia()" class="ml-auto text-red-500 text-xs font-bold">✕</button>
+        </div>
+        <form id="chat-form" class="bg-[#0a0f1d] border border-white/5 rounded-full flex items-center px-4 m-4">
+            <label class="p-2 opacity-30 cursor-pointer">📎<input type="file" id="fileIn" class="hidden" accept="image/*" onchange="previewMedia(this)"></label>
             <input id="msgIn" placeholder="Message..." class="flex-1 bg-transparent p-3 outline-none text-sm" autocomplete="off" oninput="sendTyping()">
             <button type="submit" class="text-blue-500 font-bold px-3">Send</button>
         </form>
     </footer>
+</div>
+
+<div id="gallery-overlay" class="full-overlay">
+    <div class="p-4 border-b border-white/10 flex justify-between bg-black"><span>Gallery</span><button onclick="toggleGallery()" class="text-2xl">&times;</button></div>
+    <div id="gallery-grid" class="grid grid-cols-3 gap-1 p-1 overflow-y-auto bg-black"></div>
 </div>
 
 <div id="sidebar">
@@ -82,7 +95,7 @@
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
     
-    let me, you, lastMsg = "No messages";
+    let me, you, lastMsg = "No messages", unreadCount = 0, pendingFile = null;
 
     async function init() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
@@ -90,24 +103,22 @@
         if (!data) return; me = data.username; you = (me === 'RJ') ? 'Allyvia' : 'RJ';
         
         localStorage.setItem('chat_secret_code', code);
+        document.getElementById('headerName').textContent = you;
         document.getElementById('sideName').textContent = me;
 
         if (me === 'RJ') {
             document.getElementById('rj-overlay').style.display = 'block';
             document.getElementById('ovToggleBtn').classList.remove('hidden');
-            updatePiPCanvas(); // Start the ghost stream
+            updatePiPCanvas();
         }
 
         _db.channel('master').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
             if (p.new.receiver === me) {
                 if (p.new.message === "___TYPING___") showTyping();
                 else if (!p.new.message.startsWith("___")) {
+                    unreadCount++;
                     lastMsg = p.new.message;
-                    if (me === 'RJ') {
-                        document.getElementById('ov-text').textContent = lastMsg;
-                        triggerOverlayGlow();
-                        updatePiPCanvas(); // Update the pop-out video
-                    }
+                    if (me === 'RJ') updateOverlayUI();
                     loadMessages();
                 }
             }
@@ -116,96 +127,81 @@
         loadMessages();
     }
 
-    // --- TRUE POP-OUT (PICTURE IN PICTURE) LOGIC ---
+    // --- OVERLAY & PIP ---
+    function updateOverlayUI() {
+        const tag = document.getElementById('unread-tag');
+        tag.textContent = `+${unreadCount}`;
+        tag.style.display = 'block';
+        document.getElementById('ov-text').textContent = lastMsg;
+        updatePiPCanvas();
+    }
+
+    function clearUnread() {
+        unreadCount = 0;
+        document.getElementById('unread-tag').style.display = 'none';
+        updatePiPCanvas();
+    }
+
     function updatePiPCanvas() {
         const canvas = document.getElementById('pip-canvas');
         const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // Draw Background
-        ctx.fillStyle = '#0a0f1d';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Draw Border
-        ctx.strokeStyle = '#3b82f6';
-        ctx.lineWidth = 4;
-        ctx.strokeRect(0, 0, canvas.width, canvas.height);
-        
-        // Draw Text
-        ctx.fillStyle = '#3b82f6';
-        ctx.font = 'bold 16px Arial';
-        ctx.fillText('ALLYVIA:', 20, 40);
+        // Transparent background
+        ctx.fillStyle = 'rgba(10, 15, 29, 0.6)';
+        ctx.roundRect(0, 0, canvas.width, canvas.height, 20);
+        ctx.fill();
+
+        ctx.fillStyle = unreadCount > 0 ? '#ef4444' : '#3b82f6';
+        ctx.font = 'bold 18px Arial';
+        ctx.fillText(`ALLYVIA ${unreadCount > 0 ? '(+' + unreadCount + ')' : ''}`, 20, 40);
         
         ctx.fillStyle = '#ffffff';
         ctx.font = '20px Arial';
-        // Wrap text logic
-        const words = lastMsg.split(' ');
-        let line = '';
-        let y = 80;
-        for(let n = 0; n < words.length; n++) {
-            let testLine = line + words[n] + ' ';
-            if (testLine.length > 30) {
-                ctx.fillText(line, 20, y);
-                line = words[n] + ' ';
-                y += 30;
-            } else { line = testLine; }
-        }
-        ctx.fillText(line, 20, y);
+        ctx.fillText(lastMsg.substring(0, 35) + (lastMsg.length > 35 ? '...' : ''), 20, 80);
 
-        // Update the video stream
         const video = document.getElementById('pip-video');
-        if (!video.srcObject) {
-            video.srcObject = canvas.captureStream();
-        }
+        if (!video.srcObject) video.srcObject = canvas.captureStream();
     }
 
     async function requestPiP() {
-        const video = document.getElementById('pip-video');
-        try {
-            await video.requestPictureInPicture();
-        } catch (error) {
-            alert("To pop out: Click the 'Pop Out' button and allow the browser to open Picture-in-Picture.");
-        }
+        try { await document.getElementById('pip-video').requestPictureInPicture(); } catch (e) { console.error(e); }
     }
 
-    // --- REGULAR OVERLAY LOGIC ---
-    function triggerOverlayGlow() {
-        const ov = document.getElementById('rj-overlay');
-        ov.classList.add('new-msg-glow');
-        setTimeout(() => ov.classList.remove('new-msg-glow'), 2000);
-    }
-
-    let ovDragging = false, ovOffset = { x: 0, y: 0 };
-    function ovStartDrag(e) {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-        ovDragging = true;
-        const el = document.getElementById('rj-overlay');
-        ovOffset.x = e.clientX - el.offsetLeft;
-        ovOffset.y = e.clientY - el.offsetTop;
-        document.onmousemove = (ev) => {
-            if (!ovDragging) return;
-            el.style.left = (ev.clientX - ovOffset.x) + 'px';
-            el.style.top = (ev.clientY - ovOffset.y) + 'px';
-            el.style.right = 'auto';
+    // --- MEDIA RESTORED ---
+    window.previewMedia = (i) => {
+        if (!i.files[0]) return;
+        pendingFile = i.files[0];
+        const r = new FileReader();
+        r.onload = (e) => {
+            document.getElementById('img-preview-box').src = e.target.result;
+            document.getElementById('media-preview-container').style.display = 'flex';
         };
-        document.onmouseup = () => ovDragging = false;
-    }
+        r.readAsDataURL(pendingFile);
+    };
 
-    // --- CORE MESSAGING ---
-    async function loadMessages() {
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(20);
-        const box = document.getElementById('messages');
-        box.innerHTML = data.reverse().filter(m => !m.message.startsWith("___")).map(m => 
-            `<div class="msg ${m.sender === me ? 'self' : 'other'}">${m.message}</div>`
-        ).join('');
-        box.scrollTop = box.scrollHeight;
-    }
+    window.cancelMedia = () => {
+        pendingFile = null;
+        document.getElementById('media-preview-container').style.display = 'none';
+        document.getElementById('fileIn').value = "";
+    };
 
+    // --- MESSAGING ---
     document.getElementById('chat-form').onsubmit = async (e) => {
         e.preventDefault();
-        const val = document.getElementById('msgIn').value;
-        if (val) {
-            await _db.from('private_messages').insert([{ sender: me, receiver: you, message: val }]);
-            document.getElementById('msgIn').value = "";
+        const input = document.getElementById('msgIn');
+        let fUrl = null;
+
+        if (pendingFile) {
+            const name = `img_${Date.now()}`;
+            const { data } = await _db.storage.from('chat-files').upload(name, pendingFile);
+            if (data) fUrl = _db.storage.from('chat-files').getPublicUrl(name).data.publicUrl;
+            cancelMedia();
+        }
+
+        if (input.value || fUrl) {
+            await _db.from('private_messages').insert([{ sender: me, receiver: you, message: input.value, file_url: fUrl }]);
+            input.value = "";
             loadMessages();
         }
     };
@@ -214,15 +210,46 @@
         if (e.key === 'Enter' && e.target.value) {
             await _db.from('private_messages').insert([{ sender: me, receiver: you, message: e.target.value }]);
             e.target.value = "";
+            clearUnread();
             loadMessages();
         }
     };
 
-    function toggleRJOverlay(show) { document.getElementById('rj-overlay').style.display = show ? 'block' : 'none'; }
-    function toggleSidebar() { 
-        const s = document.getElementById('sidebar').classList.toggle('open'); 
-        document.getElementById('overlay-bg').style.display = s ? 'block' : 'none'; 
+    async function loadMessages() {
+        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(30);
+        const box = document.getElementById('messages');
+        box.innerHTML = data.reverse().filter(m => !m.message.startsWith("___")).map(m => `
+            <div class="msg ${m.sender === me ? 'self' : 'other'}">
+                ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-w-full">` : ''}
+                ${m.message || ''}
+            </div>
+        `).join('');
+        box.scrollTop = box.scrollHeight;
     }
+
+    window.toggleGallery = async () => {
+        const g = document.getElementById('gallery-overlay');
+        g.style.display = (g.style.display === 'flex') ? 'none' : 'flex';
+        if (g.style.display === 'flex') {
+            const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null);
+            document.getElementById('gallery-grid').innerHTML = data.map(i => `<img src="${i.file_url}" class="w-full aspect-square object-cover">`).join('');
+        }
+    };
+
+    // --- UI TOOLS ---
+    function ovStartDrag(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+        const el = document.getElementById('rj-overlay');
+        const offX = e.clientX - el.offsetLeft, offY = e.clientY - el.offsetTop;
+        document.onmousemove = (ev) => { el.style.left = (ev.clientX - offX) + 'px'; el.style.top = (ev.clientY - offY) + 'px'; el.style.right = 'auto'; };
+        document.onmouseup = () => { document.onmousemove = null; };
+    }
+
+    function toggleSidebar() { 
+        const s = document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('overlay-bg').style.display = s ? 'block' : 'none';
+    }
+    function toggleRJOverlay(s) { document.getElementById('rj-overlay').style.display = s ? 'block' : 'none'; }
     function sendTyping() { _db.from('private_messages').insert([{ sender: me, receiver: you, message: "___TYPING___" }]); }
     function showTyping() {
         const s = document.getElementById('typing-status');
