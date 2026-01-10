@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v9.6</title>
+    <title>Chat Master v9.7 - Final Sync</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -12,32 +12,26 @@
         #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; background: var(--bg); position: relative; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
 
-        /* Bubble UI */
         .msg-wrap { display: flex; flex-direction: column; width: 100%; position: relative; margin-bottom: 2px; }
         .row-me { align-items: flex-end; } .row-you { align-items: flex-start; }
-        .bubble { max-width: 85%; padding: 10px 14px 22px 14px; font-size: 15px; border-radius: 18px; position: relative; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .bubble { max-width: 85%; padding: 10px 14px 22px 14px; font-size: 15px; border-radius: 18px; position: relative; }
         .me { background: var(--me); border: 1px solid #334155; border-bottom-right-radius: 4px; }
         .you { background: var(--you); border: 1px solid #1e293b; border-bottom-left-radius: 4px; }
         .ts-inside { position: absolute; bottom: 4px; right: 10px; font-size: 9px; opacity: 0.3; font-weight: 600; }
 
-        /* Tools */
         .msg-tools { opacity: 0; transition: 0.1s; display: flex; gap: 12px; margin-bottom: 2px; }
         .msg-wrap:hover .msg-tools { opacity: 1; }
         .tool-btn { color: #3b82f6; font-size: 9px; font-weight: 900; cursor: pointer; text-transform: uppercase; }
 
-        /* Sidebar & Modals */
-        #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: #080c14; z-index: 1000; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); padding: 40px 20px; border-right: 1px solid #1e293b; }
+        #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: #080c14; z-index: 1000; transition: 0.3s; padding: 40px 20px; border-right: 1px solid #1e293b; }
         #sidebar.open { left: 0; }
         #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 900; backdrop-filter: blur(4px); }
         #gallery-modal { display: none; position: fixed; inset: 0; background: #03050a; z-index: 2000; overflow-y: auto; padding: 25px; }
-        .gallery-full-img { width: 100%; margin-bottom: 15px; border-radius: 8px; border: 1px solid #1e293b; }
-        #pip-src { width: 1px; height: 1px; position: fixed; opacity: 0; }
+        .gallery-full-img { width: 100%; margin-bottom: 15px; border-radius: 8px; }
     </style>
 </head>
 <body>
 
-<video id="pip-src" autoplay muted playsinline></video>
-<canvas id="pip-canvas" width="400" height="200" class="hidden"></canvas>
 <div id="overlay" onclick="closeSidebar()"></div>
 
 <div id="gallery-modal">
@@ -53,22 +47,20 @@
         <div class="flex items-center gap-4">
             <button onclick="openSidebar()" class="text-xl">☰</button>
             <div>
-                <div class="flex items-center gap-2">
-                    <span id="partner-name" class="font-bold text-lg">...</span>
-                </div>
+                <div class="font-bold text-lg" id="partner-name">...</div>
                 <div id="live-preview" class="text-[11px] text-blue-500 italic h-3 font-semibold"></div>
             </div>
         </div>
         <div class="flex gap-2">
-            <button onclick="alert('Voice Call Starting...')" class="bg-white/5 px-4 py-2 rounded-full text-[10px] font-bold uppercase">Voice</button>
-            <button onclick="alert('FaceTime Starting...')" class="bg-blue-600 px-4 py-2 rounded-full text-[10px] font-bold uppercase">FaceTime</button>
+            <button onclick="alert('Calling...')" class="bg-white/5 px-4 py-2 rounded-full text-[10px] font-bold uppercase">Voice</button>
+            <button onclick="alert('FaceTime...')" class="bg-blue-600 px-4 py-2 rounded-full text-[10px] font-bold uppercase">FaceTime</button>
         </div>
     </header>
 
     <main id="messages"></main>
 
     <footer class="p-4">
-        <div id="reply-box" class="hidden bg-blue-500/10 p-2 rounded-t-xl border-l-4 border-blue-500 flex justify-between items-center mb-[-5px] pb-4">
+        <div id="reply-box" class="hidden bg-blue-500/10 p-2 rounded-t-xl border-l-4 border-blue-600 flex justify-between items-center mb-[-5px] pb-4">
             <span id="reply-text" class="text-[11px] text-blue-400 italic"></span>
             <button onclick="cancelReply()">&times;</button>
         </div>
@@ -85,12 +77,7 @@
 <div id="sidebar">
     <h2 id="me-name" class="text-center text-xl font-bold mb-8">...</h2>
     <div class="space-y-3">
-        <button onclick="toggleGallery(true)" class="w-full text-left p-3 bg-white/5 rounded-xl transition">🖼️ Gallery</button>
-        <div id="rj-suite" class="hidden pt-6 mt-6 border-t border-white/10 space-y-3">
-            <p class="text-[10px] text-blue-500 font-bold uppercase px-2">Gaming Tools</p>
-            <button onclick="launchPiP()" class="w-full text-left p-3 bg-blue-600/10 text-blue-400 rounded-xl font-bold border border-blue-600/20">🚀 Pop-out Mode</button>
-            <button onclick="snapScreen()" class="w-full text-left p-3 bg-red-600/10 text-red-400 rounded-xl font-bold border border-red-600/20">📸 Capture Screen</button>
-        </div>
+        <button onclick="toggleGallery(true)" class="w-full text-left p-3 bg-white/5 rounded-xl">🖼️ Gallery</button>
     </div>
 </div>
 
@@ -99,7 +86,7 @@
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
     
-    let me, you, unread = 0, lastMsg = "", replyId = null, chatChannel;
+    let me, you, replyId = null, chatChannel;
 
     async function init() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
@@ -110,25 +97,22 @@
         localStorage.setItem('chat_secret_code', code);
         document.getElementById('partner-name').textContent = you;
         document.getElementById('me-name').textContent = me;
-        if(me === 'RJ') {
-            document.getElementById('rj-suite').classList.remove('hidden');
-            setInterval(drawPiP, 1000);
-        }
 
-        // --- REAL-TIME BROADCAST (THE FIX) ---
         chatChannel = _db.channel('chat-room', { config: { broadcast: { self: false } } });
 
         chatChannel
             .on('broadcast', { event: 'typing' }, (payload) => {
                 const preview = document.getElementById('live-preview');
-                preview.textContent = payload.payload.text ? `Typing: ${payload.payload.text}...` : "";
-            })
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
-                if(p.new.receiver === me) {
-                    unread++; lastMsg = p.new.message;
-                    loadMessages();
+                const text = payload.payload.text;
+                
+                if (!text) {
+                    preview.textContent = "";
+                } else {
+                    // RJ sees what Allyvia types, Allyvia sees "RJ is typing..."
+                    preview.textContent = (me === 'RJ') ? `Typing: ${text}...` : `${you} is typing...`;
                 }
             })
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, loadMessages)
             .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'private_messages' }, loadMessages)
             .subscribe();
 
@@ -143,7 +127,6 @@
         loadMessages();
     }
 
-    // --- MESSAGING ---
     async function loadMessages() {
         const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(40);
         const box = document.getElementById('messages');
@@ -174,37 +157,6 @@
         loadMessages();
     }
 
-    // --- SIDEBAR TOOLS ---
-    async function snapScreen() {
-        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        const vid = document.createElement('video'); vid.srcObject = stream;
-        vid.onloadedmetadata = () => {
-            vid.play(); const c = document.createElement('canvas');
-            c.width = vid.videoWidth; c.height = vid.videoHeight;
-            c.getContext('2d').drawImage(vid, 0, 0);
-            stream.getTracks().forEach(t => t.stop());
-            c.toBlob(async (b) => {
-                const name = `snap_${Date.now()}.png`;
-                const { data } = await _db.storage.from('chat-files').upload(name, b);
-                if(data) sendMsg("🖥️ Screen Capture", _db.storage.from('chat-files').getPublicUrl(name).data.publicUrl);
-            });
-        };
-    }
-
-    function drawPiP() {
-        const c = document.getElementById('pip-canvas'); const x = c.getContext('2d');
-        x.fillStyle = '#0d111c'; x.fillRect(0,0,400,200);
-        x.fillStyle = unread > 0 ? '#ef4444' : '#3b82f6';
-        x.font = 'bold 24px Arial'; x.fillText(`Allyvia ${unread > 0 ? '('+unread+')' : ''}`, 20, 50);
-        x.fillStyle = 'white'; x.font = '16px Arial'; x.fillText(lastMsg.substring(0,35), 20, 100);
-        const v = document.getElementById('pip-src'); if(!v.srcObject) v.srcObject = c.captureStream();
-    }
-
-    async function launchPiP() { 
-        unread = 0; drawPiP();
-        try { await document.getElementById('pip-src').play(); await document.getElementById('pip-src').requestPictureInPicture(); } catch(e) {}
-    }
-
     async function toggleGallery(show) {
         const modal = document.getElementById('gallery-modal');
         if(show) {
@@ -223,7 +175,7 @@
 
     window.deleteMsg = async (id) => { if(confirm("Delete?")) await _db.from('private_messages').delete().eq('id', id); };
     function setReply(id, txt) { replyId = id; document.getElementById('reply-text').textContent = `Reply: ${txt.substring(0,25)}...`; document.getElementById('reply-box').classList.remove('hidden'); }
-    function cancelReply() { replyId = null; document.getElementById('reply-bar').classList.add('hidden'); }
+    function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
     function openSidebar() { document.getElementById('sidebar').classList.add('open'); document.getElementById('overlay').style.display = 'block'; }
     function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').style.display = 'none'; }
     document.getElementById('chat-form').onsubmit = (e) => { e.preventDefault(); const v = document.getElementById('msg-input').value; if(v.trim()) sendMsg(v); };
