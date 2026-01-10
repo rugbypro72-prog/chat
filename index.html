@@ -3,185 +3,460 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v7.0 - RJ Ultimate Elite</title>
+    <title>Chat Master v7.5</title>
+    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
+    
     <style>
-        :root { --bg: #020408; --card: #0a0f1d; --accent: #1d4ed8; }
-        body { background: var(--bg); color: #e2e8f0; font-family: -apple-system, sans-serif; height: 100vh; overflow: hidden; margin: 0; }
-        #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; background: var(--bg); position: relative; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px 15px; display: flex; flex-direction: column; gap: 12px; }
-        
-        .msg-container { display: flex; flex-direction: column; width: 100%; position: relative; }
-        .row-self { align-items: flex-end; } .row-other { align-items: flex-start; }
-        .msg { max-width: 85%; padding: 12px 16px; font-size: 15px; border-radius: 18px; line-height: 1.4; }
-        .self { background: #111827; border: 1px solid #1e293b; color: #f8fafc; border-bottom-right-radius: 4px; }
-        .other { background: #1e293b; color: #cbd5e1; border-bottom-left-radius: 4px; }
-        
-        .timestamp { font-size: 9px; opacity: 0.3; margin: 4px 6px; }
-        .msg-tools { font-size: 10px; opacity: 0; transition: 0.2s; display: flex; gap: 8px; color: #3b82f6; font-weight: bold; cursor: pointer; margin-bottom: 2px; }
-        .msg-container:hover .msg-tools { opacity: 1; }
+        :root { 
+            --bg: #020408; 
+            --card: #0a0f1d; 
+            --accent: #1d4ed8; 
+            --text-main: #e2e8f0;
+            --text-dim: #64748b;
+        }
 
-        #pip-video { width: 1px; height: 1px; opacity: 0; position: absolute; pointer-events: none; }
-        #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: #05070a; z-index: 1000; transition: 0.3s; padding: 30px 20px; border-right: 1px solid #111827; }
-        #sidebar.open { left: 0; }
-        #overlay-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 900; backdrop-filter: blur(4px); }
+        body { 
+            background: var(--bg); 
+            color: var(--text-main); 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            height: 100vh; 
+            overflow: hidden; 
+            margin: 0; 
+        }
+
+        /* Layout Structure */
+        #chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 650px;
+            margin: 0 auto;
+            background: var(--bg);
+            border-left: 1px solid #111827;
+            border-right: 1px solid #111827;
+            position: relative;
+        }
+
+        /* Header UI */
+        header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(2, 4, 8, 0.8);
+            backdrop-filter: blur(10px);
+            z-index: 50;
+        }
+
+        /* Message Area */
+        #messages-view {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            scroll-behavior: smooth;
+        }
+
+        /* Bubble Styles */
+        .message-row { display: flex; flex-direction: column; width: 100%; position: relative; }
+        .row-right { align-items: flex-end; }
+        .row-left { align-items: flex-start; }
+
+        .bubble {
+            max-width: 80%;
+            padding: 12px 18px;
+            font-size: 15px;
+            line-height: 1.5;
+            border-radius: 20px;
+            position: relative;
+            word-wrap: break-word;
+        }
+
+        .bubble.sent { 
+            background: #111827; 
+            border: 1px solid #1e293b; 
+            color: #ffffff; 
+            border-bottom-right-radius: 4px; 
+        }
+
+        .bubble.received { 
+            background: #1e293b; 
+            color: #cbd5e1; 
+            border-bottom-left-radius: 4px; 
+        }
+
+        /* Utilities & Interactivity */
+        .msg-info {
+            display: flex;
+            gap: 10px;
+            margin-top: 5px;
+            font-size: 10px;
+            color: var(--text-dim);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .message-row:hover .msg-info { opacity: 1; }
+
+        .tools-btn { color: #3b82f6; font-weight: bold; cursor: pointer; text-transform: uppercase; }
+        .tools-btn:hover { text-decoration: underline; }
+
+        /* Sidebar & Navigation */
+        #sidebar-menu {
+            position: fixed;
+            left: -320px;
+            top: 0;
+            bottom: 0;
+            width: 300px;
+            background: #05070a;
+            z-index: 2000;
+            transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+            padding: 40px 25px;
+            border-right: 1px solid #111827;
+            box-shadow: 20px 0 50px rgba(0,0,0,0.5);
+        }
+        #sidebar-menu.active { transform: translateX(320px); }
+
+        .sidebar-btn {
+            width: 100%;
+            text-align: left;
+            padding: 14px;
+            margin-bottom: 8px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.02);
+            transition: 0.2s;
+            font-weight: 500;
+        }
+        .sidebar-btn:hover { background: rgba(255,255,255,0.08); }
+
+        /* Call Log List */
+        #call-history {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            font-size: 11px;
+            padding: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            justify-content: space-between;
+            color: #94a3b8;
+        }
+
+        /* PiP Ghost */
+        #pip-stream-source { position: absolute; left: -9999px; top: -9999px; }
     </style>
 </head>
 <body>
 
-<video id="pip-video" autoplay muted playsinline></video>
-<canvas id="pip-canvas" width="400" height="200" class="hidden"></canvas>
-<div id="overlay-bg" onclick="toggleSidebar()"></div>
+<video id="pip-dummy-player" autoplay muted playsinline></video>
+<canvas id="pip-render-canvas" width="400" height="200" style="display:none;"></canvas>
 
-<div id="chat-main">
-    <header class="p-5 flex items-center justify-between border-b border-white/5">
+<div id="sidebar-menu">
+    <div class="mb-10 text-center">
+        <h2 id="my-name-display" class="text-2xl font-bold text-white tracking-tight">RJ</h2>
+        <p class="text-[10px] text-blue-500 uppercase font-bold tracking-widest mt-1">System Operator</p>
+    </div>
+
+    <nav class="space-y-2">
+        <button class="sidebar-btn" onclick="toggleGallery()">🖼️ Gallery</button>
+        
+        <div id="rj-exclusive-zone" class="mt-6 pt-6 border-t border-white/10 hidden">
+            <p class="text-[10px] text-gray-500 uppercase font-bold mb-4 tracking-tighter">Gaming Command</p>
+            <button class="sidebar-btn border border-blue-600/30 text-blue-400" onclick="startPiPMode()">🚀 Launch Pop-out Window</button>
+            <button class="sidebar-btn border border-red-600/30 text-red-400" onclick="triggerSystemSnap()">📸 Capture Entire Screen</button>
+        </div>
+        
+        <div class="mt-8">
+            <p class="text-[10px] text-gray-500 uppercase font-bold mb-4 tracking-tighter">Call History</p>
+            <div id="call-history"></div>
+        </div>
+
+        <button class="sidebar-btn opacity-40 mt-10" onclick="location.reload()">Force Restart</button>
+    </nav>
+</div>
+
+<div id="chat-container">
+    <header>
         <div class="flex items-center gap-4">
-            <button onclick="toggleSidebar()" class="opacity-60 text-2xl">☰</button>
+            <button onclick="toggleSidebar(true)" class="text-2xl opacity-70 hover:opacity-100 transition">☰</button>
             <div>
-                <div class="font-bold text-lg flex items-center gap-2">
-                    <span id="headerName">...</span>
-                    <span id="call-timer" class="hidden text-xs bg-red-600/20 text-red-500 px-2 py-0.5 rounded font-mono">00:00</span>
+                <div class="flex items-center gap-2">
+                    <h1 id="chat-partner-name" class="font-bold text-lg">Allyvia</h1>
+                    <span id="header-timer" class="hidden text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full font-mono">00:00</span>
                 </div>
-                <div id="live-typing-status" class="text-[10px] text-slate-500 h-3 font-medium italic truncate max-w-[200px]"></div>
+                <div id="live-typing-preview" class="text-[11px] text-slate-500 italic h-4 truncate max-w-[180px]"></div>
             </div>
         </div>
         <div class="flex gap-2">
-            <button onclick="initiateCall(false)" class="bg-white/5 px-4 py-2 rounded-full text-[10px] font-bold uppercase">Voice</button>
-            <button onclick="initiateCall(true)" class="bg-blue-600 px-4 py-2 rounded-full text-[10px] font-bold uppercase">FaceTime</button>
+            <button onclick="startVoiceCall(false)" class="px-5 py-2 rounded-full bg-white/5 text-[10px] font-bold uppercase tracking-widest hover:bg-white/10 transition">Voice</button>
+            <button onclick="startVoiceCall(true)" class="px-5 py-2 rounded-full bg-blue-600 text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-blue-900/20 hover:bg-blue-500 transition">FaceTime</button>
         </div>
     </header>
-    
-    <main id="messages"></main>
 
-    <footer class="p-4">
-        <div id="reply-bar" class="hidden px-4 py-2 bg-blue-900/20 rounded-t-xl flex justify-between border-x border-t border-blue-500/30">
-            <span id="reply-txt" class="text-xs opacity-70"></span>
-            <button onclick="cancelReply()">✕</button>
+    <main id="messages-view"></main>
+
+    <footer class="p-4 bg-transparent">
+        <div id="reply-context" class="hidden bg-blue-600/10 p-3 rounded-t-2xl border-l-4 border-blue-600 flex justify-between items-center mb-[-10px] pb-5">
+            <span id="reply-label" class="text-xs text-blue-400 italic"></span>
+            <button onclick="clearReply()" class="text-lg">&times;</button>
         </div>
-        <form id="chat-form" class="bg-[#0a0f1d] border border-white/5 rounded-full flex items-center px-4">
-            <label class="p-2 opacity-30 hover:opacity-100 cursor-pointer">📎<input type="file" id="fileIn" class="hidden" accept="image/*" onchange="sendImage(this)"></label>
-            <input id="msgIn" placeholder="Message..." class="flex-1 bg-transparent p-4 outline-none text-sm" oninput="broadcastLiveText(this.value)">
-            <button type="submit" class="text-blue-500 font-bold px-2">SEND</button>
+        
+        <form id="message-form" class="relative flex items-center bg-[#0a0f1d] border border-white/5 rounded-full p-1 pl-4">
+            <label class="cursor-pointer opacity-40 hover:opacity-100 transition p-2">
+                📎 <input type="file" class="hidden" id="image-upload" accept="image/*" onchange="handleFileUpload(event)">
+            </label>
+            <input type="text" id="main-input" placeholder="Message Allyvia..." autocomplete="off" 
+                   class="flex-1 bg-transparent border-none outline-none py-4 px-2 text-sm"
+                   oninput="syncLiveTyping(this.value)">
+            <button type="submit" class="bg-blue-600 text-white font-bold px-6 py-3 rounded-full text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition">Send</button>
         </form>
     </footer>
 </div>
 
-<div id="sidebar">
-    <div id="sideName" class="text-center font-bold mb-8 text-xl">...</div>
-    <div class="space-y-2">
-        <button onclick="toggleGallery()" class="w-full text-left p-3 hover:bg-white/5 rounded-lg">Gallery</button>
-        <div id="rj-tools" class="hidden pt-4 border-t border-white/5 space-y-2">
-            <button onclick="requestPiP()" class="w-full text-left p-3 bg-blue-600/10 text-blue-400 rounded-lg font-bold">Pop-out Gaming Mode</button>
-            <button onclick="takeSystemSnap()" class="w-full text-left p-3 bg-red-600/10 text-red-400 rounded-lg font-bold">Capture Entire Screen</button>
-        </div>
-        <button onclick="location.reload()" class="w-full text-left p-3 opacity-30 mt-10">Reload</button>
-    </div>
-</div>
-
 <script>
+    // --- DATABASE & AUTH ---
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
-    const _db = supabase.createClient(SB_URL, SB_KEY);
+    const _client = supabase.createClient(SB_URL, SB_KEY);
     
-    let me, you, unread = 0, lastMsg = "Ready", replyId = null, typingTimeout;
+    let userMe, userYou, activeReplyId = null, unreadCount = 0, lastReceivedMsg = "";
+    let callTimerInterval, callStartTime;
 
-    async function init() {
-        const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
-        const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
-        if (!data) return; 
+    async function initializeApp() {
+        const storedCode = localStorage.getItem('chat_secret_code') || prompt("Enter Access Code:");
+        const { data: authData, error } = await _client.from('chat_codes').select('*').eq('code', storedCode).single();
+        
+        if (!authData) { alert("Invalid Code"); return; }
+        
+        localStorage.setItem('chat_secret_code', storedCode);
+        userMe = authData.username;
+        userYou = (userMe === 'RJ') ? 'Allyvia' : 'RJ';
 
-        me = data.username; you = (me === 'RJ') ? 'Allyvia' : 'RJ';
-        document.getElementById('headerName').textContent = you;
-        document.getElementById('sideName').textContent = me;
-        if (me === 'RJ') { document.getElementById('rj-tools').classList.remove('hidden'); updatePiPCanvas(); }
+        document.getElementById('my-name-display').textContent = userMe;
+        document.getElementById('chat-partner-name').textContent = userYou;
 
-        _db.channel('global').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
-            const m = p.new;
-            if (m.receiver === me) {
-                if (m.message.startsWith("___LIVE___")) {
-                    const text = m.message.replace("___LIVE___", "");
-                    document.getElementById('live-typing-status').textContent = text ? `Typing: ${text}...` : "";
+        if (userMe === 'RJ') {
+            document.getElementById('rj-exclusive-zone').classList.remove('hidden');
+            renderPipFrame();
+        }
+
+        // --- REAL-TIME ENGINE ---
+        _client.channel('main_room').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (payload) => {
+            const newMsg = payload.new;
+            if (newMsg.receiver === userMe) {
+                if (newMsg.message.startsWith("___LIVE_PREVIEW___")) {
+                    updateLiveTypingUI(newMsg.message.replace("___LIVE_PREVIEW___", ""));
                 } else {
-                    document.getElementById('live-typing-status').textContent = "";
-                    unread++; lastMsg = m.message;
-                    if (me === 'RJ') updatePiPCanvas();
-                    loadMessages();
+                    handleIncomingMessage(newMsg);
                 }
-            } else if (m.sender === me && !m.message.startsWith("___")) {
+            } else if (newMsg.sender === userMe && !newMsg.message.startsWith("___")) {
                 loadMessages();
             }
         }).subscribe();
+
+        loadMessages();
+        loadLocalCallLogs();
+    }
+
+    // --- MESSAGE CORE ---
+    async function loadMessages() {
+        const { data, error } = await _client.from('private_messages')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(40);
+
+        const view = document.getElementById('messages-view');
+        const filtered = data.reverse().filter(m => !m.message.startsWith("___"));
+        
+        view.innerHTML = filtered.map(m => {
+            const isMe = m.sender === userMe;
+            const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return `
+                <div class="message-row ${isMe ? 'row-right' : 'row-left'}">
+                    <div class="msg-info">
+                        <span class="tools-btn" onclick="initiateReply('${m.id}', '${m.message}')">Reply</span>
+                        ${isMe ? `<span class="tools-btn text-red-500" onclick="deleteMessage('${m.id}')">Delete</span>` : ''}
+                    </div>
+                    <div class="bubble ${isMe ? 'sent' : 'received'}">
+                        ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-w-full cursor-pointer" onclick="window.open('${m.file_url}')">` : ''}
+                        ${m.message || ''}
+                    </div>
+                    <span class="timestamp text-[9px] opacity-30 mt-1">${time}</span>
+                </div>
+            `;
+        }).join('');
+        view.scrollTop = view.scrollHeight;
+    }
+
+    async function handleIncomingMessage(msg) {
+        unreadCount++;
+        lastReceivedMsg = msg.message;
+        updateLiveTypingUI(""); // Clear typing preview when message arrives
+        if (userMe === 'RJ') renderPipFrame();
         loadMessages();
     }
 
-    async function broadcastLiveText(val) {
-        clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(async () => {
-            await _db.from('private_messages').insert([{ sender: me, receiver: you, message: "___LIVE___" + val }]);
-        }, 150); 
-    }
-
-    async function takeSystemSnap() {
-        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        const vid = document.createElement('video'); vid.srcObject = stream;
-        vid.onloadedmetadata = () => {
-            vid.play(); const c = document.createElement('canvas');
-            c.width = vid.videoWidth; c.height = vid.videoHeight;
-            c.getContext('2d').drawImage(vid, 0, 0);
-            stream.getTracks().forEach(t => t.stop());
-            c.toBlob(async (b) => {
-                const n = `snap_${Date.now()}.png`;
-                const { data } = await _db.storage.from('chat-files').upload(n, b);
-                if (data) {
-                    const u = _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl;
-                    await _db.from('private_messages').insert([{ sender: me, receiver: you, message: "📸 Screen Capture", file_url: u }]);
-                }
-            });
-        };
-    }
-
-    function updatePiPCanvas() {
-        const c = document.getElementById('pip-canvas'); const x = c.getContext('2d');
-        x.fillStyle = '#0a0f1d'; x.fillRect(0,0,400,200);
-        x.fillStyle = unread > 0 ? '#ef4444' : '#3b82f6';
-        x.font = 'bold 24px Arial'; x.fillText(`Allyvia ${unread > 0 ? '+'+unread : ''}`, 20, 50);
-        x.fillStyle = 'white'; x.font = '18px Arial'; x.fillText(lastMsg.substring(0, 35), 20, 100);
-        const vid = document.getElementById('pip-video'); if (!vid.srcObject) vid.srcObject = c.captureStream();
-    }
-
-    async function requestPiP() { unread = 0; updatePiPCanvas(); document.getElementById('pip-video').requestPictureInPicture(); }
-
-    async function loadMessages() {
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(30);
-        const box = document.getElementById('messages');
-        box.innerHTML = data.reverse().filter(m => !m.message.startsWith("___")).map(m => {
-            const isMe = m.sender === me;
-            const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            return `<div class="msg-container ${isMe ? 'row-self' : 'row-other'}">
-                <div class="msg-tools"><span onclick="setReply('${m.id}', '${m.message}')">Reply</span>${isMe ? `<span class="text-red-500" onclick="deleteMsg('${m.id}')">Delete</span>` : ''}</div>
-                <div class="msg ${isMe ? 'self' : 'other'}">${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-w-full">` : ''}${m.message || ''}</div>
-                <span class="timestamp">${time}</span>
-            </div>`;
-        }).join('');
-        box.scrollTop = box.scrollHeight;
-    }
-
-    window.deleteMsg = async (id) => { if(confirm("Delete?")) await _db.from('private_messages').delete().eq('id', id); };
-    window.setReply = (id, txt) => { replyId = id; document.getElementById('reply-txt').textContent = `Reply: ${txt.substring(0,15)}...`; document.getElementById('reply-bar').classList.remove('hidden'); };
-    window.cancelReply = () => { replyId = null; document.getElementById('reply-bar').classList.add('hidden'); };
-
-    document.getElementById('chat-form').onsubmit = async (e) => {
-        e.preventDefault(); const i = document.getElementById('msgIn');
-        if (i.value) {
-            await _db.from('private_messages').insert([{ sender: me, receiver: you, message: i.value, reply_to: replyId }]);
-            i.value = ""; broadcastLiveText(""); cancelReply(); loadMessages();
+    async function sendMessage(text, fileUrl = null) {
+        const { error } = await _client.from('private_messages').insert([{
+            sender: userMe,
+            receiver: userYou,
+            message: text,
+            file_url: fileUrl,
+            reply_to: activeReplyId
+        }]);
+        if (!error) {
+            document.getElementById('main-input').value = "";
+            clearReply();
+            syncLiveTyping(""); // Clear her preview
+            loadMessages();
         }
+    }
+
+    // --- LIVE PREVIEW (THE "RJ TYPING" FEATURE) ---
+    let typeDebounce;
+    function syncLiveTyping(val) {
+        clearTimeout(typeDebounce);
+        typeDebounce = setTimeout(async () => {
+            await _client.from('private_messages').insert([{
+                sender: userMe,
+                receiver: userYou,
+                message: "___LIVE_PREVIEW___" + val
+            }]);
+        }, 150);
+    }
+
+    function updateLiveTypingUI(text) {
+        const el = document.getElementById('live-typing-preview');
+        el.textContent = text ? `Typing: ${text}...` : "";
+    }
+
+    // --- SYSTEM SNAPSHOT (FULL SCREEN) ---
+    async function triggerSystemSnap() {
+        try {
+            const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            video.onloadedmetadata = async () => {
+                video.play();
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                
+                stream.getTracks().forEach(track => track.stop()); // Stop capture immediately
+                
+                canvas.toBlob(async (blob) => {
+                    const fileName = `snap_${Date.now()}.png`;
+                    const { data, error } = await _client.storage.from('chat-files').upload(fileName, blob);
+                    if (data) {
+                        const { data: urlData } = _client.storage.from('chat-files').getPublicUrl(fileName);
+                        sendMessage("🖥️ Full System Snapshot Sent", urlData.publicUrl);
+                    }
+                });
+            };
+        } catch (err) { console.warn("Snap canceled by user"); }
+    }
+
+    // --- PIP GAMING MODE ---
+    function renderPipFrame() {
+        const canvas = document.getElementById('pip-render-canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#0a0f1d';
+        ctx.fillRect(0,0,400,200);
+        
+        // Header
+        ctx.fillStyle = unreadCount > 0 ? '#ef4444' : '#3b82f6';
+        ctx.font = 'bold 26px Arial';
+        ctx.fillText(`Allyvia ${unreadCount > 0 ? '(' + unreadCount + ')' : ''}`, 20, 50);
+        
+        // Message Body
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '18px Arial';
+        const displayTxt = lastReceivedMsg || "No new messages";
+        ctx.fillText(displayTxt.substring(0, 38) + (displayTxt.length > 38 ? '...' : ''), 20, 100);
+        
+        const video = document.getElementById('pip-dummy-player');
+        if (!video.srcObject) video.srcObject = canvas.captureStream();
+    }
+
+    async function startPiPMode() {
+        unreadCount = 0;
+        renderPipFrame();
+        try {
+            await document.getElementById('pip-dummy-player').requestPictureInPicture();
+        } catch (e) { alert("PiP is not supported or blocked."); }
+    }
+
+    // --- CALLS & LOGS ---
+    function startVoiceCall(video = false) {
+        callStartTime = Date.now();
+        document.getElementById('header-timer').classList.remove('hidden');
+        callTimerInterval = setInterval(updateCallTimer, 1000);
+        alert(`Connecting ${video ? 'FaceTime' : 'Voice'} to ${userYou}...`);
+    }
+
+    function updateCallTimer() {
+        const diff = Math.floor((Date.now() - callStartTime) / 1000);
+        const m = Math.floor(diff / 60).toString().padStart(2, '0');
+        const s = (diff % 60).toString().padStart(2, '0');
+        document.getElementById('header-timer').textContent = `${m}:${s}`;
+    }
+
+    function saveCallToLog(type, duration) {
+        const logs = JSON.parse(localStorage.getItem('rj_call_logs') || '[]');
+        logs.unshift({ type, duration, time: new Date().toLocaleTimeString() });
+        localStorage.setItem('rj_call_logs', JSON.stringify(logs.slice(0, 15)));
+        loadLocalCallLogs();
+    }
+
+    function loadLocalCallLogs() {
+        const logs = JSON.parse(localStorage.getItem('rj_call_logs') || '[]');
+        const container = document.getElementById('call-history');
+        if (logs.length === 0) { container.innerHTML = '<p class="text-[10px] opacity-30">No calls today</p>'; return; }
+        container.innerHTML = logs.map(l => `
+            <div class="log-entry">
+                <span>${l.type}</span>
+                <span>${l.time}</span>
+            </div>
+        `).join('');
+    }
+
+    // --- UI HELPERS ---
+    function toggleSidebar(show) {
+        document.getElementById('sidebar-menu').classList.toggle('active', show);
+    }
+
+    function initiateReply(id, text) {
+        activeReplyId = id;
+        document.getElementById('reply-label').textContent = `Replying to: "${text.substring(0, 25)}..."`;
+        document.getElementById('reply-context').classList.remove('hidden');
+    }
+
+    function clearReply() {
+        activeReplyId = null;
+        document.getElementById('reply-context').classList.add('hidden');
+    }
+
+    window.deleteMessage = async (id) => {
+        if (confirm("Delete this message for everyone?")) {
+            await _client.from('private_messages').delete().eq('id', id);
+        }
+    }
+
+    document.getElementById('message-form').onsubmit = (e) => {
+        e.preventDefault();
+        const val = document.getElementById('main-input').value;
+        if (val.trim()) sendMessage(val);
     };
 
-    function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay-bg').style.display = document.getElementById('sidebar').classList.contains('open') ? 'block' : 'none'; }
-    init();
+    initializeApp();
 </script>
 </body>
 </html>
