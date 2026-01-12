@@ -3,43 +3,64 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v14.0 ULTRA GOLD</title>
+    <title>Chat Master v14.5 OMNI</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
     <style>
         :root { --bg: #03050a; --me: #1e293b; --you: #0f172a; }
-        body { background: var(--bg); color: #f1f5f9; font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; margin: 0; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--bg); color: #f1f5f9; font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; margin: 0; }
         #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; position: relative; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; }
 
         /* Bubbles & Reactions */
-        .msg-wrap { display: flex; flex-direction: column; width: 100%; position: relative; transition: all 0.2s ease; }
+        .msg-wrap { display: flex; flex-direction: column; width: 100%; position: relative; transition: all 0.2s; }
         .row-me { align-items: flex-end; } .row-you { align-items: flex-start; }
         .bubble { max-width: 85%; padding: 12px 14px 26px 14px; font-size: 15px; border-radius: 20px; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; user-select: none; }
         .me { background: var(--me); border: 1px solid #334155; border-bottom-right-radius: 4px; }
         .you { background: var(--you); border: 1px solid #1e293b; border-bottom-left-radius: 4px; }
         .ts-inside { position: absolute; bottom: 8px; right: 12px; font-size: 9px; opacity: 0.5; font-weight: 700; text-transform: uppercase; }
-        
-        .reaction-badge { position: absolute; bottom: -10px; right: 10px; background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 2px 6px; font-size: 12px; display: flex; gap: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+        .reaction-badge { position: absolute; bottom: -8px; right: 10px; background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 1px 5px; font-size: 11px; z-index: 10; }
 
-        /* Tooltip Menu */
-        #reaction-menu { display: none; position: fixed; background: #1e293b; border: 1px solid #334155; border-radius: 50px; padding: 8px 15px; z-index: 10000; box-shadow: 0 10px 30px rgba(0,0,0,0.8); gap: 12px; transform: translateX(-50%); }
+        /* Call Overlay */
+        #call-overlay { display: none; position: fixed; inset: 0; background: #000; z-index: 9000; flex-direction: column; }
+        #remote-video { width: 100%; height: 100%; object-fit: cover; }
+        #local-video { position: absolute; top: 40px; right: 20px; width: 110px; height: 160px; background: #111; border-radius: 12px; overflow: hidden; border: 2px solid rgba(255,255,255,0.2); z-index: 9010; }
+        .call-ctrl { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); display: flex; gap: 20px; z-index: 9020; }
+        .c-btn { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; cursor: pointer; backdrop-filter: blur(10px); }
+
+        /* Context Menu */
+        #reaction-menu { display: none; position: fixed; background: #1e293b; border: 1px solid #444; border-radius: 50px; padding: 8px 15px; z-index: 10000; gap: 12px; transform: translateX(-50%); box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
         .emoji-opt { font-size: 22px; cursor: pointer; transition: transform 0.1s; }
         .emoji-opt:hover { transform: scale(1.3); }
 
-        /* UI Elements */
-        #partner-name.has-media { color: #ef4444 !important; text-decoration: underline; cursor: pointer; animation: statusPulse 2s infinite; }
-        @keyframes statusPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-        .heart-float { position: fixed; bottom: 0; font-size: 2.5rem; pointer-events: none; animation: floatUp 3s ease-in forwards; z-index: 9999; }
-        @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-110vh) scale(2) rotate(30deg); opacity: 0; } }
-
+        /* Utils */
+        #partner-name.has-media { color: #ef4444; text-decoration: underline; cursor: pointer; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
         .modal-view { display: none; position: fixed; inset: 0; background: #03050a; z-index: 2000; overflow-y: auto; padding: 25px; }
-        #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 5000; align-items: center; justify-content: center; }
-        #story-overlay { display: none; position: fixed; inset: 0; background: black; z-index: 6000; align-items: center; justify-content: center; }
+        .reply-preview { font-size: 11px; background: rgba(0,0,0,0.3); padding: 6px; border-radius: 8px; border-left: 3px solid #3b82f6; margin-bottom: 6px; opacity: 0.7; }
     </style>
 </head>
 <body>
+
+<div id="call-overlay">
+    <div id="remote-video"></div>
+    <div id="local-video"></div>
+    <div id="ringing-ui" class="absolute inset-0 bg-black/95 z-[9015] hidden flex flex-col items-center justify-center">
+        <div class="w-24 h-24 bg-blue-600 rounded-full animate-bounce flex items-center justify-center text-4xl mb-4">📞</div>
+        <h2 id="caller-name" class="text-2xl font-bold mb-10">Incoming Call...</h2>
+        <div class="flex gap-12">
+            <button onclick="acceptCall()" class="bg-green-500 p-7 rounded-full text-3xl">📞</button>
+            <button onclick="endCall()" class="bg-red-500 p-7 rounded-full text-3xl">📵</button>
+        </div>
+    </div>
+    <div class="call-ctrl">
+        <button id="mute-btn" onclick="toggleMute()" class="c-btn bg-white/10">🎤</button>
+        <button id="cam-btn" onclick="toggleVideo()" class="c-btn bg-white/10">📷</button>
+        <button onclick="toggleScreenShare()" class="c-btn bg-purple-600">🖥️</button>
+        <button onclick="endCall()" class="c-btn bg-red-500">📵</button>
+    </div>
+</div>
 
 <div id="reaction-menu">
     <span class="emoji-opt" onclick="reactToMsg('❤️')">❤️</span>
@@ -47,31 +68,17 @@
     <span class="emoji-opt" onclick="reactToMsg('😮')">😮</span>
     <span class="emoji-opt" onclick="reactToMsg('🔥')">🔥</span>
     <span class="emoji-opt" onclick="reactToMsg('👍')">👍</span>
-    <span class="emoji-opt" onclick="reactToMsg('🗑️')" id="admin-delete-opt" class="hidden text-red-500">🗑️</span>
-</div>
-
-<div id="story-overlay">
-    <div id="story-container" class="relative w-full h-full flex items-center justify-center p-4"></div>
-    <button onclick="document.getElementById('story-overlay').style.display='none'" class="absolute top-10 right-10 text-white text-4xl">✕</button>
-</div>
-
-<div id="lightbox" onclick="this.style.display='none'">
-    <img id="lightbox-img" class="max-w-[95%] max-h-[90%] rounded-lg">
-</div>
-
-<div id="video-grid" class="hidden fixed inset-0 bg-black z-[3000]">
-    <div id="remote-video" class="w-full h-full"></div>
-    <div id="local-video" class="absolute top-6 right-6 w-28 h-40 border border-white/20 rounded-2xl overflow-hidden z-[3001]"></div>
-    <button onclick="endCall()" class="absolute bottom-10 left-1/2 -translate-x-1/2 bg-red-600 p-6 rounded-full">📞</button>
+    <span class="emoji-opt hidden text-red-500" id="admin-delete-opt" onclick="reactToMsg('🗑️')">🗑️</span>
 </div>
 
 <div id="gallery-modal" class="modal-view">
-    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold">Memory Gallery</h2><button onclick="this.closest('.modal-view').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button></div>
+    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold">Gallery</h2><button onclick="closeModals()" class="bg-white/10 px-4 py-1 rounded-full">Close</button></div>
     <div id="gallery-content" class="grid grid-cols-2 gap-3 pb-20"></div>
 </div>
+
 <div id="logs-modal" class="modal-view">
-    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-red-500">Deleted Logs</h2><button onclick="this.closest('.modal-view').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button></div>
-    <div id="logs-content" class="space-y-4 pb-20"></div>
+    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-red-500">Purged Logs</h2><button onclick="closeModals()" class="bg-white/10 px-4 py-1 rounded-full">Close</button></div>
+    <div id="logs-content" class="space-y-4 pb-20 text-xs"></div>
 </div>
 
 <video id="pip-src" autoplay muted playsinline class="hidden"></video>
@@ -82,15 +89,15 @@
     <header class="p-4 border-b border-white/5 flex items-center justify-between bg-black/40 backdrop-blur-xl z-[50]">
         <div class="flex items-center gap-4">
             <button onclick="openSidebar()" class="text-2xl">☰</button>
-            <div onclick="handleStatusClick()">
+            <div onclick="handleStatusClick()" class="cursor-pointer">
                 <div class="font-bold text-lg leading-none" id="partner-name">...</div>
                 <div id="partner-status" class="text-[11px] opacity-60">No status</div>
-                <div id="live-preview" class="text-[9px] text-blue-400 italic h-2"></div>
+                <div id="live-preview" class="text-[9px] text-blue-400 italic h-2 mt-1"></div>
             </div>
         </div>
         <div class="flex gap-2">
-            <button onclick="initCall(false)" class="p-2 px-4 bg-white/5 rounded-full text-[10px] font-bold uppercase">Audio</button>
-            <button onclick="initCall(true)" class="p-2 px-4 bg-blue-600 rounded-full text-[10px] font-bold uppercase">Video</button>
+            <button onclick="startCall(false)" class="p-2 px-4 bg-white/5 rounded-full text-[10px] font-bold">AUDIO</button>
+            <button onclick="startCall(true)" class="p-2 px-4 bg-blue-600 rounded-full text-[10px] font-bold">VIDEO</button>
         </div>
     </header>
 
@@ -99,39 +106,38 @@
     <footer class="p-4">
         <div id="staging-area" class="grid grid-cols-4 gap-2 mb-2"></div>
         <div id="reply-box" class="hidden bg-blue-500/10 p-3 rounded-t-2xl border-l-4 border-blue-600 flex justify-between items-center mb-[-10px] pb-5">
-            <span id="reply-text" class="text-[11px] text-blue-300 italic"></span>
-            <button onclick="cancelReply()">&times;</button>
+            <span id="reply-text" class="text-[11px] text-blue-300"></span>
+            <button onclick="cancelReply()">✕</button>
         </div>
         <form id="chat-form" class="flex items-center bg-[#0d111c] border border-white/10 rounded-full p-1 pl-4 shadow-2xl">
             <label class="cursor-pointer opacity-50 p-2">📎<input type="file" id="file-input" class="hidden" multiple onchange="handleFileSelect(this)"></label>
             <input id="msg-input" placeholder="Message..." autocomplete="off" class="flex-1 bg-transparent py-3 px-2 text-sm outline-none">
-            <button type="submit" id="send-btn" class="bg-blue-600 text-white font-bold px-6 py-3 rounded-full text-[10px] uppercase">Send</button>
+            <button type="submit" class="bg-blue-600 text-white font-bold px-6 py-3 rounded-full text-[10px]">SEND</button>
         </form>
     </footer>
 </div>
 
 <div id="sidebar" class="fixed left-[-300px] top-0 bottom-0 w-[280px] bg-[#080c14] z-[1000] p-6 flex flex-col transition-all duration-300 border-r border-white/5">
-    <h2 id="me-name" class="text-center text-xl font-bold mb-8">...</h2>
+    <h2 id="me-name" class="text-center text-xl font-bold mb-8 italic">...</h2>
     <div class="flex-1 space-y-4 overflow-y-auto">
         <div class="bg-white/5 p-4 rounded-2xl space-y-3">
-            <p class="text-[10px] font-bold opacity-40 uppercase">Status</p>
-            <input id="status-txt-input" placeholder="Update text..." class="w-full bg-black/40 p-3 rounded-xl text-xs outline-none border border-white/5">
-            <label class="block bg-white/5 p-2 rounded-lg text-[10px] text-center cursor-pointer">📸 Add Media <input type="file" id="status-media-input" class="hidden"></label>
-            <div class="grid grid-cols-2 gap-2">
-                <button onclick="updateStatusFromSidebar()" class="bg-blue-600 p-2 rounded-lg text-[10px] font-bold">UPDATE</button>
-                <button onclick="removeStatus()" class="bg-red-600/20 text-red-500 p-2 rounded-lg text-[10px] font-bold">CLEAR</button>
-            </div>
+            <p class="text-[10px] font-bold opacity-40 uppercase">My Status</p>
+            <input id="status-txt-input" placeholder="What's happening?" class="w-full bg-black/40 p-3 rounded-xl text-xs outline-none border border-white/5">
+            <label class="block bg-white/5 p-2 rounded-lg text-[10px] text-center cursor-pointer border border-dashed border-white/20">📸 Media <input type="file" id="status-media-input" class="hidden"></label>
+            <button onclick="updateStatus()" class="w-full bg-blue-600 p-2 rounded-lg text-[10px] font-bold">UPDATE STATUS</button>
         </div>
-        <button onclick="toggleGallery(true)" class="w-full text-left p-4 bg-white/5 rounded-2xl">🖼️ View Gallery</button>
-        <div id="rj-suite" class="hidden pt-6 mt-6 border-t border-white/10 space-y-3">
-            <button onclick="adminAction('vibrate')" class="w-full text-left p-4 bg-red-600/10 text-red-400 rounded-2xl font-bold">📳 Vibrate</button>
+        
+        <button onclick="toggleGallery(true)" class="w-full text-left p-4 bg-white/5 rounded-2xl">🖼️ Shared Gallery</button>
+
+        <div id="rj-suite" class="hidden space-y-3 pt-4 border-t border-white/10">
             <button onclick="adminAction('lovetap')" class="w-full text-left p-4 bg-pink-600/10 text-pink-400 rounded-2xl font-bold">❤️ Love Tap</button>
+            <button onclick="toggleFocusMode()" id="focus-btn" class="w-full text-left p-4 bg-yellow-600/10 text-yellow-400 rounded-2xl font-bold">🔒 Focus: OFF</button>
             <button onclick="hijackTab()" class="w-full text-left p-4 bg-purple-600/10 text-purple-400 rounded-2xl font-bold">🏷️ Hijack Tab</button>
-            <button onclick="viewDeletedLogs()" class="w-full text-left p-4 bg-white/5 rounded-2xl font-bold">🗑️ Admin Logs</button>
+            <button onclick="viewLogs()" class="w-full text-left p-4 bg-white/5 rounded-2xl font-bold">🗑️ Admin Logs</button>
             <button onclick="launchPiP()" class="w-full text-left p-4 bg-blue-600 text-white rounded-2xl font-bold">🚀 Gaming PiP</button>
         </div>
     </div>
-    <div id="clocks" class="mt-auto pt-4 border-t border-white/5 text-[10px] font-mono opacity-50 space-y-1"></div>
+    <div id="clocks" class="mt-auto text-[10px] font-mono opacity-50 space-y-1"></div>
 </div>
 
 <script>
@@ -139,63 +145,110 @@
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
     
-    let me, you, chatChannel, stagedFiles = [], unread = 0, lastTwo = [], flashTimer = 0, replyId = null, partnerStatusData = null, allMessagesCache = [], typingTimeout, selectedMsgId = null;
+    let me, you, chatChannel, stagedFiles = [], lastTwo = [], typingTimeout, selectedMsgId, replyId = null, focusActive = false, partnerStatusData = null;
     const AGORA_APP_ID = "4f6c6c2002784152a8366dec12f1b4c0";
-    let rtc = { client: null, localVideoTrack: null, localAudioTrack: null };
+    let rtc = { client: null, localAudioTrack: null, localVideoTrack: null, screenTrack: null };
 
     async function init() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
         const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
         if(!data) return;
         me = data.username; you = (me === 'RJ' ? 'Allyvia' : 'RJ');
-        localStorage.setItem('chat_secret_code', code);
         document.getElementById('me-name').textContent = me;
-        if(me === 'RJ') {
-            document.getElementById('rj-suite').classList.remove('hidden');
-            document.getElementById('admin-delete-opt').classList.remove('hidden');
+        if(me === 'RJ') { 
+            document.getElementById('rj-suite').classList.remove('hidden'); 
+            document.getElementById('admin-delete-opt').classList.remove('hidden'); 
         }
 
-        chatChannel = _db.channel('chat-v14');
+        chatChannel = _db.channel('master-sync');
         chatChannel
-            .on('broadcast', { event: 'admin' }, p => handleAdminCommand(p.payload))
-            .on('broadcast', { event: 'refresh' }, () => { loadMessages(); loadStatuses(); })
             .on('broadcast', { event: 'typing' }, p => {
                 document.getElementById('live-preview').textContent = p.payload.text ? (me === 'RJ' ? `Typing: ${p.payload.text}` : `${you} is typing...`) : "";
             })
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, () => {
-                unread++; flashTimer = 6; loadMessages();
-            })
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'private_messages' }, () => loadMessages())
+            .on('broadcast', { event: 'call-signal' }, p => { if(p.payload.to === me) handleCallSignal(p.payload); })
+            .on('broadcast', { event: 'admin' }, p => handleAdminCommand(p.payload))
+            .on('broadcast', { event: 'refresh' }, () => { loadMessages(); loadStatuses(); })
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, () => loadMessages())
             .subscribe();
 
         loadMessages(); loadStatuses();
         setInterval(updateClocks, 1000);
         setInterval(drawPiP, 250);
-        
-        // Context Menu Close
-        window.addEventListener('click', () => { document.getElementById('reaction-menu').style.display = 'none'; });
+        window.onclick = () => document.getElementById('reaction-menu').style.display = 'none';
     }
 
+    // --- CALL SYSTEM ---
+    async function startCall(video) {
+        document.getElementById('call-overlay').style.display = 'flex';
+        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'ringing', from: me, to: you, video } });
+        initAgora(video);
+    }
+    function handleCallSignal(p) {
+        if(p.type === 'ringing') {
+            document.getElementById('call-overlay').style.display = 'flex';
+            document.getElementById('ringing-ui').classList.remove('hidden');
+            document.getElementById('caller-name').textContent = p.from + " is calling...";
+            window.incomingVideo = p.video;
+        } else if(p.type === 'end') { endCall(); }
+    }
+    async function acceptCall() { document.getElementById('ringing-ui').classList.add('hidden'); initAgora(window.incomingVideo); }
+    async function initAgora(video) {
+        rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+        await rtc.client.join(AGORA_APP_ID, "main", null, null);
+        rtc.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        let tracks = [rtc.localAudioTrack];
+        if(video) {
+            rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+            rtc.localVideoTrack.play("local-video");
+            tracks.push(rtc.localVideoTrack);
+        }
+        await rtc.client.publish(tracks);
+        rtc.client.on("user-published", async (u, t) => {
+            await rtc.client.subscribe(u, t);
+            if(t === "video") u.videoTrack.play("remote-video");
+            if(t === "audio") u.audioTrack.play();
+        });
+    }
+    async function toggleScreenShare() {
+        if(!rtc.screenTrack) {
+            rtc.screenTrack = await AgoraRTC.createScreenVideoTrack();
+            await rtc.client.unpublish(rtc.localVideoTrack);
+            await rtc.client.publish(rtc.screenTrack);
+            rtc.screenTrack.play("local-video");
+        } else {
+            await rtc.client.unpublish(rtc.screenTrack);
+            rtc.screenTrack.stop(); rtc.screenTrack = null;
+            await rtc.client.publish(rtc.localVideoTrack);
+            rtc.localVideoTrack.play("local-video");
+        }
+    }
+    function endCall() {
+        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'end', to: you } });
+        if(rtc.localAudioTrack) rtc.localAudioTrack.close();
+        if(rtc.localVideoTrack) rtc.localVideoTrack.close();
+        if(rtc.client) rtc.client.leave();
+        document.getElementById('call-overlay').style.display = 'none';
+        document.getElementById('ringing-ui').classList.add('hidden');
+    }
+    function toggleMute() { rtc.localAudioTrack.setMuted(!rtc.localAudioTrack.muted); document.getElementById('mute-btn').innerText = rtc.localAudioTrack.muted ? "🔇" : "🎤"; }
+    function toggleVideo() { rtc.localVideoTrack.setMuted(!rtc.localVideoTrack.muted); document.getElementById('cam-btn').innerText = rtc.localVideoTrack.muted ? "🙈" : "📷"; }
+
+    // --- MESSAGING & UX ---
     async function loadMessages() {
         const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(40);
-        allMessagesCache = data.reverse();
-        lastTwo = allMessagesCache.slice(-2);
-        
+        const msgs = data.reverse(); lastTwo = msgs.slice(-2);
         let html = '';
-        allMessagesCache.forEach(m => {
+        msgs.forEach(m => {
             const isMe = m.sender === me;
-            const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-            let replyHTML = m.reply_to ? `<div class="reply-preview">${(allMessagesCache.find(x => x.id === m.reply_to)?.message || "Media").substring(0,30)}...</div>` : '';
-            const urls = m.file_url ? m.file_url.split(',') : [];
-            let mediaHTML = urls.map(u => `<img src="${u}" class="rounded-xl mb-1 w-full max-h-64 object-contain" onclick="openLightbox('${u}')">`).join('');
-            let reactHTML = m.reaction ? `<div class="reaction-badge">${m.reaction}</div>` : '';
-
-            html += `<div class="msg-wrap ${isMe ? 'row-me' : 'row-you'}" oncontextmenu="openMenu(event, '${m.id}')" onpointerdown="startLongPress(event, '${m.id}')" onpointerup="cancelLongPress()">
+            const react = m.reaction ? `<div class="reaction-badge">${m.reaction}</div>` : '';
+            const reply = m.reply_to ? `<div class="reply-preview">${(msgs.find(x => x.id === m.reply_to)?.message || "Media").substring(0,25)}...</div>` : '';
+            html += `<div class="msg-wrap ${isMe ? 'row-me' : 'row-you'}" oncontextmenu="openMenu(event, '${m.id}')" onpointerdown="startPress(event, '${m.id}')" onpointerup="endPress()">
                 <div class="bubble ${isMe ? 'me' : 'you'}">
-                    ${replyHTML} ${mediaHTML}
+                    ${reply}
+                    ${m.file_url ? `<img src="${m.file_url}" class="rounded-lg mb-2 max-h-60" onclick="openLightbox('${m.file_url}')">` : ''}
                     <div class="whitespace-pre-wrap">${m.message || ''}</div>
-                    <span class="ts-inside">${time}</span>
-                    ${reactHTML}
+                    <span class="ts-inside">${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                    ${react}
                 </div>
             </div>`;
         });
@@ -203,63 +256,23 @@
         document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
     }
 
-    // --- REACTION SYSTEM ---
-    let pressTimer;
-    function startLongPress(e, id) { pressTimer = setTimeout(() => openMenu(e, id), 600); }
-    function cancelLongPress() { clearTimeout(pressTimer); }
-
-    function openMenu(e, id) {
-        e.preventDefault();
-        selectedMsgId = id;
-        const menu = document.getElementById('reaction-menu');
-        menu.style.display = 'flex';
-        menu.style.top = `${e.clientY - 60}px`;
-        menu.style.left = `${e.clientX}px`;
-        if(navigator.vibrate) navigator.vibrate(20);
-    }
-
-    async function reactToMsg(emoji) {
-        if(emoji === '🗑️') return deleteMsg(selectedMsgId);
-        await _db.from('private_messages').update({ reaction: emoji }).eq('id', selectedMsgId);
-        chatChannel.send({ type: 'broadcast', event: 'refresh' });
-        loadMessages();
-    }
-
-    async function deleteMsg(id) {
-        const msg = allMessagesCache.find(x => x.id === id);
-        await _db.from('deleted_logs').insert([{ original_sender: msg.sender, content: `[Purged ${new Date().toLocaleTimeString()}] ${msg.message || ''}`, file_url: msg.file_url }]);
-        await _db.from('private_messages').delete().eq('id', id);
-        chatChannel.send({ type: 'broadcast', event: 'refresh' });
-        loadMessages();
-    }
-
     async function sendMsg(txt) {
         chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: "" } });
         clearTimeout(typingTimeout);
-        let urls = [];
+        let url = null;
         if(stagedFiles.length > 0) {
-            const up = stagedFiles.map(async f => {
-                const n = `img_${Date.now()}`;
-                await _db.storage.from('chat-files').upload(n, f.file);
-                return _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl;
-            });
-            urls = await Promise.all(up);
+            const f = stagedFiles[0].file;
+            const n = `img_${Date.now()}`;
+            await _db.storage.from('chat-files').upload(n, f);
+            url = _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl;
         }
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: txt, file_url: urls.join(','), reply_to: replyId }]);
-        stagedFiles = []; renderStaging(); cancelReply();
-        document.getElementById('msg-input').value = "";
+        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: txt, file_url: url, reply_to: replyId }]);
+        stagedFiles = []; document.getElementById('staging-area').innerHTML = '';
+        document.getElementById('msg-input').value = ""; cancelReply();
     }
 
-    // --- REALTIME ENGINE ---
-    document.getElementById('msg-input').oninput = e => {
-        chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: e.target.value } });
-        clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(() => {
-            chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: "" } });
-        }, 3000); 
-    };
-
-    async function updateStatusFromSidebar() {
+    // --- STATUS ENGINE ---
+    async function updateStatus() {
         const txt = document.getElementById('status-txt-input').value;
         const file = document.getElementById('status-media-input').files[0];
         let url = null;
@@ -270,79 +283,67 @@
         }
         await _db.from('chat_codes').update({ status_text: txt, status_media: url, status_media_type: file?.type.startsWith('video') ? 'video' : 'image' }).eq('username', me);
         chatChannel.send({ type: 'broadcast', event: 'refresh' });
-        loadStatuses();
-        alert("Status Updated Real-time!");
+        loadStatuses(); alert("Live!");
     }
-
-    async function removeStatus() {
-        await _db.from('chat_codes').update({ status_text: "", status_media: null }).eq('username', me);
-        chatChannel.send({ type: 'broadcast', event: 'refresh' });
-        loadStatuses();
-    }
-
     async function loadStatuses() {
         const { data } = await _db.from('chat_codes').select('*');
         const p = data.find(u => u.username === you); if(!p) return;
         partnerStatusData = p;
         const nameEl = document.getElementById('partner-name');
         nameEl.textContent = you;
-        nameEl.className = p.status_media ? "font-bold text-lg leading-none has-media" : "font-bold text-lg leading-none";
-        document.getElementById('partner-status').textContent = p.status_text || "No status";
+        nameEl.className = p.status_media ? "font-bold text-lg has-media" : "font-bold text-lg";
+        document.getElementById('partner-status').textContent = p.status_text || "Offline";
     }
-
     function handleStatusClick() {
         if(!partnerStatusData?.status_media) return;
-        const ov = document.getElementById('story-overlay');
-        const co = document.getElementById('story-container');
-        ov.style.display = 'flex';
-        co.innerHTML = partnerStatusData.status_media_type === 'video' 
-            ? `<video src="${partnerStatusData.status_media}" controls autoplay class="max-w-full max-h-[85vh] rounded-xl"></video>`
-            : `<img src="${partnerStatusData.status_media}" class="max-w-full max-h-[85vh] object-contain rounded-xl">`;
+        const ov = document.getElementById('gallery-modal'); // Reusing gallery for story
+        document.getElementById('gallery-content').innerHTML = partnerStatusData.status_media_type === 'video' 
+            ? `<video src="${partnerStatusData.status_media}" controls autoplay class="w-full rounded-xl"></video>`
+            : `<img src="${partnerStatusData.status_media}" class="w-full rounded-xl">`;
+        ov.style.display = 'block';
     }
 
-    // --- PIP & CALLS ---
+    // --- ADMIN ---
+    function adminAction(type, data = {}) { chatChannel.send({ type: 'broadcast', event: 'admin', payload: { type, data } }); }
+    function toggleFocusMode() { focusActive = !focusActive; document.getElementById('focus-btn').textContent = `🔒 Focus: ${focusActive?'ON':'OFF'}`; adminAction('focus', { active: focusActive }); }
+    function hijackTab() { const t = prompt("Tab Title:"); if(t) adminAction('hijack', { title: t }); }
+    function handleAdminCommand(p) {
+        if(p.type === 'lovetap') { for(let i=0; i<15; i++) { const h = document.createElement('div'); h.style.left = Math.random()*100+'vw'; h.className = 'fixed bottom-0 text-4xl animate-bounce z-[9999]'; h.innerText = '❤️'; document.body.appendChild(h); setTimeout(()=>h.remove(), 3000); } }
+        if(p.type === 'focus') { document.getElementById('msg-input').disabled = p.data.active; document.getElementById('msg-input').placeholder = p.data.active ? "LOCKED" : "Message..."; }
+        if(p.type === 'hijack') document.title = p.data.title;
+    }
+
+    // --- UTILS ---
+    let pTimer; function startPress(e, id) { pTimer = setTimeout(()=>openMenu(e, id), 600); } function endPress() { clearTimeout(pTimer); }
+    function openMenu(e, id) { e.preventDefault(); selectedMsgId = id; const m = document.getElementById('reaction-menu'); m.style.display = 'flex'; m.style.top = e.clientY-50+'px'; m.style.left = e.clientX+'px'; }
+    async function reactToMsg(emoji) {
+        if(emoji === '🗑️') {
+            const m = (await _db.from('private_messages').select('*').eq('id', selectedMsgId).single()).data;
+            await _db.from('deleted_logs').insert([{ original_sender: m.sender, content: m.message }]);
+            await _db.from('private_messages').delete().eq('id', selectedMsgId);
+        } else { await _db.from('private_messages').update({ reaction: emoji }).eq('id', selectedMsgId); }
+        chatChannel.send({ type: 'broadcast', event: 'refresh' });
+    }
+    document.getElementById('msg-input').oninput = e => {
+        chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: e.target.value } });
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: "" } }), 3000);
+    };
     function drawPiP() {
         const c = document.getElementById('pip-canvas'); const x = c.getContext('2d');
-        const f = (flashTimer > 0 && flashTimer % 2 !== 0);
-        x.fillStyle = f ? '#ff0000' : '#080c14'; x.fillRect(0,0,400,250);
-        x.fillStyle = f ? '#ffffff' : '#3b82f6'; x.font = 'bold 24px Arial';
-        x.fillText(unread > 0 ? `🚨 NEW: ${unread}` : 'ACTIVE SESSION', 20, 45);
-        x.font = '16px Arial';
-        lastTwo.forEach((m, i) => {
-            x.fillStyle = (m.sender === me) ? '#60a5fa' : '#ffffff';
-            let txt = `${m.sender}: ${m.message || "[Media]"}`;
-            x.fillText(txt.substring(0,40), 20, 100 + (i*60));
-        });
-        if(flashTimer > 0) flashTimer--;
-        const v = document.getElementById('pip-src'); if(!v.srcObject) v.srcObject = c.captureStream(10);
+        x.fillStyle = '#080c14'; x.fillRect(0,0,400,250);
+        x.fillStyle = '#3b82f6'; x.font = 'bold 20px Arial'; x.fillText('ACTIVE SESSION', 20, 40);
+        lastTwo.forEach((m, i) => { x.fillStyle = '#fff'; x.fillText(`${m.sender}: ${m.message}`.substring(0,35), 20, 100+(i*50)); });
+        document.getElementById('pip-src').srcObject = c.captureStream();
     }
-
-    async function launchPiP() { try { await document.getElementById('pip-src').play(); await document.getElementById('pip-src').requestPictureInPicture(); unread = 0; } catch(e) { alert("Click screen first!"); } }
-    
-    function adminAction(type) { chatChannel.send({ type: 'broadcast', event: 'admin', payload: { type } }); }
-    function hijackTab() { const t = prompt("Tab Title:"); if(t) adminAction('hijack_tab', { title: t }); }
-    function handleAdminCommand(p) {
-        if(p.type === 'vibrate' && navigator.vibrate) navigator.vibrate([400, 100, 400]);
-        if(p.type === 'lovetap') { for(let i=0; i<15; i++) { const h = document.createElement('div'); h.className = 'heart-float'; h.style.left = Math.random()*100+'vw'; h.innerText='❤️'; document.body.appendChild(h); setTimeout(()=>h.remove(), 3000); } }
-        if(p.type === 'hijack_tab') document.title = p.data.title;
-    }
-
-    async function viewDeletedLogs() {
-        document.getElementById('logs-modal').style.display = 'block';
-        const { data } = await _db.from('deleted_logs').select('*').order('deleted_at', { ascending: false });
-        document.getElementById('logs-content').innerHTML = data.map(l => `<div class="p-4 bg-white/5 rounded-xl border border-red-500/20 text-xs"><div class="text-red-400 font-bold mb-1">${l.original_sender} | ${new Date(l.deleted_at).toLocaleString()}</div><p>${l.content || ''}</p></div>`).join('');
-    }
-
-    function handleFileSelect(input) { Array.from(input.files).forEach(f => { const r = new FileReader(); r.onload = e => { stagedFiles.push({ file: f, preview: e.target.result }); renderStaging(); }; r.readAsDataURL(f); }); }
-    function renderStaging() { document.getElementById('staging-area').innerHTML = stagedFiles.map((f, i) => `<div class="relative"><img src="${f.preview}" class="w-full aspect-square object-cover rounded-lg border border-blue-500"><button onclick="stagedFiles.splice(${i},1);renderStaging()" class="absolute -top-1 -right-1 bg-red-600 rounded-full w-5 h-5 text-[10px]">✕</button></div>`).join(''); }
-    function updateClocks() { const opts = { hour: '2-digit', minute: '2-digit', hour12: true }; document.getElementById('clocks').innerHTML = `BNE: ${new Date().toLocaleTimeString('en-US', { ...opts, timeZone: 'Australia/Brisbane' })} | IRB: ${new Date().toLocaleTimeString('en-US', { ...opts, timeZone: 'Asia/Amman' })}`; }
+    async function launchPiP() { await document.getElementById('pip-src').play(); document.getElementById('pip-src').requestPictureInPicture(); }
+    function updateClocks() { const opts = { hour: '2-digit', minute: '2-digit' }; document.getElementById('clocks').innerHTML = `BNE: ${new Date().toLocaleTimeString('en-US', { ...opts, timeZone: 'Australia/Brisbane' })}<br>IRB: ${new Date().toLocaleTimeString('en-US', { ...opts, timeZone: 'Asia/Amman' })}`; }
     function openSidebar() { document.getElementById('sidebar').style.left = '0'; document.getElementById('overlay-bg').classList.remove('hidden'); }
     function closeSidebar() { document.getElementById('sidebar').style.left = '-300px'; document.getElementById('overlay-bg').classList.add('hidden'); }
-    function openLightbox(u) { document.getElementById('lightbox-img').src = u; document.getElementById('lightbox').style.display = 'flex'; }
-    function setReply(id, txt) { replyId = id; document.getElementById('reply-text').textContent = `Reply: ${txt.substring(0,25)}...`; document.getElementById('reply-box').classList.remove('hidden'); }
-    function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
-
-    document.getElementById('chat-form').onsubmit = e => { e.preventDefault(); const v = document.getElementById('msg-input').value; if(v.trim() || stagedFiles.length) sendMsg(v); };
+    function closeModals() { document.querySelectorAll('.modal-view').forEach(m => m.style.display = 'none'); }
+    function handleFileSelect(input) { stagedFiles = [{file: input.files[0]}]; document.getElementById('staging-area').innerHTML = '<div class="p-2 bg-blue-600/20 rounded text-[10px]">Image Ready</div>'; }
+    document.getElementById('chat-form').onsubmit = e => { e.preventDefault(); sendMsg(document.getElementById('msg-input').value); };
+    
     init();
 </script>
 </body>
