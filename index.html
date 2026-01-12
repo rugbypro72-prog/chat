@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master Pro v10.5</title>
+    <title>Chat Master Pro v11.5</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
@@ -11,75 +11,51 @@
         :root { --bg: #03050a; --me: #1e293b; --you: #0f172a; }
         body { background: var(--bg); color: #f1f5f9; font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; margin: 0; }
         #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; background: var(--bg); position: relative; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; }
+        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
 
-        /* Bubbles & Tools Below */
-        .msg-wrap { display: flex; flex-direction: column; width: 100%; position: relative; animation: fadeIn 0.25s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .row-me { align-items: flex-end; } .row-you { align-items: flex-start; }
-        
-        .bubble { max-width: 85%; padding: 12px 14px 26px 14px; font-size: 15px; border-radius: 20px; position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .bubble { max-width: 85%; padding: 12px 14px 26px 14px; font-size: 15px; border-radius: 20px; position: relative; cursor: pointer; }
         .me { background: var(--me); border: 1px solid #334155; border-bottom-right-radius: 4px; }
         .you { background: var(--you); border: 1px solid #1e293b; border-bottom-left-radius: 4px; }
         .ts-inside { position: absolute; bottom: 8px; right: 12px; font-size: 9px; opacity: 0.5; font-weight: 700; text-transform: uppercase; }
 
-        .msg-tools { opacity: 0; transition: 0.2s; display: flex; gap: 12px; margin-top: 4px; padding: 0 8px; }
-        .msg-wrap:hover .msg-tools { opacity: 1; }
-        .tool-btn { color: #60a5fa; font-size: 10px; font-weight: 800; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
+        /* Status Styling */
+        #partner-name.has-media { color: #ef4444 !important; cursor: pointer; text-decoration: underline; }
+        #partner-status { font-size: 11px; opacity: 0.6; font-style: italic; }
 
-        /* Sidebar & Modals */
-        #sidebar { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; background: #080c14; z-index: 1000; transition: 0.4s cubic-bezier(0.19, 1, 0.22, 1); padding: 40px 20px; border-right: 1px solid #1e293b; display: flex; flex-direction: column; }
-        #sidebar.open { left: 0; }
-        .modal-view { display: none; position: fixed; inset: 0; background: #03050a; z-index: 2000; overflow-y: auto; padding: 25px; }
-
-        /* Video UI */
-        #video-grid { position: fixed; inset: 0; z-index: 3000; background: #000; display: none; }
-        .video-box { width: 100%; height: 100%; object-fit: cover; }
-        .call-controls { position: absolute; bottom: 40px; left: 0; right: 0; display: flex; justify-content: center; gap: 20px; z-index: 3005; }
+        /* Fullscreen View */
+        #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 5000; align-items: center; justify-content: center; padding: 20px; }
+        
+        /* Image Staging Grid */
+        #staging-area { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; padding: 0 10px; }
+        .staged-item { position: relative; aspect-square: 1; }
+        .staged-item img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 2px solid #3b82f6; }
     </style>
 </head>
 <body>
 
-<div id="video-grid">
-    <div id="remote-video" class="video-box"></div>
+<div id="lightbox" onclick="this.style.display='none'">
+    <button class="absolute top-10 right-10 text-4xl">&times;</button>
+    <img id="lightbox-img" class="max-w-full max-h-full rounded-lg shadow-2xl">
+</div>
+
+<div id="video-grid" class="hidden fixed inset-0 bg-black z-[3000]">
+    <div id="remote-video" class="w-full h-full"></div>
     <div id="local-video" class="absolute top-6 right-6 w-28 h-40 border border-white/20 rounded-2xl overflow-hidden shadow-2xl z-[3001]"></div>
-    <div class="call-controls">
-        <button onclick="endCall()" class="bg-red-600 h-16 w-16 rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition">
-            <span class="text-2xl">📞</span>
-        </button>
-    </div>
+    <button onclick="endCall()" class="absolute bottom-10 left-1/2 -translate-x-1/2 bg-red-600 p-6 rounded-full shadow-2xl">📞</button>
 </div>
 
 <video id="pip-src" autoplay muted playsinline class="hidden"></video>
 <canvas id="pip-canvas" width="400" height="250" class="hidden"></canvas>
 <div id="overlay-bg" onclick="closeSidebar()" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-[900]"></div>
 
-<div id="gallery-modal" class="modal-view">
-    <div class="flex justify-between items-center mb-6 sticky top-0 bg-[#03050a] py-4">
-        <h2 class="text-xl font-bold">Memory Gallery</h2>
-        <button onclick="closeModals()" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button>
-    </div>
-    <div id="gallery-content" class="grid grid-cols-2 gap-3"></div>
-</div>
-
-<div id="logs-modal" class="modal-view">
-    <div class="flex justify-between items-center mb-6 sticky top-0 bg-[#03050a] py-4">
-        <h2 class="text-xl font-bold text-red-500">Deleted Logs</h2>
-        <div class="flex gap-2">
-            <button onclick="clearAllLogs()" class="bg-red-600/20 text-red-500 px-4 py-1 rounded-full text-xs font-bold">Clear All</button>
-            <button onclick="closeModals()" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button>
-        </div>
-    </div>
-    <div id="logs-content" class="space-y-4"></div>
-</div>
-
 <div id="chat-main">
     <header class="p-4 border-b border-white/5 flex items-center justify-between bg-black/40 backdrop-blur-xl">
         <div class="flex items-center gap-4">
             <button onclick="openSidebar()" class="text-2xl">☰</button>
-            <div>
-                <div class="font-bold text-lg" id="partner-name">...</div>
-                <div id="live-preview" class="text-[11px] text-blue-400 italic h-3 font-medium"></div>
+            <div onclick="handleStatusClick()">
+                <div class="font-bold text-lg leading-none" id="partner-name">...</div>
+                <div id="partner-status">No status</div>
+                <div id="live-preview" class="text-[9px] text-blue-400 italic h-2"></div>
             </div>
         </div>
         <div class="flex gap-2">
@@ -91,19 +67,14 @@
     <main id="messages"></main>
 
     <footer class="p-4">
-        <div id="image-preview-container" class="hidden relative mb-2 animate-bounce-in">
-            <img id="image-staged" class="w-32 h-32 object-cover rounded-2xl border-2 border-blue-500 shadow-xl">
-            <button onclick="cancelImage()" class="absolute -top-2 left-28 bg-red-600 rounded-full w-6 h-6 text-xs">✕</button>
-        </div>
-
+        <div id="staging-area"></div>
         <div id="reply-box" class="hidden bg-blue-500/10 p-3 rounded-t-2xl border-l-4 border-blue-600 flex justify-between items-center mb-[-10px] pb-5">
             <span id="reply-text" class="text-[11px] text-blue-300 italic"></span>
             <button onclick="cancelReply()">&times;</button>
         </div>
-        
         <form id="chat-form" class="flex items-center bg-[#0d111c] border border-white/10 rounded-full p-1 pl-4">
             <label class="cursor-pointer opacity-50 hover:opacity-100 p-2">
-                📎 <input type="file" id="file-input" class="hidden" accept="image/*" onchange="stageImage(this)">
+                📎 <input type="file" id="file-input" class="hidden" accept="image/*" multiple onchange="handleFileSelect(this)">
             </label>
             <input id="msg-input" placeholder="Message..." autocomplete="off" class="flex-1 bg-transparent py-3 px-2 text-sm outline-none">
             <button type="submit" class="bg-blue-600 text-white font-bold px-6 py-3 rounded-full text-[10px] uppercase">Send</button>
@@ -111,25 +82,19 @@
     </footer>
 </div>
 
-<div id="sidebar">
+<div id="sidebar" class="fixed left-[-300px] top-0 bottom-0 w-[280px] bg-[#080c14] z-[1000] p-8 flex flex-col transition-all duration-300">
     <h2 id="me-name" class="text-center text-xl font-bold mb-8">...</h2>
-    <div class="flex-1 space-y-3">
+    <div class="flex-1 space-y-4">
+        <button onclick="setStatus()" class="w-full text-left p-4 bg-blue-600/10 text-blue-400 rounded-2xl font-bold">✨ Set Status</button>
         <button onclick="toggleGallery(true)" class="w-full text-left p-4 bg-white/5 rounded-2xl">🖼️ View Gallery</button>
         <div id="rj-suite" class="hidden pt-6 mt-6 border-t border-white/10 space-y-3">
             <button onclick="launchPiP()" class="w-full text-left p-4 bg-blue-600/10 text-blue-400 rounded-2xl font-bold">🚀 Pop-out Gaming</button>
             <button onclick="viewDeletedLogs()" class="w-full text-left p-4 bg-red-600/10 text-red-400 rounded-2xl font-bold">🗑️ Deleted Logs</button>
         </div>
     </div>
-
-    <div class="mt-auto pt-6 border-t border-white/10 space-y-4 pb-4">
-        <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl">
-            <span class="text-[10px] font-bold text-gray-400 uppercase">Brisbane</span>
-            <span id="clock-brisbane" class="text-sm font-mono font-bold text-blue-400">00:00</span>
-        </div>
-        <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl">
-            <span class="text-[10px] font-bold text-gray-400 uppercase">Irbid</span>
-            <span id="clock-irbid" class="text-sm font-mono font-bold text-blue-400">00:00</span>
-        </div>
+    <div class="mt-auto space-y-2 text-xs font-mono opacity-50">
+        <div id="clock-brisbane">Brisbane: --:--</div>
+        <div id="clock-irbid">Irbid: --:--</div>
     </div>
 </div>
 
@@ -138,97 +103,136 @@
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
     
-    let me, you, unread = 0, lastTwo = [], replyId = null, chatChannel, stagedFile = null;
+    let me, you, unread = 0, lastTwo = [], replyId = null, chatChannel;
+    let stagedFiles = [], partnerStatusData = null;
     let rtc = { client: null, localVideoTrack: null, localAudioTrack: null };
     const AGORA_APP_ID = "4f6c6c2002784152a8366dec12f1b4c0";
-
-    // Flash state for PiP
-    let flashCounter = 0;
 
     async function init() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
         const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
         if(!data) return;
-
         me = data.username; you = (me === 'RJ' ? 'Allyvia' : 'RJ');
         localStorage.setItem('chat_secret_code', code);
-        document.getElementById('partner-name').textContent = you;
         document.getElementById('me-name').textContent = me;
         if(me === 'RJ') document.getElementById('rj-suite').classList.remove('hidden');
 
-        chatChannel = _db.channel('chat-v11', { config: { broadcast: { self: false } } });
+        chatChannel = _db.channel('chat-v11.5');
         chatChannel
-            .on('broadcast', { event: 'typing' }, (p) => {
-                const el = document.getElementById('live-preview');
-                el.textContent = !p.payload.text ? "" : (me === 'RJ' ? `Typing: ${p.payload.text}` : `${you} is typing...`);
+            .on('broadcast', { event: 'typing' }, p => {
+                document.getElementById('live-preview').textContent = p.payload.text ? (me === 'RJ' ? `Typing: ${p.payload.text}` : `${you} is typing...`) : "";
             })
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
-                if(p.new.receiver === me) { 
-                    unread++; 
-                    if(document.pictureInPictureElement) flashCounter = 6; // Trigger 3 red flashes (6 state changes)
-                }
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, p => {
+                if(p.new.receiver === me) { unread++; flashPiP(); }
                 loadMessages();
             })
-            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'private_messages' }, loadMessages)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, loadStatuses)
             .subscribe();
 
-        document.getElementById('msg-input').oninput = (e) => {
-            chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: e.target.value } });
-        };
-
+        loadMessages();
+        loadStatuses();
         setInterval(updateClocks, 1000);
         setInterval(drawPiP, 200);
-        loadMessages();
     }
 
-    function updateClocks() {
-        const opts = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
-        document.getElementById('clock-brisbane').textContent = new Date().toLocaleTimeString('en-US', { ...opts, timeZone: 'Australia/Brisbane' });
-        document.getElementById('clock-irbid').textContent = new Date().toLocaleTimeString('en-US', { ...opts, timeZone: 'Asia/Amman' });
+    // --- STATUS SYSTEM ---
+    async function loadStatuses() {
+        const { data } = await _db.from('chat_codes').select('*');
+        const p = data.find(u => u.username === you);
+        if(!p) return;
+        partnerStatusData = p;
+        const nameEl = document.getElementById('partner-name');
+        const statusEl = document.getElementById('partner-status');
+        
+        nameEl.textContent = you;
+        statusEl.textContent = p.status_text || "No status";
+        
+        if(p.status_media) {
+            nameEl.classList.add('has-media');
+        } else {
+            nameEl.classList.remove('has-media');
+        }
     }
 
-    function stageImage(input) {
-        if(!input.files[0]) return;
-        stagedFile = input.files[0];
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            document.getElementById('image-staged').src = e.target.result;
-            document.getElementById('image-preview-container').classList.remove('hidden');
-        };
-        reader.readAsDataURL(stagedFile);
+    function handleStatusClick() {
+        if(partnerStatusData?.status_media) {
+            openLightbox(partnerStatusData.status_media);
+        }
     }
 
-    function cancelImage() {
-        stagedFile = null;
-        document.getElementById('image-preview-container').classList.add('hidden');
-        document.getElementById('file-input').value = "";
+    async function setStatus() {
+        const txt = prompt("Enter status text:");
+        const media = prompt("Enter Image/Video URL for status (optional):");
+        await _db.from('chat_codes').update({ status_text: txt, status_media: media }).eq('username', me);
+        loadStatuses();
     }
+
+    // --- MULTI-IMAGE STAGING ---
+    function handleFileSelect(input) {
+        const files = Array.from(input.files).slice(0, 4 - stagedFiles.length);
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = e => {
+                stagedFiles.push({ file, preview: e.target.result });
+                renderStaging();
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function renderStaging() {
+        const area = document.getElementById('staging-area');
+        area.innerHTML = stagedFiles.map((f, i) => `
+            <div class="staged-item">
+                <img src="${f.preview}">
+                <button onclick="removeStaged(${i})" class="absolute -top-2 -right-2 bg-red-600 rounded-full w-5 h-5 text-[10px]">✕</button>
+            </div>
+        `).join('');
+    }
+
+    function removeStaged(i) { stagedFiles.splice(i, 1); renderStaging(); }
 
     async function sendMsg(txt) {
-        let url = null;
-        if(stagedFile) {
-            const name = `img_${Date.now()}`;
-            const { data } = await _db.storage.from('chat-files').upload(name, stagedFile);
-            if(data) url = _db.storage.from('chat-files').getPublicUrl(name).data.publicUrl;
-            cancelImage();
+        const uploads = stagedFiles.map(async f => {
+            const name = `img_${Date.now()}_${Math.random()}`;
+            const { data } = await _db.storage.from('chat-files').upload(name, f.file);
+            return _db.storage.from('chat-files').getPublicUrl(name).data.publicUrl;
+        });
+        
+        const urls = await Promise.all(uploads);
+        // If multiple images, send them as separate messages or one joined by comma
+        // For simplicity and cleaner lightbox, we send them individually if multiple
+        if(urls.length > 0) {
+            for(let url of urls) {
+                await _db.from('private_messages').insert([{ sender: me, receiver: you, message: txt, file_url: url, reply_to: replyId }]);
+                txt = ""; // Only attach text to first image
+            }
+        } else {
+            await _db.from('private_messages').insert([{ sender: me, receiver: you, message: txt, reply_to: replyId }]);
         }
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: txt, file_url: url, reply_to: replyId }]);
+        
+        stagedFiles = []; renderStaging();
         document.getElementById('msg-input').value = "";
         cancelReply();
+    }
+
+    // --- LIGHTBOX ---
+    function openLightbox(url) {
+        document.getElementById('lightbox-img').src = url;
+        document.getElementById('lightbox').style.display = 'flex';
     }
 
     async function loadMessages() {
         const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(40);
         const filtered = data ? data.reverse() : [];
         lastTwo = filtered.slice(-2);
-        
         document.getElementById('messages').innerHTML = filtered.map(m => {
             const isMe = m.sender === me;
             const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
             return `
                 <div class="msg-wrap ${isMe ? 'row-me' : 'row-you'}">
-                    <div class="bubble ${isMe ? 'me' : 'you'}">
-                        ${m.file_url ? `<img src="${m.file_url}" class="rounded-xl mb-2 w-full max-h-72 object-cover">` : ''}
+                    <div class="bubble ${isMe ? 'me' : 'you'}" onclick="${m.file_url ? `openLightbox('${m.file_url}')` : ''}">
+                        ${m.file_url ? `<img src="${m.file_url}" class="rounded-xl mb-2 w-full max-h-60 object-cover">` : ''}
                         ${m.message || ''}
                         <span class="ts-inside">${time}</span>
                     </div>
@@ -242,46 +246,33 @@
         box.scrollTop = box.scrollHeight;
     }
 
-    window.deleteMsg = async (id) => {
-        if(!confirm("Delete?")) return;
-        const { data: msg } = await _db.from('private_messages').select('*').eq('id', id).single();
-        await _db.from('deleted_logs').insert([{ original_sender: msg.sender, content: msg.message, file_url: msg.file_url }]);
-        await _db.from('private_messages').delete().eq('id', id);
-        loadMessages();
-    };
-
-    async function clearAllLogs() {
-        if(confirm("Wipe ALL deleted logs forever?")) {
-            await _db.from('deleted_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-            viewDeletedLogs();
-        }
+    // --- UTILS ---
+    function updateClocks() {
+        const opts = { hour: '2-digit', minute: '2-digit', hour12: true };
+        document.getElementById('clock-brisbane').textContent = "Brisbane: " + new Date().toLocaleTimeString('en-US', { ...opts, timeZone: 'Australia/Brisbane' });
+        document.getElementById('clock-irbid').textContent = "Irbid: " + new Date().toLocaleTimeString('en-US', { ...opts, timeZone: 'Asia/Amman' });
     }
+
+    let flashTimer = 0;
+    function flashPiP() { if(document.pictureInPictureElement) flashTimer = 6; }
 
     function drawPiP() {
         const c = document.getElementById('pip-canvas'); const x = c.getContext('2d');
-        const isFlashing = flashCounter > 0 && flashCounter % 2 !== 0;
-        
-        x.fillStyle = isFlashing ? '#ff0000' : '#080c14'; 
-        x.fillRect(0,0,400,250);
-        
-        x.fillStyle = isFlashing ? '#000000' : (unread > 0 ? '#ef4444' : '#3b82f6');
-        x.font = 'bold 30px Arial';
-        x.fillText(unread > 0 ? `NEW: ${unread}` : 'NO MESSAGES', 20, 50);
-
-        x.font = '16px Arial';
+        const flashing = flashTimer > 0 && flashTimer % 2 !== 0;
+        x.fillStyle = flashing ? '#ff0000' : '#080c14'; x.fillRect(0,0,400,250);
+        x.fillStyle = flashing ? '#000000' : '#3b82f6';
+        x.font = 'bold 30px Arial'; x.fillText(unread > 0 ? `NEW MSGS: ${unread}` : 'NO MESSAGES', 20, 50);
         lastTwo.forEach((m, i) => {
-            x.fillStyle = isFlashing ? '#000000' : (m.sender === 'RJ' ? '#60a5fa' : '#94a3b8');
-            x.fillText(`${m.sender}: ${(m.message || "Img").substring(0, 30)}`, 20, 110 + (i * 40));
+            x.fillStyle = flashing ? '#000000' : (m.sender === 'RJ' ? '#60a5fa' : '#94a3b8');
+            x.fillText(`${m.sender}: ${(m.message || "Image").substring(0, 25)}`, 20, 110 + (i*45));
         });
-
-        if(flashCounter > 0) flashCounter--;
+        if(flashTimer > 0) flashTimer--;
         const v = document.getElementById('pip-src'); if(!v.srcObject) v.srcObject = c.captureStream();
     }
 
-    // Standard Handlers
     async function initCall(video) {
         rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-        document.getElementById('video-grid').style.display = 'block';
+        document.getElementById('video-grid').classList.remove('hidden');
         await rtc.client.join(AGORA_APP_ID, "main", null, null);
         rtc.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
         if(video) {
@@ -299,19 +290,16 @@
     async function endCall() {
         [rtc.localAudioTrack, rtc.localVideoTrack].forEach(t => { if(t) { t.stop(); t.close(); } });
         if(rtc.client) await rtc.client.leave();
-        document.getElementById('video-grid').style.display = 'none';
+        document.getElementById('video-grid').classList.add('hidden');
     }
 
-    async function launchPiP() { unread = 0; try { await document.getElementById('pip-src').play(); await document.getElementById('pip-src').requestPictureInPicture(); } catch(e) {} }
+    function openSidebar() { document.getElementById('sidebar').style.left = '0'; document.getElementById('overlay-bg').classList.remove('hidden'); }
+    function closeSidebar() { document.getElementById('sidebar').style.left = '-300px'; document.getElementById('overlay-bg').classList.add('hidden'); }
     function setReply(id, txt) { replyId = id; document.getElementById('reply-text').textContent = `Reply: ${txt.substring(0,25)}...`; document.getElementById('reply-box').classList.remove('hidden'); }
     function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
-    function openSidebar() { document.getElementById('sidebar').classList.add('open'); document.getElementById('overlay-bg').classList.remove('hidden'); }
-    function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay-bg').classList.add('hidden'); }
-    function closeModals() { document.querySelectorAll('.modal-view').forEach(m => m.style.display='none'); }
-    async function toggleGallery(show) { if(show) { document.getElementById('gallery-modal').style.display = 'block'; const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', { ascending: false }); document.getElementById('gallery-content').innerHTML = data.map(i => `<img src="${i.file_url}" class="rounded-xl aspect-square object-cover border border-white/10">`).join(''); } }
-    async function viewDeletedLogs() { document.getElementById('logs-modal').style.display = 'block'; const { data } = await _db.from('deleted_logs').select('*').order('deleted_at', { ascending: false }); document.getElementById('logs-content').innerHTML = data.map(l => `<div class="p-3 bg-white/5 rounded-xl border border-red-500/20"><div class="flex justify-between text-[10px] text-red-400 mb-1"><b>${l.original_sender}</b><span>${new Date(l.deleted_at).toLocaleString()}</span></div><p class="text-sm">${l.content || ''}</p>${l.file_url ? `<img src="${l.file_url}" class="mt-2 h-20 rounded">` : ''}</div>`).join(''); }
-
-    document.getElementById('chat-form').onsubmit = (e) => { e.preventDefault(); const v = document.getElementById('msg-input').value; if(v.trim() || stagedFile) sendMsg(v); };
+    async function launchPiP() { unread = 0; try { await document.getElementById('pip-src').play(); await document.getElementById('pip-src').requestPictureInPicture(); } catch(e) {} }
+    
+    document.getElementById('chat-form').onsubmit = e => { e.preventDefault(); const v = document.getElementById('msg-input').value; if(v.trim() || stagedFiles.length) sendMsg(v); };
 
     init();
 </script>
