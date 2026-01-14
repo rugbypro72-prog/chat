@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v16.0 (Stories Update)</title>
+    <title>Midnight v12</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
@@ -68,7 +68,7 @@
 </div>
 
 <div id="gallery-modal" class="modal-view"><div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold">Gallery</h2><button onclick="document.getElementById('gallery-modal').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button></div><div id="gallery-content" class="grid grid-cols-2 gap-3 pb-20"></div></div>
-<div id="logs-modal" class="modal-view"><div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-red-500">Evidence Logs</h2><button onclick="document.getElementById('logs-modal').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button></div><div id="logs-content" class="space-y-4 pb-20"></div></div>
+<div id="logs-modal" class="modal-view"><div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-red-500">Del log</h2><button onclick="document.getElementById('logs-modal').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button></div><div id="logs-content" class="space-y-4 pb-20"></div></div>
 
 
 <canvas id="pip-canvas" width="400" height="250" class="hidden"></canvas>
@@ -127,7 +127,7 @@
             <p class="text-[10px] font-bold opacity-40 uppercase tracking-widest">My Status</p>
             <input id="status-txt-input" placeholder="What's up?" class="w-full bg-black/40 p-3 rounded-xl text-xs outline-none border border-white/5">
             <div class="flex flex-col gap-2">
-                <label class="bg-white/5 p-2 rounded-lg text-[10px] text-center cursor-pointer border border-dashed border-white/20">📸 Story Media (Select Multiple) <input type="file" id="status-media-input" class="hidden" accept="image/*,video/*" multiple></label>
+                <label class="bg-white/5 p-2 rounded-lg text-[10px] text-center cursor-pointer border border-dashed border-white/20">📸 Story Media<input type="file" id="status-media-input" class="hidden" accept="image/*,video/*" multiple></label>
                 <div id="status-staging" class="grid grid-cols-3 gap-1 empty:hidden"></div>
                 <div class="grid grid-cols-2 gap-2">
                     <button onclick="updateStatusFromSidebar()" id="update-status-btn" class="bg-blue-600 p-2 rounded-lg text-[10px] font-bold uppercase">Update</button>
@@ -137,21 +137,21 @@
         </div>
 
         <div class="mt-4 space-y-2">
-            <p class="text-[10px] font-bold opacity-40 uppercase tracking-widest px-2">Couple Tools</p>
+            <p class="text-[10px] font-bold opacity-40 uppercase tracking-widest px-2">Silly tools</p>
             <div class="grid grid-cols-2 gap-2">
-                <button onclick="sendInteraction('lovetap')" class="p-4 bg-pink-600/20 text-pink-400 rounded-2xl font-bold text-center">❤️ Love Tap</button>
-                <button onclick="sendInteraction('vibrate')" class="p-4 bg-blue-600/20 text-blue-400 rounded-2xl font-bold text-center">📳 Nudge</button>
+                <button onclick="sendInteraction('lovetap')" class="p-4 bg-pink-600/20 text-pink-400 rounded-2xl font-bold text-center">heartquake</button>
+                <button onclick="sendInteraction('vibrate')" class="p-4 bg-blue-600/20 text-blue-400 rounded-2xl font-bold text-center">its supposed to vibrate but dont work</button>
             </div>
         </div>
 
         <button onclick="toggleGallery(true)" class="w-full text-left p-4 bg-white/5 rounded-2xl">🖼️ Gallery</button>
         
         <div id="rj-suite" class="hidden pt-6 mt-6 border-t border-white/10 space-y-3">
-             <p class="text-[10px] font-bold text-red-500 uppercase tracking-widest px-2">RJ Admin Panel</p>
+             <p class="text-[10px] font-bold text-red-500 uppercase tracking-widest px-2">Tools</p>
             <button onclick="toggleFocusMode()" id="focus-btn" class="w-full text-left p-4 bg-yellow-600/10 text-yellow-400 rounded-2xl font-bold">🔒 Focus: OFF</button>
             <button onclick="hijackTab()" class="w-full text-left p-4 bg-purple-600/10 text-purple-400 rounded-2xl font-bold">🏷️ Tab Hijack</button>
             <button onclick="viewDeletedLogs()" class="w-full text-left p-4 bg-white/5 rounded-2xl font-bold">🗑️ Logs</button>
-            <button onclick="launchPiP()" class="w-full text-left p-4 bg-blue-600 text-white rounded-2xl font-bold">🚀 Gaming PiP</button>
+            <button onclick="launchPiP()" class="w-full text-left p-4 bg-blue-600 text-white rounded-2xl font-bold">external view</button>
         </div>
     </div>
     <div id="clocks" class="mt-auto pt-4 border-t border-white/5 text-[10px] font-mono opacity-50 space-y-1"></div>
