@@ -3,316 +3,259 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v16.1 GOLD</title>
+    <title>Chat Master v17.0</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
-    <style id="theme-engine">
+    <style>
         :root { --bg: #03050a; --me: #1e293b; --you: #0f172a; --accent: #3b82f6; }
-        
         .theme-romantic { --bg: #1a0505; --me: #451010; --you: #2d0a0a; --accent: #f43f5e; }
         .theme-chill { --bg: #0f172a; --me: #1e293b; --you: #334155; --accent: #0ea5e9; }
         .theme-midnight { --bg: #000000; --me: #111111; --you: #1a1a1a; --accent: #a855f7; }
 
-        body { background: var(--bg); color: #f1f5f9; font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; margin: 0; transition: all 0.5s ease; }
+        body { background: var(--bg); color: #f1f5f9; font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; margin: 0; transition: 0.5s; }
         #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; position: relative; }
+        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
         
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 18px; }
-        .msg-wrap { display: flex; flex-direction: column; width: 100%; position: relative; animation: fadeIn 0.2s ease; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .bubble { max-width: 85%; padding: 12px 14px 28px 14px; font-size: 15px; border-radius: 20px; position: relative; border: 1px solid rgba(255,255,255,0.05); }
+        .me { background: var(--me); align-self: flex-end; border-bottom-right-radius: 4px; }
+        .you { background: var(--you); align-self: flex-start; border-bottom-left-radius: 4px; }
+        .ts { position: absolute; bottom: 8px; right: 12px; font-size: 9px; opacity: 0.4; }
         
-        .row-me { align-items: flex-end; } .row-you { align-items: flex-start; }
-        .bubble { max-width: 85%; padding: 12px 14px 28px 14px; font-size: 15px; border-radius: 22px; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); }
-        .me { background: var(--me); border-bottom-right-radius: 4px; }
-        .you { background: var(--you); border-bottom-left-radius: 4px; }
-        
-        .ts-inside { position: absolute; bottom: 8px; right: 14px; font-size: 9px; opacity: 0.4; font-weight: 800; text-transform: uppercase; }
-        .reaction-tag { position: absolute; bottom: -12px; right: 12px; background: var(--accent); color: white; padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 900; border: 2px solid var(--bg); z-index: 10; }
-        
-        .msg-tools { display: flex; gap: 12px; margin-top: 4px; padding: 0 8px; opacity: 0; transition: 0.2s; }
-        .msg-wrap:hover .msg-tools { opacity: 1; }
-        .tool-btn { font-size: 9px; font-weight: 900; color: var(--accent); cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
-
-        .modal-view { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 4000; overflow-y: auto; padding: 25px; }
-        .rec-pulse { animation: recPulse 1s infinite; color: #f43f5e !important; }
-        @keyframes recPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .modal { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 5000; padding: 25px; overflow-y: auto; }
+        .rec-active { color: #f43f5e !important; animation: pulse 1s infinite; }
+        @keyframes pulse { 50% { opacity: 0.5; } }
+        #sidebar { transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); z-index: 4000; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="theme-chill">
 
-<div id="story-overlay" onclick="this.style.display='none'" class="hidden fixed inset-0 bg-black/98 z-[8000] items-center justify-center backdrop-blur-xl">
-    <div id="story-container" class="relative max-w-lg w-full h-full flex items-center justify-center p-6"></div>
-</div>
-
-<div id="video-grid" class="hidden fixed inset-0 bg-black z-[6000]">
-    <div id="remote-video" class="w-full h-full"></div>
-    <div id="local-video" class="absolute top-12 right-6 w-32 h-48 border-2 border-white/20 rounded-3xl overflow-hidden bg-zinc-900 z-[6001]"></div>
-    <div class="absolute bottom-12 left-0 right-0 flex justify-center gap-6 z-[6002]">
-        <button id="btn-mute" onclick="toggleMute()" class="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-2xl">🎤</button>
-        <button onclick="endCall()" class="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center text-2xl">📞</button>
-    </div>
-</div>
-
-<div id="vault-modal" class="modal-view"><div class="flex justify-between items-center mb-8"><h2 class="text-2xl font-black italic">SHARED VAULT</h2><button onclick="closeModal('vault-modal')" class="p-2 opacity-50 font-bold uppercase">Close</button></div><div id="vault-content" class="space-y-4 pb-24"></div></div>
-<div id="gallery-modal" class="modal-view"><div class="flex justify-between items-center mb-8"><h2 class="text-2xl font-black italic">GALLERY</h2><button onclick="closeModal('gallery-modal')" class="p-2 opacity-50 font-bold uppercase">Close</button></div><div id="gallery-content" class="grid grid-cols-2 gap-3 pb-24"></div></div>
-<div id="logs-modal" class="modal-view"><div class="flex justify-between items-center mb-8"><h2 class="text-2xl font-black italic text-red-500">DELETED LOGS</h2><button onclick="closeModal('logs-modal')" class="p-2 opacity-50 font-bold uppercase">Close</button></div><div id="logs-content" class="space-y-4 pb-24"></div></div>
-
-<div id="overlay-bg" onclick="closeSidebar()" class="hidden fixed inset-0 bg-black/80 z-[900]"></div>
-
 <div id="chat-main">
-    <header class="p-5 border-b border-white/5 flex items-center justify-between bg-black/20 backdrop-blur-2xl z-[50]">
-        <div class="flex items-center gap-4">
-            <button onclick="openSidebar()" class="text-2xl">☰</button>
-            <div onclick="openPartnerStory()" class="cursor-pointer">
-                <div class="font-black text-xl tracking-tight"><span id="partner-name">...</span> <span id="partner-mood" class="text-sm ml-1"></span></div>
-                <div id="live-preview" class="text-[10px] text-blue-400 font-bold h-3 uppercase tracking-tighter"></div>
+    <header class="p-4 border-b border-white/5 flex justify-between items-center bg-black/20 backdrop-blur-xl">
+        <div class="flex items-center gap-3">
+            <button onclick="toggleSidebar(true)" class="text-xl">☰</button>
+            <div>
+                <div id="display-name" class="font-bold text-lg">Loading...</div>
+                <div id="typing-status" class="text-[10px] text-blue-400 font-bold h-3 uppercase"></div>
             </div>
         </div>
         <div class="flex gap-2">
-            <button onclick="initCall(false)" class="px-4 py-2 bg-white/5 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/5">Audio</button>
-            <button onclick="initCall(true)" class="px-4 py-2 bg-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-600/20">Video</button>
+            <button onclick="startCall(false)" class="p-2 px-3 bg-white/5 rounded-full text-[10px] font-bold">VOICE</button>
+            <button onclick="startCall(true)" class="p-2 px-3 bg-blue-600 rounded-full text-[10px] font-bold">VIDEO</button>
         </div>
     </header>
 
-    <main id="messages"></main>
+    <main id="messages" class="no-scrollbar"></main>
 
     <footer class="p-4 bg-black/40">
-        <div id="staging-area" class="grid grid-cols-4 gap-2 mb-3"></div>
-        <div id="reply-box" class="hidden bg-blue-600/10 p-3 rounded-t-2xl border-l-4 border-blue-600 flex justify-between items-center mb-[-4px] pb-4">
-            <div class="text-[11px]"><span class="font-bold text-blue-400 block uppercase text-[9px]">Replying to</span><span id="reply-text" class="italic opacity-80"></span></div>
-            <button onclick="cancelReply()" class="text-xl px-2">×</button>
+        <div id="reply-preview" class="hidden bg-blue-500/10 p-2 mb-2 rounded-lg border-l-4 border-blue-500 text-xs flex justify-between">
+            <span id="reply-preview-text"></span>
+            <button onclick="cancelReply()">×</button>
         </div>
-        <form id="chat-form" class="flex items-center bg-white/5 border border-white/10 rounded-full p-1 pl-5 shadow-2xl">
-            <label class="cursor-pointer opacity-40 hover:opacity-100 transition p-2">📎<input type="file" id="file-input" class="hidden" multiple onchange="handleFileSelect(this)"></label>
-            <input id="msg-input" placeholder="Say something..." autocomplete="off" class="flex-1 bg-transparent py-3 px-2 text-sm outline-none font-medium">
-            <button type="button" id="voice-btn" class="p-2 text-2xl outline-none">🎙️</button>
-            <button type="submit" class="bg-blue-600 text-white font-black px-6 py-3 rounded-full text-[10px] tracking-widest">SEND</button>
+        <form id="chat-form" class="flex items-center bg-white/5 rounded-full p-1 border border-white/10">
+            <label class="p-3 opacity-50 cursor-pointer">📎<input type="file" id="file-input" class="hidden" multiple onchange="handleFiles(this)"></label>
+            <input id="msg-input" placeholder="Message..." class="flex-1 bg-transparent py-3 outline-none text-sm px-2">
+            <button type="button" id="voice-btn" class="p-3 text-xl">🎙️</button>
+            <button type="submit" class="bg-blue-600 px-6 py-3 rounded-full text-[10px] font-bold">SEND</button>
         </form>
+        <div id="staged-previews" class="flex gap-2 mt-2"></div>
     </footer>
 </div>
 
-<div id="sidebar" class="fixed left-[-320px] top-0 bottom-0 w-[300px] bg-[#05070a] p-8 flex flex-col transition-all duration-500 ease-out border-r border-white/5 shadow-2xl z-[5000]">
-    <div class="bg-gradient-to-br from-pink-600/20 to-rose-600/10 border border-white/10 rounded-[2rem] p-7 mb-8 text-center">
-        <p class="text-[10px] font-black text-pink-500 uppercase tracking-widest mb-2">Days Together</p>
-        <h1 id="days-counter" class="text-5xl font-black text-white">0</h1>
+<div id="sidebar" class="fixed left-[-300px] top-0 bottom-0 w-[280px] bg-[#05070a] p-6 border-r border-white/5 flex flex-col">
+    <div class="bg-pink-600/10 rounded-3xl p-6 mb-6 text-center border border-pink-500/20">
+        <h1 id="days-count" class="text-4xl font-black">0</h1>
+        <p class="text-[10px] uppercase opacity-50 mt-1">Days Together</p>
     </div>
 
-    <div class="flex-1 space-y-4 overflow-y-auto">
-        <button onclick="toggleVault()" class="w-full text-left p-5 bg-white/5 rounded-2xl font-bold">⭐ Shared Vault</button>
-        <button onclick="toggleGallery(true)" class="w-full text-left p-5 bg-white/5 rounded-2xl font-bold">🖼️ Media Gallery</button>
+    <div class="space-y-4 overflow-y-auto flex-1">
+        <button onclick="showVault()" class="w-full text-left p-4 bg-white/5 rounded-xl font-bold">⭐ Starred Vault</button>
+        <button onclick="shareLoc()" class="w-full text-left p-4 bg-green-500/10 text-green-400 rounded-xl font-bold">📍 Send Location</button>
         
-        <div class="p-5 bg-white/5 rounded-2xl space-y-3">
-            <p class="text-[10px] font-black opacity-40 uppercase tracking-widest">Global Vibe</p>
+        <div class="p-4 bg-white/5 rounded-xl">
+            <p class="text-[10px] font-bold opacity-40 uppercase mb-3">Themes</p>
             <div class="grid grid-cols-3 gap-2">
-                <button onclick="setGlobalTheme('romantic')" class="h-10 bg-rose-900 rounded-lg">❤️</button>
-                <button onclick="setGlobalTheme('chill')" class="h-10 bg-slate-800 rounded-lg">❄️</button>
-                <button onclick="setGlobalTheme('midnight')" class="h-10 bg-black rounded-lg">🌌</button>
+                <button onclick="setTheme('romantic')" class="h-10 bg-rose-900 rounded-lg">❤️</button>
+                <button onclick="setTheme('chill')" class="h-10 bg-slate-800 rounded-lg">❄️</button>
+                <button onclick="setTheme('midnight')" class="h-10 bg-black rounded-lg border border-white/10">🌌</button>
             </div>
         </div>
 
-        <div class="p-5 bg-white/5 rounded-2xl space-y-3">
-            <p class="text-[10px] font-black opacity-40 uppercase tracking-widest">Your Mood</p>
-            <div class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                <button onclick="updateMood('😊')" class="p-2 bg-white/5 rounded-lg">😊</button>
-                <button onclick="updateMood('😴')" class="p-2 bg-white/5 rounded-lg">😴</button>
-                <button onclick="updateMood('📚')" class="p-2 bg-white/5 rounded-lg">📚</button>
-                <button onclick="updateMood('😈')" class="p-2 bg-white/5 rounded-lg">😈</button>
-                <button onclick="updateMood('🎮')" class="p-2 bg-white/5 rounded-lg">🎮</button>
-            </div>
-        </div>
-
-        <div id="rj-suite" class="hidden pt-6 mt-6 border-t border-white/10 space-y-3">
-            <input type="text" id="rj-search" placeholder="Search archive..." class="w-full bg-black/50 p-4 rounded-2xl text-xs border border-white/10 outline-none">
-            <button onclick="rjSearch()" class="w-full bg-blue-600 p-3 rounded-xl text-[10px] font-black uppercase">Search Messages</button>
-            <button onclick="viewDeletedLogs()" class="w-full bg-white/5 p-3 rounded-xl text-[10px] font-black uppercase">Evidence Logs</button>
-            <button onclick="launchPiP()" class="w-full bg-purple-600 p-3 rounded-xl text-[10px] font-black uppercase">Launch PiP</button>
+        <div id="rj-only" class="hidden pt-4 border-t border-white/10 space-y-2">
+            <p class="text-[10px] font-bold text-red-500 uppercase">RJ Admin</p>
+            <button onclick="launchPip()" class="w-full bg-blue-600 p-3 rounded-xl text-[10px] font-bold">LAUNCH PiP</button>
         </div>
     </div>
-    <div id="clocks" class="mt-auto pt-6 border-t border-white/5 text-[10px] font-mono opacity-40"></div>
 </div>
 
-<video id="pip-src" autoplay muted playsinline class="hidden"></video>
-<canvas id="pip-canvas" width="400" height="250" class="hidden"></canvas>
+<div id="vault-modal" class="modal">
+    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold">Vault</h2><button onclick="closeModal('vault-modal')">CLOSE</button></div>
+    <div id="vault-list" class="space-y-4"></div>
+</div>
+
+<div id="overlay" onclick="toggleSidebar(false)" class="hidden fixed inset-0 bg-black/80 z-[3000]"></div>
 
 <script>
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
-    
-    let me, you, chatChannel, mediaRecorder, audioChunks = [], stagedFiles = [], unread = 0, lastTwo = [], flashTimer = 0, replyId = null, partnerData = null;
-    let messagesList = [], pageOffset = 0;
-    const PAGE_SIZE = 40;
-    const AGORA_APP_ID = "4f6c6c2002784152a8366dec12f1b4c0";
-    let rtc = { client: null, localVideoTrack: null, localAudioTrack: null };
+
+    let me, you, channel, recorder, chunks = [], staged = [], replyId = null;
+    let msgs = [];
 
     async function init() {
-        // Fix: Clear possible bad cache
-        const code = localStorage.getItem('chat_secret_code') || prompt("Enter Access Code:");
-        
+        const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
         const { data: user, error } = await _db.from('chat_codes').select('*').eq('code', code).single();
-
-        if(error || !user) {
-            alert("Invalid Access Code");
-            localStorage.removeItem('chat_secret_code');
-            location.reload();
-            return;
-        }
         
+        if(error || !user) {
+            alert("Wrong code");
+            localStorage.removeItem('chat_secret_code');
+            return location.reload();
+        }
+
         me = user.username; you = (me === 'RJ' ? 'Allyvia' : 'RJ');
         localStorage.setItem('chat_secret_code', code);
-        document.getElementById('partner-name').textContent = you;
-        if(me === 'RJ') document.getElementById('rj-suite').classList.remove('hidden');
-        if(user.theme_pref) applyTheme(user.theme_pref);
+        document.getElementById('display-name').textContent = you;
+        if(me === 'RJ') document.getElementById('rj-only').classList.remove('hidden');
 
-        chatChannel = _db.channel('chat-v16-gold');
-        chatChannel
-            .on('broadcast', { event: 'theme' }, p => applyTheme(p.payload.theme))
-            .on('broadcast', { event: 'refresh' }, () => fetchRecent())
-            .on('broadcast', { event: 'typing' }, p => {
-                document.getElementById('live-preview').textContent = p.payload.text ? `${you} is typing...` : "";
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => fetchRecent(true))
-            .subscribe();
+        channel = _db.channel('chat-v17');
+        channel.on('broadcast', { event: 'refresh' }, () => fetchMsgs())
+               .on('broadcast', { event: 'theme' }, p => applyTheme(p.payload.t))
+               .on('broadcast', { event: 'typing' }, p => {
+                    document.getElementById('typing-status').textContent = p.payload.on ? `${you} is typing...` : "";
+               }).subscribe();
 
-        loadMessages(true);
-        refreshPartnerStatus();
-        setInterval(refreshPartnerStatus, 10000);
-        updateDaysCounter();
-        setInterval(updateClocks, 1000);
-        setInterval(drawPiP, 250);
+        fetchMsgs();
+        updateDays();
         setupVoice();
+        
+        // Instant Realtime
+        _db.channel('db-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => fetchMsgs()).subscribe();
     }
 
-    async function refreshPartnerStatus() {
-        const { data } = await _db.from('chat_codes').select('*').eq('username', you).single();
-        if(data) {
-            partnerData = data;
-            document.getElementById('partner-mood').textContent = data.mood || '';
-            if(data.status_media) document.getElementById('partner-name').classList.add('text-rose-500');
-        }
+    async function fetchMsgs() {
+        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(50);
+        msgs = data.reverse();
+        render();
     }
 
-    async function updateMood(m) {
-        await _db.from('chat_codes').update({ mood: m }).eq('username', me);
-        refreshPartnerStatus();
-    }
-
-    async function loadMessages(initial = false, customQuery = null) {
-        if(initial) { pageOffset = 0; messagesList = []; }
-        let query = customQuery || _db.from('private_messages').select('*').order('created_at', { ascending: false }).range(pageOffset, pageOffset + PAGE_SIZE - 1);
-        const { data } = await query;
-        messagesList = initial ? data : [...messagesList, ...data];
-        renderChat();
-    }
-
-    function renderChat() {
-        const sorted = [...messagesList].sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
-        lastTwo = sorted.slice(-2);
-        let html = '';
-        sorted.forEach(m => {
+    function render() {
+        const container = document.getElementById('messages');
+        container.innerHTML = msgs.map(m => {
             const isMe = m.sender === me;
-            const urls = m.file_url ? m.file_url.split(',') : [];
-            let mediaHTML = urls.map(u => u.includes('.webm') ? `<audio src="${u}" controls class="w-full mt-2"></audio>` : `<img src="${u}" class="rounded-2xl mb-2 w-full max-h-72 object-contain" onclick="expandMedia('${u}')">`).join('');
+            const files = m.file_url ? m.file_url.split(',') : [];
+            const media = files.map(u => u.includes('.webm') ? `<audio src="${u}" controls class="w-full mt-2"></audio>` : `<img src="${u}" class="rounded-lg mb-2 max-h-60 w-full object-cover">`).join('');
             
-            html += `<div class="msg-wrap ${isMe ? 'row-me' : 'row-you'}">
-                <div class="bubble ${isMe ? 'me' : 'you'}" ondblclick="handleReactionPrompt('${m.id}')">
-                    ${mediaHTML}<div class="whitespace-pre-wrap">${m.message || ''}</div>
-                    <span class="ts-inside">${new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            return `<div class="msg-wrap ${isMe ? 'items-end' : 'items-start'} flex flex-col w-full">
+                <div class="bubble ${isMe ? 'me' : 'you'}" ondblclick="starMsg('${m.id}')" onclick="setReply('${m.id}', '${(m.message || 'Media').substring(0,20)}')">
+                    ${media}
+                    <div class="whitespace-pre-wrap">${m.message || ''}</div>
+                    <div class="ts">${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
                     ${m.reaction ? `<div class="reaction-tag">${m.reaction}</div>` : ''}
                 </div>
-                <div class="msg-tools">
-                    <span class="tool-btn" onclick="setReply('${m.id}', '${(m.message || "Media").substring(0,20)}')">Reply</span>
-                    ${isMe ? `<span class="tool-btn !text-red-500/50" onclick="deleteMessage('${m.id}')">Delete</span>` : ''}
-                </div>
             </div>`;
-        });
-        document.getElementById('messages').innerHTML = html;
-        const container = document.getElementById('messages');
+        }).join('');
         container.scrollTop = container.scrollHeight;
     }
 
-    async function handleReactionPrompt(id) {
-        const r = prompt("React/Star note:");
-        if(r === null) return;
-        await _db.from('private_messages').update({ reaction: r, is_starred: true }).eq('id', id);
-        fetchRecent(true);
-    }
+    async function send() {
+        const input = document.getElementById('msg-input');
+        const text = input.value.trim();
+        if(!text && !staged.length) return;
 
-    async function deleteMessage(id) {
-        const msg = messagesList.find(m => m.id === id);
-        if(!confirm("Delete for both?")) return;
-        await _db.from('deleted_logs').insert([{ original_sender: msg.sender, content: msg.message || "[Media]", deleted_at: new Date() }]);
-        await _db.from('private_messages').delete().eq('id', id);
-        chatChannel.send({ type: 'broadcast', event: 'refresh' });
-    }
-
-    async function sendMsg(txt) {
-        if(!txt.trim() && !stagedFiles.length) return;
-        const files = [...stagedFiles]; stagedFiles = []; renderStaging(); cancelReply();
-        document.getElementById('msg-input').value = "";
         let urls = [];
-        for(let f of files) {
-            const name = `chat/${Date.now()}_${Math.random().toString(36).slice(2,5)}`;
-            await _db.storage.from('chat-files').upload(name, f.file);
-            urls.push(_db.storage.from('chat-files').getPublicUrl(name).data.publicUrl);
+        for(let f of staged) {
+            const path = `uploads/${Date.now()}_${f.name}`;
+            await _db.storage.from('chat-files').upload(path, f);
+            urls.push(_db.storage.from('chat-files').getPublicUrl(path).data.publicUrl);
         }
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: txt.trim(), file_url: urls.join(','), reply_to: replyId }]);
-        chatChannel.send({ type: 'broadcast', event: 'refresh' });
+
+        await _db.from('private_messages').insert([{
+            sender: me, receiver: you, message: text, 
+            file_url: urls.join(','), reply_to: replyId
+        }]);
+
+        input.value = ""; staged = []; replyId = null;
+        document.getElementById('staged-previews').innerHTML = "";
+        document.getElementById('reply-preview').classList.add('hidden');
+        channel.send({ type: 'broadcast', event: 'refresh' });
+        fetchMsgs();
     }
 
     function setupVoice() {
         const btn = document.getElementById('voice-btn');
         btn.onmousedown = async () => {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream); audioChunks = [];
-            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-            mediaRecorder.onstop = async () => {
-                const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                const n = `voice/${Date.now()}.webm`;
-                await _db.storage.from('chat-files').upload(n, blob);
-                const url = _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl;
+            recorder = new MediaRecorder(stream);
+            chunks = [];
+            recorder.ondataavailable = e => chunks.push(e.data);
+            recorder.onstop = async () => {
+                const blob = new Blob(chunks, { type: 'audio/webm' });
+                const path = `voice/${Date.now()}.webm`;
+                await _db.storage.from('chat-files').upload(path, blob);
+                const url = _db.storage.from('chat-files').getPublicUrl(path).data.publicUrl;
                 await _db.from('private_messages').insert([{ sender: me, receiver: you, file_url: url }]);
-                chatChannel.send({ type: 'broadcast', event: 'refresh' });
+                channel.send({ type: 'broadcast', event: 'refresh' });
             };
-            mediaRecorder.start(); btn.classList.add('rec-pulse');
+            recorder.start();
+            btn.classList.add('rec-active');
         };
-        btn.onmouseup = () => { mediaRecorder?.stop(); btn.classList.remove('rec-pulse'); };
+        btn.onmouseup = () => { recorder?.stop(); btn.classList.remove('rec-active'); };
     }
 
-    async function initCall(video) {
-        rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-        document.getElementById('video-grid').classList.remove('hidden');
-        await rtc.client.join(AGORA_APP_ID, "main", null, null);
-        rtc.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-        if(video) {
-            rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
-            rtc.localVideoTrack.play("local-video");
-            await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack]);
-        } else await rtc.client.publish([rtc.localAudioTrack]);
-        rtc.client.on("user-published", async (u, t) => {
-            await rtc.client.subscribe(u, t);
-            if(t === "video") u.videoTrack.play("remote-video");
-            if(t === "audio") u.audioTrack.play();
-        });
+    async function starMsg(id) {
+        const r = prompt("Star this message with a note/emoji:");
+        if(!r) return;
+        await _db.from('private_messages').update({ reaction: r, is_starred: true }).eq('id', id);
+        fetchMsgs();
     }
 
-    function setGlobalTheme(t) {
+    function setTheme(t) {
         applyTheme(t);
-        chatChannel.send({ type: 'broadcast', event: 'theme', payload: { theme: t } });
+        channel.send({ type: 'broadcast', event: 'theme', payload: { t } });
         _db.from('chat_codes').update({ theme_pref: t }).eq('username', 'RJ');
     }
     function applyTheme(t) { document.body.className = `theme-${t}`; }
-    function openSidebar() { document.getElementById('sidebar').style.left = '0'; document.getElementById('overlay-bg').classList.remove('hidden'); }
-    function closeSidebar() { document.getElementById('sidebar').style.left = '-320px'; document.getElementById('overlay-bg').classList.add('hidden'); }
-    function setReply(id, text) { replyId = id; document.getElementById('reply-text').textContent = text; document.getElementById('reply-box').classList.remove('hidden'); }
-    function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
+
+    function handleFiles(el) {
+        staged = Array.from(el.files);
+        document.getElementById('staged-previews').innerHTML = staged.map(f => `<div class="text-[10px] bg-white/10 px-2 py-1 rounded">📎 ${f.name.substring(0,10)}</div>`).join('');
+    }
+
+    function setReply(id, text) {
+        replyId = id;
+        document.getElementById('reply-preview-text').textContent = "Replying: " + text;
+        document.getElementById('reply-preview').classList.remove('hidden');
+    }
+    function cancelReply() { replyId = null; document.getElementById('reply-preview').classList.add('hidden'); }
+
+    function toggleSidebar(on) {
+        document.getElementById('sidebar').style.left = on ? '0' : '-300px';
+        document.getElementById('overlay').classList.toggle('hidden', !on);
+    }
+
+    async function showVault() {
+        document.getElementById('vault-modal').style.display = 'block';
+        const { data } = await _db.from('private_messages').select('*').eq('is_starred', true);
+        document.getElementById('vault-list').innerHTML = data.map(m => `<div class="p-4 bg-white/5 rounded-xl border border-white/10"><p class="text-sm">${m.message || '[Media]'}</p><p class="text-[10px] text-pink-500 font-bold mt-2">⭐ ${m.reaction}</p></div>`).join('');
+    }
+
+    function shareLoc() {
+        navigator.geolocation.getCurrentPosition(p => {
+            const url = `https://www.google.com/maps?q=${p.coords.latitude},${p.coords.longitude}`;
+            document.getElementById('msg-input').value = "📍 My Location: " + url;
+            send();
+            toggleSidebar(false);
+        });
+    }
+
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-    function updateDaysCounter() { document.getElementById('days-counter').textContent = Math.floor((new Date() - new Date('2025-11-24')) / 86400000); }
-    function updateClocks() { const opts = { hour: '2-digit', minute: '2-digit', hour12: true }; document.getElementById('clocks').innerHTML = `BNE: ${new Date().toLocaleTimeString('en-US', { ...opts, timeZone: 'Australia/Brisbane' })}<br>IRB: ${new Date().toLocaleTimeString('en-US', { ...opts, timeZone: 'Asia/Amman' })}`; }
-    
-    document.getElementById('chat-form').onsubmit = e => { e.preventDefault(); sendMsg(document.getElementById('msg-input').value); };
-    document.getElementById('msg-input').oninput = e => chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: e.target.value } });
-    
+    function updateDays() { document.getElementById('days-count').textContent = Math.floor((new Date() - new Date('2025-11-24')) / 86400000); }
+
+    document.getElementById('chat-form').onsubmit = e => { e.preventDefault(); send(); };
+    document.getElementById('msg-input').oninput = e => channel.send({ type: 'broadcast', event: 'typing', payload: { on: e.target.value.length > 0 } });
+
     init();
 </script>
 </body>
