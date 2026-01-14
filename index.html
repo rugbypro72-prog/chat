@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v18.0 - FULL SYSTEM</title>
+    <title>Chat Master v19.0 PLATINUM</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
@@ -13,275 +13,352 @@
         .theme-chill { --bg: #0f172a; --me: #1e293b; --you: #334155; --accent: #0ea5e9; }
         .theme-midnight { --bg: #000000; --me: #111111; --you: #1a1a1a; --accent: #a855f7; }
 
-        body { background: var(--bg); color: #f1f5f9; font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; margin: 0; transition: 0.5s; }
+        body { background: var(--bg); color: #f1f5f9; font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; margin: 0; transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
         #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; position: relative; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; scroll-behavior: smooth; }
         
-        /* Message Bubbles */
-        .msg-container { display: flex; flex-direction: column; width: 100%; position: relative; }
-        .bubble { max-width: 80%; padding: 12px 14px 28px 14px; font-size: 15px; border-radius: 22px; position: relative; border: 1px solid rgba(255,255,255,0.05); cursor: pointer; }
+        /* MESSAGES & SCROLL */
+        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 24px; scroll-behavior: smooth; }
+        .msg-container { display: flex; flex-direction: column; width: 100%; position: relative; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .bubble { max-width: 85%; padding: 12px 14px 28px 14px; font-size: 15px; border-radius: 22px; position: relative; border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); }
         .me { background: var(--me); align-self: flex-end; border-bottom-right-radius: 4px; }
         .you { background: var(--you); align-self: flex-start; border-bottom-left-radius: 4px; }
-        .ts { position: absolute; bottom: 8px; right: 14px; font-size: 9px; opacity: 0.4; }
         
-        /* Tooltip Controls */
-        .msg-controls { display: flex; gap: 10px; margin-top: 5px; opacity: 0; transition: 0.2s; }
-        .msg-container:hover .msg-controls { opacity: 1; }
-        .control-btn { font-size: 10px; font-weight: bold; color: var(--accent); cursor: pointer; text-transform: uppercase; }
+        /* REACTION PICKER */
+        #emoji-picker { display: none; position: fixed; background: #1e293b; border: 1px solid rgba(255,255,255,0.1); border-radius: 50px; padding: 5px 15px; z-index: 10000; box-shadow: 0 10px 25px rgba(0,0,0,0.5); gap: 10px; animation: pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes pop { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .emoji-opt { cursor: pointer; font-size: 20px; transition: transform 0.2s; }
+        .emoji-opt:hover { transform: scale(1.3); }
 
-        .reaction-badge { position: absolute; bottom: -12px; right: 10px; background: var(--accent); color: white; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: bold; border: 2px solid var(--bg); }
-        .reply-ref { border-left: 2px solid var(--accent); padding-left: 8px; margin-bottom: 6px; font-size: 11px; opacity: 0.6; font-style: italic; }
+        /* REACTION TAGS */
+        .reaction-tag { position: absolute; bottom: -12px; right: 10px; background: var(--accent); color: white; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 900; border: 2px solid var(--bg); transition: 0.3s; }
+        .ts { position: absolute; bottom: 8px; right: 14px; font-size: 9px; opacity: 0.4; font-weight: bold; }
 
-        /* Modals */
-        .full-modal { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 9999; padding: 20px; overflow-y: auto; }
-        .rec-pulse { color: #f43f5e !important; animation: blink 1s infinite; }
-        @keyframes blink { 50% { opacity: 0.4; } }
+        /* STORY VIEWER */
+        #story-viewer { display: none; position: fixed; inset: 0; background: black; z-index: 9000; flex-direction: column; align-items: center; justify-content: center; }
+        .story-progress { position: absolute; top: 20px; left: 10px; right: 10px; height: 3px; background: rgba(255,255,255,0.2); border-radius: 10px; overflow: hidden; }
+        .story-bar { height: 100%; background: white; width: 0%; }
 
-        /* Media Previews */
-        .staging-img { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; }
-        #sidebar { transition: 0.3s ease; z-index: 5000; }
+        /* TOOLS */
+        .msg-tools { display: flex; gap: 12px; margin-top: 6px; padding: 0 10px; opacity: 0; transition: 0.2s; }
+        .msg-container:hover .msg-tools { opacity: 1; }
+        .tool-btn { font-size: 9px; font-weight: 900; color: var(--accent); cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+
+        .loader { width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="theme-chill">
 
+<div id="emoji-picker">
+    <span class="emoji-opt" onclick="applyEmoji('❤️')">❤️</span>
+    <span class="emoji-opt" onclick="applyEmoji('😂')">😂</span>
+    <span class="emoji-opt" onclick="applyEmoji('🔥')">🔥</span>
+    <span class="emoji-opt" onclick="applyEmoji('😮')">😮</span>
+    <span class="emoji-opt" onclick="applyEmoji('😢')">😢</span>
+    <span class="emoji-opt" onclick="applyEmoji('custom')">✏️</span>
+</div>
+
+<div id="story-viewer" onclick="this.style.display='none'">
+    <div class="story-progress"><div id="story-bar" class="story-bar"></div></div>
+    <div id="story-content" class="w-full h-full flex items-center justify-center p-4"></div>
+</div>
+
 <div id="chat-main">
-    <header class="p-4 border-b border-white/5 flex justify-between items-center bg-black/40 backdrop-blur-md">
-        <div class="flex items-center gap-3">
-            <button onclick="openMenu()" class="text-2xl">☰</button>
-            <div>
-                <div id="user-header" class="font-bold text-lg">Partner</div>
-                <div id="typing-tag" class="text-[10px] text-blue-400 font-bold h-3"></div>
+    <header class="p-5 border-b border-white/5 flex items-center justify-between bg-black/30 backdrop-blur-xl z-[100]">
+        <div class="flex items-center gap-4">
+            <button onclick="toggleSidebar(true)" class="text-2xl hover:scale-110 transition">☰</button>
+            <div onclick="viewPartnerStory()" class="cursor-pointer group">
+                <div id="header-name" class="font-black text-xl tracking-tighter group-hover:text-blue-400 transition">...</div>
+                <div id="typing-ui" class="text-[9px] text-blue-400 font-bold uppercase h-3 tracking-widest"></div>
             </div>
         </div>
         <div class="flex gap-2">
-            <button onclick="startCall(false)" class="bg-white/5 p-2 px-3 rounded-full text-[10px] font-bold">VOICE</button>
-            <button onclick="startCall(true)" class="bg-blue-600 p-2 px-3 rounded-full text-[10px] font-bold">VIDEO</button>
+            <button onclick="startCall(false)" class="px-4 py-2 bg-white/5 rounded-full text-[10px] font-black border border-white/10 hover:bg-white/10">AUDIO</button>
+            <button onclick="startCall(true)" class="px-4 py-2 bg-blue-600 rounded-full text-[10px] font-black shadow-lg shadow-blue-600/30">VIDEO</button>
         </div>
     </header>
 
-    <main id="messages"></main>
+    <main id="messages" class="no-scrollbar"></main>
 
-    <footer class="p-4 bg-black/60">
-        <div id="reply-preview" class="hidden bg-white/5 p-3 rounded-t-xl border-l-4 border-blue-500 flex justify-between">
-            <span id="reply-preview-text" class="text-xs italic opacity-70"></span>
-            <button onclick="cancelReply()">×</button>
+    <footer class="p-4 bg-black/40 border-t border-white/5">
+        <div id="reply-box" class="hidden bg-blue-600/10 p-3 rounded-t-2xl border-l-4 border-blue-600 flex justify-between items-center mb-[-5px] pb-5">
+            <div class="text-[11px]"><span class="font-bold text-blue-400 block uppercase text-[9px]">Replying to</span><span id="reply-txt" class="italic opacity-70"></span></div>
+            <button onclick="cancelReply()" class="p-2">✕</button>
         </div>
-        <div id="staging" class="flex gap-2 mb-2"></div>
-        <form id="chat-form" class="flex items-center bg-white/5 rounded-full p-1 border border-white/10">
-            <label class="p-3 cursor-pointer opacity-40 hover:opacity-100">📎<input type="file" id="file-picker" class="hidden" multiple onchange="stageFiles(this)"></label>
-            <input id="chat-input" placeholder="Aa" class="flex-1 bg-transparent py-3 px-2 outline-none text-sm">
-            <button type="button" id="voice-trigger" class="p-2 text-2xl">🎙️</button>
-            <button type="submit" class="bg-blue-600 px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest">Send</button>
+        <div id="staged-area" class="flex gap-2 overflow-x-auto no-scrollbar mb-2"></div>
+        <form id="chat-form" class="flex items-center bg-white/5 border border-white/10 rounded-full p-1 pl-5 shadow-2xl focus-within:border-blue-500/50 transition">
+            <label class="cursor-pointer opacity-40 hover:opacity-100 transition p-2">📎<input type="file" id="media-input" class="hidden" multiple onchange="processMedia(this)"></label>
+            <input id="chat-input" placeholder="Type a message..." autocomplete="off" class="flex-1 bg-transparent py-3 px-2 text-sm outline-none">
+            <button type="button" id="voice-trigger" class="p-2 text-2xl transition-all duration-300">🎙️</button>
+            <button type="submit" class="bg-blue-600 text-white font-black px-7 py-3 rounded-full text-[10px] tracking-widest uppercase">Send</button>
         </form>
     </footer>
 </div>
 
-<div id="sidebar" class="fixed left-[-320px] top-0 bottom-0 w-[300px] bg-[#05070a] p-8 border-r border-white/5 shadow-2xl overflow-y-auto">
-    <div class="bg-pink-600/10 p-6 rounded-3xl text-center border border-pink-500/20 mb-6">
-        <div id="days-val" class="text-5xl font-black">0</div>
-        <div class="text-[10px] uppercase opacity-40 font-bold mt-1">Days Together</div>
+<div id="sidebar" class="fixed left-[-320px] top-0 bottom-0 w-[300px] bg-[#05070a] p-8 border-r border-white/5 shadow-2xl z-[5000] flex flex-col">
+    <div class="bg-gradient-to-br from-blue-600/20 to-purple-600/10 rounded-[2rem] p-8 mb-8 text-center border border-white/10">
+        <h1 id="days-counter" class="text-6xl font-black italic tracking-tighter">0</h1>
+        <p class="text-[10px] font-bold opacity-40 uppercase tracking-[0.2em] mt-2">Days of Us</p>
     </div>
 
-    <div class="space-y-4">
-        <button onclick="openVault()" class="w-full text-left p-5 bg-white/5 rounded-2xl font-bold flex justify-between">Vault <span>⭐</span></button>
-        <button onclick="sendMyLoc()" class="w-full text-left p-5 bg-green-500/10 text-green-400 rounded-2xl font-bold">Share Location 📍</button>
+    <div class="flex-1 space-y-4 overflow-y-auto no-scrollbar">
+        <button onclick="openVault()" class="w-full text-left p-5 bg-white/5 rounded-2xl font-bold flex justify-between items-center hover:bg-white/10"><span>⭐ Starred Vault</span> <span>→</span></button>
         
-        <div class="p-5 bg-white/5 rounded-2xl">
-            <p class="text-[10px] font-black opacity-30 uppercase mb-3">Themes</p>
-            <div class="grid grid-cols-3 gap-2">
-                <button onclick="setTheme('romantic')" class="h-10 bg-rose-900 rounded-lg">❤️</button>
-                <button onclick="setTheme('chill')" class="h-10 bg-slate-800 rounded-lg">❄️</button>
-                <button onclick="setTheme('midnight')" class="h-10 bg-black rounded-lg border border-white/10">🌌</button>
+        <div class="p-5 bg-white/5 rounded-2xl space-y-4">
+            <p class="text-[10px] font-black opacity-30 uppercase tracking-widest">Global Vibe</p>
+            <div class="grid grid-cols-3 gap-3">
+                <button onclick="updateTheme('romantic')" class="h-12 bg-rose-900 rounded-xl hover:scale-105 transition">❤️</button>
+                <button onclick="updateTheme('chill')" class="h-12 bg-slate-800 rounded-xl hover:scale-105 transition">❄️</button>
+                <button onclick="updateTheme('midnight')" class="h-12 bg-black rounded-xl border border-white/20 hover:scale-105 transition">🌌</button>
             </div>
         </div>
 
-        <div id="rj-suite" class="hidden pt-6 border-t border-white/10 space-y-3">
-            <p class="text-[10px] font-bold text-red-500 uppercase">RJ Exclusive Suite</p>
-            <input type="text" id="search-box" placeholder="Search records..." class="w-full bg-black p-4 rounded-xl text-xs border border-white/10 outline-none">
-            <button onclick="runSearch()" class="w-full bg-blue-600 p-3 rounded-xl text-[10px] font-bold">SEARCH</button>
-            <button onclick="showLogs()" class="w-full bg-white/5 p-3 rounded-xl text-[10px] font-bold">EVIDENCE LOGS</button>
+        <div class="p-5 bg-white/5 rounded-2xl">
+            <p class="text-[10px] font-black opacity-30 uppercase tracking-widest mb-3">Update My Story</p>
+            <label class="block w-full text-center p-3 bg-blue-600/20 text-blue-400 rounded-xl text-[10px] font-black cursor-pointer uppercase">Upload Status<input type="file" class="hidden" onchange="uploadStory(this)"></label>
+        </div>
+
+        <div id="admin-suite" class="hidden pt-6 mt-6 border-t border-white/10 space-y-3">
+            <p class="text-[10px] font-black text-red-500 uppercase">RJ OVERRIDE</p>
+            <input type="text" id="admin-search" placeholder="Deep Search Archive..." class="w-full bg-black/50 p-4 rounded-2xl text-xs border border-white/10 outline-none">
+            <button onclick="runAdminSearch()" class="w-full bg-blue-600 p-4 rounded-2xl text-[10px] font-black uppercase shadow-lg">Run Search</button>
+            <button onclick="viewEvidence()" class="w-full bg-white/5 p-4 rounded-2xl text-[10px] font-black uppercase">View Deleted Logs</button>
         </div>
     </div>
 </div>
 
-<div id="vault-modal" class="full-modal">
-    <div class="flex justify-between items-center mb-8"><h2 class="text-3xl font-black italic">VAULT</h2><button onclick="closeModal('vault-modal')" class="font-bold">CLOSE</button></div>
-    <div id="vault-items" class="space-y-4"></div>
-</div>
-
-<div id="overlay" onclick="closeMenu()" class="hidden fixed inset-0 bg-black/80 z-[4000]"></div>
+<div id="overlay" onclick="toggleSidebar(false)" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm z-[4000]"></div>
 
 <script>
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
 
-    let me, you, channel, recorder, audioChunks = [], stagedFiles = [], replyId = null, msgs = [];
+    let me, you, channel, recorder, chunks = [], staged = [], replyId = null, activeMsgId = null;
+    let messagesList = [], partnerStatus = null;
 
     async function init() {
-        const code = localStorage.getItem('chat_secret_code') || prompt("Enter Access Code:");
+        const code = localStorage.getItem('chat_secret_code') || prompt("Enter System Access Code:");
         const { data: user, error } = await _db.from('chat_codes').select('*').eq('code', code).single();
         
         if(error || !user) {
-            alert("Auth Failed");
+            alert("SECURITY BREACH: Invalid Code");
             localStorage.removeItem('chat_secret_code');
             return location.reload();
         }
 
-        me = user.username; 
-        you = (me === 'RJ' ? 'Allyvia' : 'RJ');
+        me = user.username; you = (me === 'RJ' ? 'Allyvia' : 'RJ');
         localStorage.setItem('chat_secret_code', code);
-        document.getElementById('user-header').textContent = you;
-        if(me === 'RJ') document.getElementById('rj-suite').classList.remove('hidden');
-
-        // Apply saved theme
+        document.getElementById('header-name').textContent = you;
+        if(me === 'RJ') document.getElementById('admin-suite').classList.remove('hidden');
         if(user.theme_pref) applyTheme(user.theme_pref);
 
-        // REALTIME CHANNELS
-        channel = _db.channel('master-stream');
-        channel
-            .on('broadcast', { event: 'refresh' }, () => loadChat())
-            .on('broadcast', { event: 'theme' }, p => applyTheme(p.payload.t))
-            .on('broadcast', { event: 'typing' }, p => {
-                document.getElementById('typing-tag').textContent = p.payload.on ? `${you} is typing...` : "";
-            })
-            .subscribe();
+        channel = _db.channel('v19-core');
+        channel.on('broadcast', { event: 'refresh' }, () => syncChat())
+               .on('broadcast', { event: 'theme' }, p => applyTheme(p.payload.t))
+               .on('broadcast', { event: 'typing' }, p => {
+                    document.getElementById('typing-ui').textContent = p.payload.on ? `${you} is typing...` : "";
+               }).subscribe();
 
-        _db.channel('db-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadChat()).subscribe();
+        // Database listener for real-time
+        _db.channel('db').on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => syncChat()).subscribe();
 
-        loadChat();
+        syncChat();
+        getPartnerData();
         updateDays();
-        setupAudioRecorder();
+        setupVoice();
+        setInterval(getPartnerData, 30000);
     }
 
-    async function loadChat(queryOverride = null) {
-        let q = queryOverride || _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(40);
+    // --- ADVANCED CANVAS COMPRESSION ---
+    async function compress(file) {
+        if(!file.type.startsWith('image/')) return file;
+        return new Promise(resolve => {
+            const reader = new FileReader(); reader.readAsDataURL(file);
+            reader.onload = e => {
+                const img = new Image(); img.src = e.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let w = img.width, h = img.height, MAX = 1200;
+                    if (w > h && w > MAX) { h *= MAX/w; w = MAX; }
+                    else if (h > MAX) { w *= MAX/h; h = MAX; }
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    canvas.toBlob(b => resolve(b), 'image/jpeg', 0.8);
+                };
+            };
+        });
+    }
+
+    async function syncChat(customQ = null) {
+        let q = customQ || _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(50);
         const { data } = await q;
-        msgs = data.reverse();
-        render();
+        messagesList = data.reverse();
+        renderChat();
     }
 
-    function render() {
+    function renderChat() {
         const list = document.getElementById('messages');
-        list.innerHTML = msgs.map(m => {
+        const isAtBottom = list.scrollHeight - list.scrollTop <= list.clientHeight + 100;
+        
+        list.innerHTML = messagesList.map(m => {
             const isMe = m.sender === me;
-            const files = m.file_url ? m.file_url.split(',') : [];
-            const mediaHTML = files.map(u => u.includes('.webm') ? `<audio src="${u}" controls class="w-full mt-2"></audio>` : `<img src="${u}" class="rounded-xl mt-2 w-full max-h-64 object-cover">`).join('');
+            const urls = m.file_url ? m.file_url.split(',') : [];
+            const media = urls.map(u => u.includes('.webm') ? `<audio src="${u}" controls class="w-full mt-2"></audio>` : `<img src="${u}" class="rounded-2xl mt-2 w-full max-h-80 object-cover bg-white/5" onload="scrollCheck()">`).join('');
             
-            let replyHTML = '';
+            let replyInfo = "";
             if(m.reply_to) {
-                const orig = msgs.find(x => x.id === m.reply_to);
-                replyHTML = `<div class="reply-ref">Replying to: ${orig ? (orig.message || 'Media') : 'Deleted Message'}</div>`;
+                const parent = messagesList.find(p => p.id === m.reply_to);
+                replyInfo = `<div class="text-[10px] opacity-40 italic mb-1 border-l-2 border-white/20 pl-2 truncate">Replying to: ${parent ? parent.message : 'Deleted'}</div>`;
             }
 
             return `
             <div class="msg-container ${isMe ? 'items-end' : 'items-start'}">
-                <div class="bubble ${isMe ? 'me' : 'you'}" ondblclick="reactPrompt('${m.id}')">
-                    ${replyHTML}
-                    ${mediaHTML}
-                    <div class="whitespace-pre-wrap">${m.message || ''}</div>
+                <div class="bubble ${isMe ? 'me' : 'you'}" ondblclick="showEmojis(event, '${m.id}')">
+                    ${replyInfo}${media}
+                    <div class="whitespace-pre-wrap leading-relaxed">${m.message || ''}</div>
                     <div class="ts">${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
-                    ${m.reaction ? `<div class="reaction-badge">${m.reaction}</div>` : ''}
+                    ${m.reaction ? `<div class="reaction-tag">${m.reaction}</div>` : ''}
                 </div>
-                <div class="msg-controls">
-                    <span class="control-btn" onclick="triggerReply('${m.id}', '${(m.message || 'Media').replace(/'/g,"")}')">Reply</span>
-                    ${isMe ? `<span class="control-btn !text-red-500" onclick="deleteMsg('${m.id}')">Delete</span>` : ''}
+                <div class="msg-tools">
+                    <span class="tool-btn" onclick="initReply('${m.id}', '${(m.message || 'Media').replace(/'/g,"")}')">Reply</span>
+                    <span class="tool-btn" onclick="starMsg('${m.id}')">Star</span>
+                    ${isMe ? `<span class="tool-btn !text-red-500/50" onclick="deleteMsg('${m.id}')">Delete</span>` : ''}
                 </div>
             </div>`;
         }).join('');
-        list.scrollTop = list.scrollHeight;
+        if(isAtBottom) list.scrollTop = list.scrollHeight;
     }
 
-    async function send() {
-        const input = document.getElementById('chat-input');
-        const text = input.value.trim();
-        if(!text && !stagedFiles.length) return;
+    async function sendMsg() {
+        const inp = document.getElementById('chat-input');
+        const txt = inp.value.trim();
+        if(!txt && !staged.length) return;
+
+        const currentStaged = [...staged]; staged = [];
+        document.getElementById('staged-area').innerHTML = "";
+        inp.value = "";
+        cancelReply();
 
         let urls = [];
-        for(let f of stagedFiles) {
-            const path = `files/${Date.now()}_${f.name}`;
-            await _db.storage.from('chat-files').upload(path, f);
+        for(let f of currentStaged) {
+            const blob = await compress(f);
+            const path = `chat/${Date.now()}_${f.name}`;
+            await _db.storage.from('chat-files').upload(path, blob);
             urls.push(_db.storage.from('chat-files').getPublicUrl(path).data.publicUrl);
         }
 
-        const { error } = await _db.from('private_messages').insert([{
-            sender: me, receiver: you, message: text, 
+        await _db.from('private_messages').insert([{
+            sender: me, receiver: you, message: txt,
             file_url: urls.join(','), reply_to: replyId
         }]);
 
-        if(!error) {
-            input.value = ""; stagedFiles = []; replyId = null;
-            document.getElementById('staging').innerHTML = "";
-            document.getElementById('reply-preview').classList.add('hidden');
-            channel.send({ type: 'broadcast', event: 'refresh' });
-            loadChat();
-        }
+        channel.send({ type: 'broadcast', event: 'refresh' });
     }
 
-    // --- FEATURE LOGIC ---
+    // --- REACTION ENGINE ---
+    function showEmojis(e, id) {
+        e.preventDefault();
+        activeMsgId = id;
+        const p = document.getElementById('emoji-picker');
+        p.style.display = 'flex';
+        p.style.top = `${e.clientY - 50}px`;
+        p.style.left = `${Math.min(e.clientX, window.innerWidth - 200)}px`;
+    }
 
-    function setupAudioRecorder() {
+    async function applyEmoji(e) {
+        const emoji = e === 'custom' ? prompt("Enter custom reaction:") : e;
+        if(!emoji) return;
+        await _db.from('private_messages').update({ reaction: emoji }).eq('id', activeMsgId);
+        document.getElementById('emoji-picker').style.display = 'none';
+        syncChat();
+    }
+
+    // --- STATUS STORIES ---
+    async function uploadStory(el) {
+        const file = el.files[0];
+        const path = `stories/${me}_${Date.now()}`;
+        await _db.storage.from('chat-files').upload(path, file);
+        const url = _db.storage.from('chat-files').getPublicUrl(path).data.publicUrl;
+        await _db.from('chat_codes').update({ 
+            status_media: url, 
+            status_media_type: file.type.includes('video') ? 'video' : 'image' 
+        }).eq('username', me);
+        alert("Story updated! ❤️");
+    }
+
+    async function getPartnerData() {
+        const { data } = await _db.from('chat_codes').select('*').eq('username', you).single();
+        partnerStatus = data;
+        if(data?.status_media) document.getElementById('header-name').classList.add('text-rose-500');
+    }
+
+    function viewPartnerStory() {
+        if(!partnerStatus?.status_media) return;
+        const v = document.getElementById('story-viewer');
+        const c = document.getElementById('story-content');
+        const bar = document.getElementById('story-bar');
+        v.style.display = 'flex';
+        c.innerHTML = partnerStatus.status_media_type === 'video' 
+            ? `<video src="${partnerStatus.status_media}" autoplay class="max-h-full rounded-2xl"></video>`
+            : `<img src="${partnerStatus.status_media}" class="max-h-full rounded-2xl shadow-2xl">`;
+        
+        bar.style.width = '0%';
+        let start = Date.now();
+        let dur = 5000;
+        let iv = setInterval(() => {
+            let elapsed = Date.now() - start;
+            bar.style.width = `${(elapsed / dur) * 100}%`;
+            if(elapsed >= dur) { clearInterval(iv); v.style.display = 'none'; }
+        }, 50);
+    }
+
+    // --- QUALITY OF LIFE ---
+    function setupVoice() {
         const btn = document.getElementById('voice-trigger');
         btn.onmousedown = async () => {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            recorder = new MediaRecorder(stream);
-            audioChunks = [];
-            recorder.ondataavailable = e => audioChunks.push(e.data);
-            recorder.onstop = async () => {
-                const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                const path = `voice/${Date.now()}.webm`;
-                await _db.storage.from('chat-files').upload(path, blob);
-                const url = _db.storage.from('chat-files').getPublicUrl(path).data.publicUrl;
-                await _db.from('private_messages').insert([{ sender: me, receiver: you, file_url: url }]);
-                channel.send({ type: 'broadcast', event: 'refresh' });
-            };
-            recorder.start();
-            btn.classList.add('rec-pulse');
+            try {
+                const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+                recorder = new MediaRecorder(s); chunks = [];
+                recorder.ondataavailable = e => chunks.push(e.data);
+                recorder.onstop = async () => {
+                    const b = new Blob(chunks, { type: 'audio/webm' });
+                    const p = `voice/${Date.now()}.webm`;
+                    await _db.storage.from('chat-files').upload(p, b);
+                    const u = _db.storage.from('chat-files').getPublicUrl(p).data.publicUrl;
+                    await _db.from('private_messages').insert([{ sender: me, receiver: you, file_url: u }]);
+                    channel.send({ type: 'broadcast', event: 'refresh' });
+                };
+                recorder.start(); btn.classList.add('text-red-500', 'scale-125');
+            } catch(e) { alert("Mic Access Denied"); }
         };
-        btn.onmouseup = () => { recorder?.stop(); btn.classList.remove('rec-pulse'); };
-    }
-
-    async function reactPrompt(id) {
-        const r = prompt("Add a star reaction or note:");
-        if(r === null) return;
-        await _db.from('private_messages').update({ reaction: r, is_starred: true }).eq('id', id);
-        loadChat();
+        btn.onmouseup = () => { recorder?.stop(); btn.classList.remove('text-red-500', 'scale-125'); };
     }
 
     async function deleteMsg(id) {
-        const msg = msgs.find(m => m.id === id);
-        if(!confirm("Delete for both? This is logged.")) return;
+        if(!confirm("Erase from history? (Logged)")) return;
+        const msg = messagesList.find(m => m.id === id);
         await _db.from('deleted_logs').insert([{ original_sender: msg.sender, content: msg.message || "[Media]" }]);
         await _db.from('private_messages').delete().eq('id', id);
         channel.send({ type: 'broadcast', event: 'refresh' });
     }
 
-    function triggerReply(id, text) {
-        replyId = id;
-        document.getElementById('reply-preview-text').textContent = "Replying to: " + text.substring(0,30) + "...";
-        document.getElementById('reply-preview').classList.remove('hidden');
-    }
-
-    function setTheme(t) {
-        applyTheme(t);
-        channel.send({ type: 'broadcast', event: 'theme', payload: { t } });
-        _db.from('chat_codes').update({ theme_pref: t }).eq('username', me);
-    }
-
+    function scrollCheck() { const list = document.getElementById('messages'); list.scrollTop = list.scrollHeight; }
+    function processMedia(el) { staged = Array.from(el.files); document.getElementById('staged-area').innerHTML = staged.map(f => `<div class="bg-blue-600/20 px-3 py-1 rounded-full text-[10px] whitespace-nowrap">📎 ${f.name.substring(0,10)}</div>`).join(''); }
+    function initReply(id, text) { replyId = id; document.getElementById('reply-txt').textContent = text; document.getElementById('reply-box').classList.remove('hidden'); }
+    function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
+    function updateTheme(t) { applyTheme(t); _db.from('chat_codes').update({ theme_pref: t }).eq('username', me); channel.send({ type: 'broadcast', event: 'theme', payload: { t } }); }
     function applyTheme(t) { document.body.className = `theme-${t}`; }
-    function openMenu() { document.getElementById('sidebar').style.left = '0'; document.getElementById('overlay').classList.remove('hidden'); }
-    function closeMenu() { document.getElementById('sidebar').style.left = '-320px'; document.getElementById('overlay').classList.add('hidden'); }
-    function stageFiles(el) { stagedFiles = Array.from(el.files); document.getElementById('staging').innerHTML = stagedFiles.map(f => `<div class="bg-blue-600/20 p-1 rounded text-[10px]">📎 ${f.name.substring(0,8)}</div>`).join(''); }
-    function cancelReply() { replyId = null; document.getElementById('reply-preview').classList.add('hidden'); }
-    function updateDays() { document.getElementById('days-val').textContent = Math.floor((new Date() - new Date('2025-11-24')) / 86400000); }
-    function sendMyLoc() { navigator.geolocation.getCurrentPosition(p => { document.getElementById('chat-input').value = `📍 Location: https://www.google.com/maps?q=${p.coords.latitude},${p.coords.longitude}`; send(); closeMenu(); }); }
-    function runSearch() { const t = document.getElementById('search-box').value; loadChat(_db.from('private_messages').select('*').ilike('message', `%${t}%`).order('created_at', { ascending: false })); closeMenu(); }
-    async function openVault() { document.getElementById('vault-modal').style.display = 'block'; const { data } = await _db.from('private_messages').select('*').eq('is_starred', true); document.getElementById('vault-items').innerHTML = data.map(m => `<div class="p-4 bg-white/5 rounded-2xl border border-white/5"><div class="text-[10px] opacity-30">${m.sender}</div>${m.message || '[Media]'}<div class="text-rose-500 font-bold text-xs mt-2">⭐ ${m.reaction}</div></div>`).join(''); }
-    async function showLogs() { document.getElementById('vault-modal').style.display = 'block'; const { data } = await _db.from('deleted_logs').select('*'); document.getElementById('vault-items').innerHTML = data.map(l => `<div class="p-4 bg-red-900/10 rounded-xl border border-red-900/20 text-xs"><b class="text-red-500">${l.original_sender}</b>: ${l.content}</div>`).join(''); }
-    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-
-    document.getElementById('chat-form').onsubmit = e => { e.preventDefault(); send(); };
+    function toggleSidebar(on) { document.getElementById('sidebar').style.left = on ? '0' : '-320px'; document.getElementById('overlay').classList.toggle('hidden', !on); }
+    function updateDays() { document.getElementById('days-counter').textContent = Math.floor((new Date() - new Date('2025-11-24')) / 86400000); }
+    async function openVault() { document.getElementById('story-viewer').style.display = 'flex'; document.getElementById('story-content').innerHTML = '<div class="loader"></div>'; const { data } = await _db.from('private_messages').select('*').eq('is_starred', true); document.getElementById('story-content').innerHTML = `<div class="w-full max-w-md space-y-4 overflow-y-auto max-h-[80vh] p-4">${data.map(m => `<div class="bg-white/10 p-4 rounded-2xl"><b>${m.sender}:</b> ${m.message || '[Media]'}</div>`).join('')}</div>`; }
+    
+    document.getElementById('chat-form').onsubmit = e => { e.preventDefault(); sendMsg(); };
     document.getElementById('chat-input').oninput = e => channel.send({ type: 'broadcast', event: 'typing', payload: { on: e.target.value.length > 0 } });
+    window.onclick = e => { if(!e.target.closest('.bubble') && !e.target.closest('#emoji-picker')) document.getElementById('emoji-picker').style.display = 'none'; };
 
     init();
 </script>
