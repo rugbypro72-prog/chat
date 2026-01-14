@@ -3,79 +3,68 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Chat Master v16.0</title>
+    <title>Chat Master v16.1 GOLD</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
     <style id="theme-engine">
-        :root { --bg: #03050a; --me: #1e293b; --you: #0f172a; --accent: #3b82f6; --font: 'Inter', sans-serif; }
+        :root { --bg: #03050a; --me: #1e293b; --you: #0f172a; --accent: #3b82f6; }
         
-        /* THEME DEFINITIONS */
         .theme-romantic { --bg: #1a0505; --me: #451010; --you: #2d0a0a; --accent: #f43f5e; }
         .theme-chill { --bg: #0f172a; --me: #1e293b; --you: #334155; --accent: #0ea5e9; }
         .theme-midnight { --bg: #000000; --me: #111111; --you: #1a1a1a; --accent: #a855f7; }
 
-        body { background: var(--bg); color: #f1f5f9; font-family: var(--font); height: 100vh; overflow: hidden; margin: 0; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        body { background: var(--bg); color: #f1f5f9; font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; margin: 0; transition: all 0.5s ease; }
         #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; position: relative; }
         
-        /* MESSAGES */
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 18px; scroll-behavior: auto; }
-        .msg-wrap { display: flex; flex-direction: column; width: 100%; position: relative; animation: fadeIn 0.3s ease; }
+        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+        .msg-wrap { display: flex; flex-direction: column; width: 100%; position: relative; animation: fadeIn 0.2s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         
         .row-me { align-items: flex-end; } .row-you { align-items: flex-start; }
-        .bubble { max-width: 85%; padding: 12px 14px 28px 14px; font-size: 15px; border-radius: 22px; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); transition: transform 0.2s; }
+        .bubble { max-width: 85%; padding: 12px 14px 28px 14px; font-size: 15px; border-radius: 22px; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); }
         .me { background: var(--me); border-bottom-right-radius: 4px; }
         .you { background: var(--you); border-bottom-left-radius: 4px; }
         
-        .ts-inside { position: absolute; bottom: 8px; right: 14px; font-size: 9px; opacity: 0.4; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
-        .reaction-tag { position: absolute; bottom: -12px; right: 12px; background: var(--accent); color: white; padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 900; border: 2px solid var(--bg); z-index: 10; shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .ts-inside { position: absolute; bottom: 8px; right: 14px; font-size: 9px; opacity: 0.4; font-weight: 800; text-transform: uppercase; }
+        .reaction-tag { position: absolute; bottom: -12px; right: 12px; background: var(--accent); color: white; padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 900; border: 2px solid var(--bg); z-index: 10; }
         
-        /* TOOLS & OVERLAYS */
-        .msg-tools { display: flex; gap: 15px; margin-top: 5px; padding: 0 10px; opacity: 0; transition: 0.2s; }
+        .msg-tools { display: flex; gap: 12px; margin-top: 4px; padding: 0 8px; opacity: 0; transition: 0.2s; }
         .msg-wrap:hover .msg-tools { opacity: 1; }
-        .tool-btn { font-size: 10px; font-weight: 900; color: var(--accent); cursor: pointer; text-transform: uppercase; }
+        .tool-btn { font-size: 9px; font-weight: 900; color: var(--accent); cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
 
-        .modal-view { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 4000; overflow-y: auto; padding: 25px; animation: modalIn 0.3s ease; }
-        @keyframes modalIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        
-        #story-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.98); z-index: 8000; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
-        .rec-pulse { animation: recPulse 1s infinite; color: #f43f5e !important; transform: scale(1.2); }
+        .modal-view { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 4000; overflow-y: auto; padding: 25px; }
+        .rec-pulse { animation: recPulse 1s infinite; color: #f43f5e !important; }
         @keyframes recPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-
-        /* LOADING SPINNER */
-        .loader { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="theme-chill">
 
-<div id="story-overlay" onclick="this.style.display='none'">
+<div id="story-overlay" onclick="this.style.display='none'" class="hidden fixed inset-0 bg-black/98 z-[8000] items-center justify-center backdrop-blur-xl">
     <div id="story-container" class="relative max-w-lg w-full h-full flex items-center justify-center p-6"></div>
-    <div class="absolute top-10 w-full text-center text-xs font-bold tracking-widest opacity-50 uppercase">Tap anywhere to close</div>
 </div>
 
 <div id="video-grid" class="hidden fixed inset-0 bg-black z-[6000]">
     <div id="remote-video" class="w-full h-full"></div>
-    <div id="local-video" class="absolute top-12 right-6 w-32 h-48 border-2 border-white/20 rounded-3xl overflow-hidden bg-zinc-900 shadow-2xl z-[6001]"></div>
+    <div id="local-video" class="absolute top-12 right-6 w-32 h-48 border-2 border-white/20 rounded-3xl overflow-hidden bg-zinc-900 z-[6001]"></div>
     <div class="absolute bottom-12 left-0 right-0 flex justify-center gap-6 z-[6002]">
-        <button id="btn-mute" onclick="toggleMute()" class="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-2xl">🎤</button>
-        <button onclick="endCall()" class="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center text-2xl shadow-xl">📞</button>
+        <button id="btn-mute" onclick="toggleMute()" class="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-2xl">🎤</button>
+        <button onclick="endCall()" class="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center text-2xl">📞</button>
     </div>
 </div>
 
-<div id="vault-modal" class="modal-view"><div class="flex justify-between items-center mb-8"><h2 class="text-2xl font-black italic">SHARED VAULT</h2><button onclick="closeModal('vault-modal')" class="p-2 opacity-50 font-bold">CLOSE</button></div><div id="vault-content" class="space-y-4 pb-24"></div></div>
-<div id="gallery-modal" class="modal-view"><div class="flex justify-between items-center mb-8"><h2 class="text-2xl font-black italic">GALLERY</h2><button onclick="closeModal('gallery-modal')" class="p-2 opacity-50 font-bold">CLOSE</button></div><div id="gallery-content" class="grid grid-cols-2 gap-3 pb-24"></div></div>
-<div id="logs-modal" class="modal-view"><div class="flex justify-between items-center mb-8"><h2 class="text-2xl font-black italic text-red-500">DELETED LOGS</h2><button onclick="closeModal('logs-modal')" class="p-2 opacity-50 font-bold">CLOSE</button></div><div id="logs-content" class="space-y-4 pb-24"></div></div>
+<div id="vault-modal" class="modal-view"><div class="flex justify-between items-center mb-8"><h2 class="text-2xl font-black italic">SHARED VAULT</h2><button onclick="closeModal('vault-modal')" class="p-2 opacity-50 font-bold uppercase">Close</button></div><div id="vault-content" class="space-y-4 pb-24"></div></div>
+<div id="gallery-modal" class="modal-view"><div class="flex justify-between items-center mb-8"><h2 class="text-2xl font-black italic">GALLERY</h2><button onclick="closeModal('gallery-modal')" class="p-2 opacity-50 font-bold uppercase">Close</button></div><div id="gallery-content" class="grid grid-cols-2 gap-3 pb-24"></div></div>
+<div id="logs-modal" class="modal-view"><div class="flex justify-between items-center mb-8"><h2 class="text-2xl font-black italic text-red-500">DELETED LOGS</h2><button onclick="closeModal('logs-modal')" class="p-2 opacity-50 font-bold uppercase">Close</button></div><div id="logs-content" class="space-y-4 pb-24"></div></div>
 
-<div id="overlay-bg" onclick="closeSidebar()" class="hidden fixed inset-0 bg-black/80 backdrop-blur-xl z-[900]"></div>
+<div id="overlay-bg" onclick="closeSidebar()" class="hidden fixed inset-0 bg-black/80 z-[900]"></div>
 
 <div id="chat-main">
     <header class="p-5 border-b border-white/5 flex items-center justify-between bg-black/20 backdrop-blur-2xl z-[50]">
         <div class="flex items-center gap-4">
-            <button onclick="openSidebar()" class="text-2xl hover:scale-110 transition">☰</button>
-            <div onclick="openPartnerStory()" class="cursor-pointer group">
-                <div class="font-black text-xl tracking-tight group-hover:text-blue-400 transition" id="partner-name">...</div>
+            <button onclick="openSidebar()" class="text-2xl">☰</button>
+            <div onclick="openPartnerStory()" class="cursor-pointer">
+                <div class="font-black text-xl tracking-tight"><span id="partner-name">...</span> <span id="partner-mood" class="text-sm ml-1"></span></div>
                 <div id="live-preview" class="text-[10px] text-blue-400 font-bold h-3 uppercase tracking-tighter"></div>
             </div>
         </div>
@@ -87,7 +76,7 @@
 
     <main id="messages"></main>
 
-    <footer class="p-4 bg-black/40 backdrop-blur-md">
+    <footer class="p-4 bg-black/40">
         <div id="staging-area" class="grid grid-cols-4 gap-2 mb-3"></div>
         <div id="reply-box" class="hidden bg-blue-600/10 p-3 rounded-t-2xl border-l-4 border-blue-600 flex justify-between items-center mb-[-4px] pb-4">
             <div class="text-[11px]"><span class="font-bold text-blue-400 block uppercase text-[9px]">Replying to</span><span id="reply-text" class="italic opacity-80"></span></div>
@@ -96,62 +85,78 @@
         <form id="chat-form" class="flex items-center bg-white/5 border border-white/10 rounded-full p-1 pl-5 shadow-2xl">
             <label class="cursor-pointer opacity-40 hover:opacity-100 transition p-2">📎<input type="file" id="file-input" class="hidden" multiple onchange="handleFileSelect(this)"></label>
             <input id="msg-input" placeholder="Say something..." autocomplete="off" class="flex-1 bg-transparent py-3 px-2 text-sm outline-none font-medium">
-            <button type="button" id="voice-btn" class="p-2 text-2xl outline-none transition-all duration-300">🎙️</button>
-            <button type="submit" class="bg-blue-600 text-white font-black px-6 py-3 rounded-full text-[10px] tracking-widest hover:bg-blue-500 transition">SEND</button>
+            <button type="button" id="voice-btn" class="p-2 text-2xl outline-none">🎙️</button>
+            <button type="submit" class="bg-blue-600 text-white font-black px-6 py-3 rounded-full text-[10px] tracking-widest">SEND</button>
         </form>
     </footer>
 </div>
 
-<div id="sidebar" class="fixed left-[-320px] top-0 bottom-0 w-[300px] bg-[#05070a] p-8 flex flex-col transition-all duration-500 ease-out border-r border-white/5 shadow-2xl">
-    <div class="bg-gradient-to-br from-pink-600/20 to-rose-600/10 border border-white/10 rounded-[2rem] p-7 mb-8 text-center shadow-inner">
-        <p class="text-[10px] font-black text-pink-500 uppercase tracking-[0.2em] mb-2">The Forever Ticker</p>
+<div id="sidebar" class="fixed left-[-320px] top-0 bottom-0 w-[300px] bg-[#05070a] p-8 flex flex-col transition-all duration-500 ease-out border-r border-white/5 shadow-2xl z-[5000]">
+    <div class="bg-gradient-to-br from-pink-600/20 to-rose-600/10 border border-white/10 rounded-[2rem] p-7 mb-8 text-center">
+        <p class="text-[10px] font-black text-pink-500 uppercase tracking-widest mb-2">Days Together</p>
         <h1 id="days-counter" class="text-5xl font-black text-white">0</h1>
-        <p class="text-[10px] opacity-40 mt-1 uppercase">Days Together</p>
     </div>
 
-    <div class="flex-1 space-y-4 overflow-y-auto pr-2">
-        <button onclick="toggleVault()" class="w-full text-left p-5 bg-white/5 rounded-2xl font-bold flex justify-between items-center"><span>⭐ Starred Vault</span> <span class="opacity-20">→</span></button>
-        <button onclick="toggleGallery(true)" class="w-full text-left p-5 bg-white/5 rounded-2xl font-bold flex justify-between items-center"><span>🖼️ Media Gallery</span> <span class="opacity-20">→</span></button>
-        <button onclick="shareLocation()" class="w-full text-left p-5 bg-green-500/10 text-green-400 rounded-2xl font-bold">📍 Send My Location</button>
+    <div class="flex-1 space-y-4 overflow-y-auto">
+        <button onclick="toggleVault()" class="w-full text-left p-5 bg-white/5 rounded-2xl font-bold">⭐ Shared Vault</button>
+        <button onclick="toggleGallery(true)" class="w-full text-left p-5 bg-white/5 rounded-2xl font-bold">🖼️ Media Gallery</button>
         
-        <div class="p-5 bg-white/5 rounded-2xl space-y-4 border border-white/5">
-            <p class="text-[10px] font-black opacity-40 uppercase tracking-widest text-center">Set Global Vibe</p>
-            <div class="grid grid-cols-3 gap-3">
-                <button onclick="setGlobalTheme('romantic')" class="h-12 bg-rose-900 rounded-xl border-2 border-transparent hover:border-rose-500 transition flex items-center justify-center text-lg">❤️</button>
-                <button onclick="setGlobalTheme('chill')" class="h-12 bg-slate-800 rounded-xl border-2 border-transparent hover:border-blue-500 transition flex items-center justify-center text-lg">❄️</button>
-                <button onclick="setGlobalTheme('midnight')" class="h-12 bg-black rounded-xl border-2 border-white/20 hover:border-purple-500 transition flex items-center justify-center text-lg">🌌</button>
+        <div class="p-5 bg-white/5 rounded-2xl space-y-3">
+            <p class="text-[10px] font-black opacity-40 uppercase tracking-widest">Global Vibe</p>
+            <div class="grid grid-cols-3 gap-2">
+                <button onclick="setGlobalTheme('romantic')" class="h-10 bg-rose-900 rounded-lg">❤️</button>
+                <button onclick="setGlobalTheme('chill')" class="h-10 bg-slate-800 rounded-lg">❄️</button>
+                <button onclick="setGlobalTheme('midnight')" class="h-10 bg-black rounded-lg">🌌</button>
+            </div>
+        </div>
+
+        <div class="p-5 bg-white/5 rounded-2xl space-y-3">
+            <p class="text-[10px] font-black opacity-40 uppercase tracking-widest">Your Mood</p>
+            <div class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                <button onclick="updateMood('😊')" class="p-2 bg-white/5 rounded-lg">😊</button>
+                <button onclick="updateMood('😴')" class="p-2 bg-white/5 rounded-lg">😴</button>
+                <button onclick="updateMood('📚')" class="p-2 bg-white/5 rounded-lg">📚</button>
+                <button onclick="updateMood('😈')" class="p-2 bg-white/5 rounded-lg">😈</button>
+                <button onclick="updateMood('🎮')" class="p-2 bg-white/5 rounded-lg">🎮</button>
             </div>
         </div>
 
         <div id="rj-suite" class="hidden pt-6 mt-6 border-t border-white/10 space-y-3">
-            <p class="text-[10px] font-black text-red-500 uppercase tracking-widest px-2">RJ Override</p>
-            <input type="text" id="rj-search" placeholder="Search archive..." class="w-full bg-black/50 p-4 rounded-2xl text-xs border border-white/10 outline-none focus:border-red-500/50 transition">
-            <div class="grid grid-cols-2 gap-2">
-                <button onclick="rjSearch()" class="bg-red-600/20 text-red-500 p-3 rounded-xl text-[10px] font-black uppercase">Search</button>
-                <button onclick="viewDeletedLogs()" class="bg-white/5 p-3 rounded-xl text-[10px] font-black uppercase">Logs</button>
-            </div>
-            <button onclick="launchPiP()" class="w-full bg-blue-600 p-4 rounded-2xl text-xs font-black uppercase shadow-lg shadow-blue-600/20">Launch PiP Overlay</button>
+            <input type="text" id="rj-search" placeholder="Search archive..." class="w-full bg-black/50 p-4 rounded-2xl text-xs border border-white/10 outline-none">
+            <button onclick="rjSearch()" class="w-full bg-blue-600 p-3 rounded-xl text-[10px] font-black uppercase">Search Messages</button>
+            <button onclick="viewDeletedLogs()" class="w-full bg-white/5 p-3 rounded-xl text-[10px] font-black uppercase">Evidence Logs</button>
+            <button onclick="launchPiP()" class="w-full bg-purple-600 p-3 rounded-xl text-[10px] font-black uppercase">Launch PiP</button>
         </div>
     </div>
-    <div id="clocks" class="mt-auto pt-6 border-t border-white/5 text-[10px] font-mono opacity-40 space-y-2"></div>
+    <div id="clocks" class="mt-auto pt-6 border-t border-white/5 text-[10px] font-mono opacity-40"></div>
 </div>
 
+<video id="pip-src" autoplay muted playsinline class="hidden"></video>
+<canvas id="pip-canvas" width="400" height="250" class="hidden"></canvas>
+
 <script>
-    // --- CONFIG & GLOBALS ---
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_dLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
     
-    let me, you, chatChannel, mediaRecorder, audioChunks = [], stagedFiles = [], unread = 0, lastTwo = [], flashTimer = 0, replyId = null, partnerStatus = null;
+    let me, you, chatChannel, mediaRecorder, audioChunks = [], stagedFiles = [], unread = 0, lastTwo = [], flashTimer = 0, replyId = null, partnerData = null;
     let messagesList = [], pageOffset = 0;
     const PAGE_SIZE = 40;
     const AGORA_APP_ID = "4f6c6c2002784152a8366dec12f1b4c0";
     let rtc = { client: null, localVideoTrack: null, localAudioTrack: null };
 
     async function init() {
+        // Fix: Clear possible bad cache
         const code = localStorage.getItem('chat_secret_code') || prompt("Enter Access Code:");
-        const { data: user } = await _db.from('chat_codes').select('*').eq('code', code).single();
-        if(!user) return alert("Invalid Code");
+        
+        const { data: user, error } = await _db.from('chat_codes').select('*').eq('code', code).single();
+
+        if(error || !user) {
+            alert("Invalid Access Code");
+            localStorage.removeItem('chat_secret_code');
+            location.reload();
+            return;
+        }
         
         me = user.username; you = (me === 'RJ' ? 'Allyvia' : 'RJ');
         localStorage.setItem('chat_secret_code', code);
@@ -170,141 +175,96 @@
             .subscribe();
 
         loadMessages(true);
-        loadPartnerData();
+        refreshPartnerStatus();
+        setInterval(refreshPartnerStatus, 10000);
         updateDaysCounter();
         setInterval(updateClocks, 1000);
         setInterval(drawPiP, 250);
         setupVoice();
     }
 
-    // --- CORE MESSAGING & UI ---
-    async function loadMessages(initial = false, customQuery = null) {
-        const msgContainer = document.getElementById('messages');
-        const oldH = msgContainer.scrollHeight;
-        if(initial) { pageOffset = 0; messagesList = []; }
+    async function refreshPartnerStatus() {
+        const { data } = await _db.from('chat_codes').select('*').eq('username', you).single();
+        if(data) {
+            partnerData = data;
+            document.getElementById('partner-mood').textContent = data.mood || '';
+            if(data.status_media) document.getElementById('partner-name').classList.add('text-rose-500');
+        }
+    }
 
+    async function updateMood(m) {
+        await _db.from('chat_codes').update({ mood: m }).eq('username', me);
+        refreshPartnerStatus();
+    }
+
+    async function loadMessages(initial = false, customQuery = null) {
+        if(initial) { pageOffset = 0; messagesList = []; }
         let query = customQuery || _db.from('private_messages').select('*').order('created_at', { ascending: false }).range(pageOffset, pageOffset + PAGE_SIZE - 1);
         const { data } = await query;
-        
         messagesList = initial ? data : [...messagesList, ...data];
         renderChat();
-        msgContainer.scrollTop = initial ? msgContainer.scrollHeight : msgContainer.scrollHeight - oldH;
     }
 
     function renderChat() {
         const sorted = [...messagesList].sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
         lastTwo = sorted.slice(-2);
-        let html = sorted.length >= PAGE_SIZE ? '<div class="load-more" onclick="loadMore()">Load older messages</div>' : '';
-        
+        let html = '';
         sorted.forEach(m => {
             const isMe = m.sender === me;
-            const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             const urls = m.file_url ? m.file_url.split(',') : [];
+            let mediaHTML = urls.map(u => u.includes('.webm') ? `<audio src="${u}" controls class="w-full mt-2"></audio>` : `<img src="${u}" class="rounded-2xl mb-2 w-full max-h-72 object-contain" onclick="expandMedia('${u}')">`).join('');
             
-            let mediaHTML = urls.map(u => {
-                if(u.includes('.webm')) return `<audio src="${u}" controls class="w-full mt-2"></audio>`;
-                return `<img src="${u}" class="rounded-2xl mb-2 w-full max-h-72 object-contain bg-black/20" onclick="expandMedia('${u}')">`;
-            }).join('');
-
-            let replyHTML = '';
-            if(m.reply_to) {
-                const parent = messagesList.find(p => p.id === m.reply_to);
-                replyHTML = `<div class="text-[10px] opacity-50 italic mb-1 border-l-2 border-white/20 pl-2 truncate">${parent ? parent.message : 'Original message deleted'}</div>`;
-            }
-
-            html += `<div class="msg-wrap ${isMe ? 'row-me' : 'row-you'}" id="msg-${m.id}">
+            html += `<div class="msg-wrap ${isMe ? 'row-me' : 'row-you'}">
                 <div class="bubble ${isMe ? 'me' : 'you'}" ondblclick="handleReactionPrompt('${m.id}')">
-                    ${replyHTML}${mediaHTML}
-                    <div class="whitespace-pre-wrap leading-relaxed">${m.message || ''}</div>
-                    <span class="ts-inside">${time}</span>
+                    ${mediaHTML}<div class="whitespace-pre-wrap">${m.message || ''}</div>
+                    <span class="ts-inside">${new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     ${m.reaction ? `<div class="reaction-tag">${m.reaction}</div>` : ''}
                 </div>
                 <div class="msg-tools">
-                    <span class="tool-btn" onclick="setReply('${m.id}', '${(m.message || "Media").replace(/'/g, "")}')">Reply</span>
+                    <span class="tool-btn" onclick="setReply('${m.id}', '${(m.message || "Media").substring(0,20)}')">Reply</span>
                     ${isMe ? `<span class="tool-btn !text-red-500/50" onclick="deleteMessage('${m.id}')">Delete</span>` : ''}
                 </div>
             </div>`;
         });
         document.getElementById('messages').innerHTML = html;
+        const container = document.getElementById('messages');
+        container.scrollTop = container.scrollHeight;
     }
 
-    // --- COMPRESSION ENGINE ---
-    async function compressImage(file) {
-        if(!file.type.startsWith('image/') || file.type.includes('gif')) return file;
-        return new Promise(res => {
-            const reader = new FileReader(); reader.readAsDataURL(file);
-            reader.onload = e => {
-                const img = new Image(); img.src = e.target.result;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    let w = img.width, h = img.height, MAX = 1200;
-                    if(w > h && w > MAX) { h *= MAX/w; w = MAX; }
-                    else if(h > MAX) { w *= MAX/h; h = MAX; }
-                    canvas.width = w; canvas.height = h;
-                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                    canvas.toBlob(b => res(b), 'image/jpeg', 0.8);
-                };
-            };
-        });
-    }
-
-    async function sendMsg(txt) {
-        if(!txt.trim() && !stagedFiles.length) return;
-        const currentFiles = [...stagedFiles]; stagedFiles = []; renderStaging(); cancelReply();
-        document.getElementById('msg-input').value = "";
-        
-        let urls = [];
-        for(let f of currentFiles) {
-            const compressed = await compressImage(f.file);
-            const name = `chat/${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
-            await _db.storage.from('chat-files').upload(name, compressed);
-            urls.push(_db.storage.from('chat-files').getPublicUrl(name).data.publicUrl);
-        }
-
-        await _db.from('private_messages').insert([{ 
-            sender: me, receiver: you, message: txt.trim(), 
-            file_url: urls.join(','), reply_to: replyId 
-        }]);
-        chatChannel.send({ type: 'broadcast', event: 'refresh' });
-    }
-
-    // --- FEATURE LOGIC ---
     async function handleReactionPrompt(id) {
-        const reaction = prompt("React or add a mini-note (Stars the message):");
-        if(reaction === null) return;
-        await _db.from('private_messages').update({ reaction, is_starred: true }).eq('id', id);
+        const r = prompt("React/Star note:");
+        if(r === null) return;
+        await _db.from('private_messages').update({ reaction: r, is_starred: true }).eq('id', id);
         fetchRecent(true);
     }
 
     async function deleteMessage(id) {
         const msg = messagesList.find(m => m.id === id);
-        if(!confirm("Delete for both? (Logged in evidence)")) return;
+        if(!confirm("Delete for both?")) return;
         await _db.from('deleted_logs').insert([{ original_sender: msg.sender, content: msg.message || "[Media]", deleted_at: new Date() }]);
         await _db.from('private_messages').delete().eq('id', id);
         chatChannel.send({ type: 'broadcast', event: 'refresh' });
     }
 
-    async function loadPartnerData() {
-        const { data } = await _db.from('chat_codes').select('*').eq('username', you).single();
-        partnerStatus = data;
-        if(data?.status_media) document.getElementById('partner-name').classList.add('text-rose-500');
-    }
-
-    function openPartnerStory() {
-        if(!partnerStatus?.status_media) return;
-        const container = document.getElementById('story-container');
-        document.getElementById('story-overlay').style.display = 'flex';
-        container.innerHTML = partnerStatus.status_media_type === 'video' 
-            ? `<video src="${partnerStatus.status_media}" autoplay loop class="rounded-3xl max-h-full"></video>`
-            : `<img src="${partnerStatus.status_media}" class="rounded-3xl shadow-2xl">`;
+    async function sendMsg(txt) {
+        if(!txt.trim() && !stagedFiles.length) return;
+        const files = [...stagedFiles]; stagedFiles = []; renderStaging(); cancelReply();
+        document.getElementById('msg-input').value = "";
+        let urls = [];
+        for(let f of files) {
+            const name = `chat/${Date.now()}_${Math.random().toString(36).slice(2,5)}`;
+            await _db.storage.from('chat-files').upload(name, f.file);
+            urls.push(_db.storage.from('chat-files').getPublicUrl(name).data.publicUrl);
+        }
+        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: txt.trim(), file_url: urls.join(','), reply_to: replyId }]);
+        chatChannel.send({ type: 'broadcast', event: 'refresh' });
     }
 
     function setupVoice() {
         const btn = document.getElementById('voice-btn');
         btn.onmousedown = async () => {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
+            mediaRecorder = new MediaRecorder(stream); audioChunks = [];
             mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
             mediaRecorder.onstop = async () => {
                 const blob = new Blob(audioChunks, { type: 'audio/webm' });
@@ -314,33 +274,9 @@
                 await _db.from('private_messages').insert([{ sender: me, receiver: you, file_url: url }]);
                 chatChannel.send({ type: 'broadcast', event: 'refresh' });
             };
-            mediaRecorder.start();
-            btn.classList.add('rec-pulse');
+            mediaRecorder.start(); btn.classList.add('rec-pulse');
         };
         btn.onmouseup = () => { mediaRecorder?.stop(); btn.classList.remove('rec-pulse'); };
-    }
-
-    function setGlobalTheme(t) {
-        applyTheme(t);
-        chatChannel.send({ type: 'broadcast', event: 'theme', payload: { theme: t } });
-        _db.from('chat_codes').update({ theme_pref: t }).eq('username', 'RJ');
-    }
-
-    function applyTheme(t) {
-        document.body.className = `theme-${t}`;
-    }
-
-    // --- HELPERS ---
-    async function fetchRecent(force = false) {
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(10);
-        if(force) { messagesList = data; renderChat(); return; }
-        const newMsgs = data.filter(m => !messagesList.find(ex => ex.id === m.id));
-        if(newMsgs.length > 0) { 
-            messagesList = [...newMsgs, ...messagesList]; 
-            renderChat(); 
-            const container = document.getElementById('messages');
-            if(container.scrollHeight - container.scrollTop < 1000) container.scrollTop = container.scrollHeight;
-        }
     }
 
     async function initCall(video) {
@@ -360,33 +296,16 @@
         });
     }
 
-    function endCall() {
-        rtc.localAudioTrack?.close(); rtc.localVideoTrack?.close(); rtc.client?.leave();
-        document.getElementById('video-grid').classList.add('hidden');
+    function setGlobalTheme(t) {
+        applyTheme(t);
+        chatChannel.send({ type: 'broadcast', event: 'theme', payload: { theme: t } });
+        _db.from('chat_codes').update({ theme_pref: t }).eq('username', 'RJ');
     }
-
-    function drawPiP() {
-        const c = document.getElementById('pip-canvas'); const x = c.getContext('2d');
-        const f = (flashTimer > 0 && flashTimer % 2 !== 0);
-        x.fillStyle = f ? '#ff0000' : '#000000'; x.fillRect(0,0,400,250);
-        x.fillStyle = '#ffffff'; x.font = 'bold 24px Arial';
-        x.fillText(unread > 0 ? `(!) NEW MESSAGE` : 'IDLE MODE', 20, 50);
-        lastTwo.forEach((m, i) => { x.font = '14px Arial'; x.fillText(`${m.sender.toUpperCase()}: ${m.message || '[Media]'}`, 20, 120 + (i*50)); });
-        if(flashTimer > 0) flashTimer--;
-        const v = document.getElementById('pip-src'); if(!v.srcObject) v.srcObject = c.captureStream(10);
-    }
-
-    async function launchPiP() { unread = 0; const v = document.getElementById('pip-src'); await v.play(); await v.requestPictureInPicture(); }
-    function rjSearch() { const term = document.getElementById('rj-search').value; loadMessages(true, _db.from('private_messages').select('*').ilike('message', `%${term}%`).order('created_at', { ascending: false })); closeSidebar(); }
-    async function viewDeletedLogs() { document.getElementById('logs-modal').style.display = 'block'; const { data } = await _db.from('deleted_logs').select('*').order('deleted_at', { ascending: false }); document.getElementById('logs-content').innerHTML = data.map(l => `<div class="p-4 bg-white/5 rounded-2xl border border-red-500/20 text-xs"><div class="text-red-500 font-bold mb-1">${l.original_sender} • ${new Date(l.deleted_at).toLocaleString()}</div>${l.content}</div>`).join(''); }
-    async function toggleVault() { document.getElementById('vault-modal').style.display = 'block'; const { data } = await _db.from('private_messages').select('*').eq('is_starred', true).order('created_at', { ascending: false }); document.getElementById('vault-content').innerHTML = data.map(m => `<div class="p-5 bg-white/5 rounded-3xl border border-white/5"><div class="text-[10px] opacity-40 mb-2">${m.sender} • ${new Date(m.created_at).toDateString()}</div><p class="text-sm">${m.message || "[Media]"}</p><div class="mt-3 text-xs text-rose-400 font-bold">⭐ Note: ${m.reaction}</div></div>`).join(''); }
-    function handleFileSelect(i) { Array.from(i.files).slice(0,4).forEach(file => { const r = new FileReader(); r.onload = e => { stagedFiles.push({ file, preview: e.target.result }); renderStaging(); }; r.readAsDataURL(file); }); }
-    function renderStaging() { document.getElementById('staging-area').innerHTML = stagedFiles.map((f, i) => `<div class="relative"><img src="${f.preview}" class="w-full aspect-square object-cover rounded-xl shadow-lg"><button onclick="stagedFiles.splice(${i},1);renderStaging()" class="absolute -top-2 -right-2 bg-red-600 rounded-full w-6 h-6 flex items-center justify-center text-xs">×</button></div>`).join(''); }
-    function setReply(id, text) { replyId = id; document.getElementById('reply-text').textContent = text.substring(0,40) + '...'; document.getElementById('reply-box').classList.remove('hidden'); }
-    function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
-    function shareLocation() { navigator.geolocation.getCurrentPosition(p => sendMsg(`📍 My Location: http://google.com/maps?q=${p.coords.latitude},${p.coords.longitude}`)); closeSidebar(); }
+    function applyTheme(t) { document.body.className = `theme-${t}`; }
     function openSidebar() { document.getElementById('sidebar').style.left = '0'; document.getElementById('overlay-bg').classList.remove('hidden'); }
     function closeSidebar() { document.getElementById('sidebar').style.left = '-320px'; document.getElementById('overlay-bg').classList.add('hidden'); }
+    function setReply(id, text) { replyId = id; document.getElementById('reply-text').textContent = text; document.getElementById('reply-box').classList.remove('hidden'); }
+    function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     function updateDaysCounter() { document.getElementById('days-counter').textContent = Math.floor((new Date() - new Date('2025-11-24')) / 86400000); }
     function updateClocks() { const opts = { hour: '2-digit', minute: '2-digit', hour12: true }; document.getElementById('clocks').innerHTML = `BNE: ${new Date().toLocaleTimeString('en-US', { ...opts, timeZone: 'Australia/Brisbane' })}<br>IRB: ${new Date().toLocaleTimeString('en-US', { ...opts, timeZone: 'Asia/Amman' })}`; }
