@@ -3,108 +3,77 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>MidNight v2.2</title>
+    <title>MidNight v2.3</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
     <style>
         /* --- THEming ENGINE --- */
         :root { 
-            --bg: #03050a;
-            --me-bg: #1e293b; --you-bg: #0f172a; 
+            --bg: #03050a; --me-bg: #1e293b; --you-bg: #0f172a; 
             --accent: #3b82f6; --text: #f1f5f9; --sidebar-bg: #080c14;
             --msg-border: rgba(255,255,255,0.1);
         }
-
         body.theme-love {
-            --bg: #1a0b12;
-            --me-bg: #5c1e3a; --you-bg: #361121; 
+            --bg: #1a0b12; --me-bg: #5c1e3a; --you-bg: #361121; 
             --accent: #ec4899; --sidebar-bg: #260f19;
              --msg-border: rgba(236, 72, 153, 0.3);
         }
-
         body { 
-            background-color: var(--bg);
-            color: var(--text); font-family: 'Inter', sans-serif; 
+            background-color: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; 
             height: 100vh; overflow: hidden; margin: 0; transition: background-color 0.5s ease, color 0.5s ease;
-            background-size: cover;
-            background-position: center; background-attachment: fixed;
+            background-size: cover; background-position: center; background-attachment: fixed;
         }
 
         /* --- LAYOUT & MESSAGES --- */
-        #chat-main { display: flex;
-            flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; position: relative; z-index: 10;
-        }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column;
-            gap: 16px; scroll-behavior: smooth; }
+        #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; position: relative; z-index: 10; }
+        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; }
         
-        .avatar { width: 35px;
-            height: 35px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid var(--msg-border);
-        }
-        .msg-wrap { display: flex; gap: 10px; width: 100%; position: relative; align-items: flex-end;
-        }
-        .row-me { flex-direction: row-reverse;
-        } 
+        .avatar { width: 35px; height: 35px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid var(--msg-border); }
+        .msg-wrap { display: flex; gap: 10px; width: 100%; position: relative; align-items: flex-end; }
+        .row-me { flex-direction: row-reverse; } 
         
-        .bubble { max-width: 80%;
-            padding: 12px 14px 26px 14px; font-size: 15px; border-radius: 20px; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.1); word-wrap: break-word;
-            transition: background-color 0.3s ease; }
-        .me { background: var(--me-bg); border: 1px solid var(--msg-border);
-            border-bottom-right-radius: 4px; }
-        .you { background: var(--you-bg); border: 1px solid var(--msg-border); border-bottom-left-radius: 4px;
-        }
+        .bubble { max-width: 80%; padding: 12px 14px 26px 14px; font-size: 15px; border-radius: 20px; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.1); word-wrap: break-word; transition: background-color 0.3s ease; }
+        .me { background: var(--me-bg); border: 1px solid var(--msg-border); border-bottom-right-radius: 4px; }
+        .you { background: var(--you-bg); border: 1px solid var(--msg-border); border-bottom-left-radius: 4px; }
         
-        .ts-inside { position: absolute;
-            bottom: 6px; right: 12px; font-size: 9px; opacity: 0.6; font-weight: 700; display: flex; align-items: center; gap: 4px;
-        }
-        .reply-preview { font-size: 11px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 12px;
-            border-left: 3px solid var(--accent); margin-bottom: 8px; opacity: 0.9; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
+        .ts-inside { position: absolute; bottom: 6px; right: 12px; font-size: 9px; opacity: 0.6; font-weight: 700; display: flex; align-items: center; gap: 4px; }
         
+        /* Reply & Story Context Previews */
+        .reply-preview { font-size: 11px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 12px; border-left: 3px solid var(--accent); margin-bottom: 8px; opacity: 0.9; display: block; overflow: hidden; }
+        .story-context { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 10px; margin-bottom: 8px; cursor: pointer; }
+        .story-context img { width: 30px; height: 30px; border-radius: 6px; object-fit: cover; }
+        .system-msg { width: 100%; text-align: center; font-size: 11px; color: #888; font-style: italic; margin: 10px 0; opacity: 0.7; }
+
         /* --- ANIMATIONS --- */
-        .rain-item { position: fixed;
-            top: -50px; z-index: 9999; pointer-events: none; animation: fall linear forwards;
-        }
-        @keyframes fall { to { transform: translateY(110vh) rotate(360deg);
-        } }
+        .rain-item { position: fixed; top: -50px; z-index: 9999; pointer-events: none; animation: fall linear forwards; }
+        @keyframes fall { to { transform: translateY(110vh) rotate(360deg); } }
 
         /* --- MODALS & OVERLAYS --- */
-        .modal-view { display: none;
-            position: fixed; inset: 0; background: var(--bg); z-index: 2000; overflow-y: auto; padding: 25px; animation: fadeIn 0.2s ease;
-        }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1;
-        } }
+        .modal-view { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 2000; overflow-y: auto; padding: 25px; animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         
-        #story-overlay { display: none;
-            position: fixed; inset: 0; background: black; z-index: 6000; align-items: center; justify-content: center; flex-direction: column;
-        }
-        .story-nav-btn { position: absolute; top: 50%; transform: translateY(-50%); font-size: 3rem; color: white;
-            padding: 20px; cursor: pointer; opacity: 0.6; transition: 0.2s; }
-        .story-nav-btn:hover { opacity: 1;
-        }
-        #story-prev { left: 0; } #story-next { right: 0;
-        }
+        #story-overlay { display: none; position: fixed; inset: 0; background: black; z-index: 6000; align-items: center; justify-content: center; flex-direction: column; }
+        .story-nav-btn { position: absolute; top: 50%; transform: translateY(-50%); font-size: 3rem; color: white; padding: 20px; cursor: pointer; opacity: 0.6; transition: 0.2s; z-index: 6010; }
+        .story-nav-btn:hover { opacity: 1; }
+        #story-prev { left: 0; } #story-next { right: 0; }
+
+        /* Story Reply Bar */
+        #story-reply-bar { position: absolute; bottom: 0; left: 0; right: 0; padding: 15px 10px 30px 10px; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); z-index: 6020; display: flex; flex-direction: column; gap: 10px; }
+        .story-emoji-btn { font-size: 24px; transition: transform 0.1s; cursor: pointer; }
+        .story-emoji-btn:hover { transform: scale(1.2); }
 
         /* --- UI COMPONENTS --- */
-        #search-bar { transition: 0.3s all ease;
-            transform: translateY(-100%); position: absolute; top: 70px; left: 0; right: 0; z-index: 40; background: var(--bg); padding: 10px; border-bottom: 1px solid var(--msg-border);
-            opacity: 0; pointer-events: none; }
-        #search-bar.active { transform: translateY(0); opacity: 1; pointer-events: all;
-        }
+        #search-bar { transition: 0.3s all ease; transform: translateY(-100%); position: absolute; top: 70px; left: 0; right: 0; z-index: 40; background: var(--bg); padding: 10px; border-bottom: 1px solid var(--msg-border); opacity: 0; pointer-events: none; }
+        #search-bar.active { transform: translateY(0); opacity: 1; pointer-events: all; }
         
-        .call-btn { background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px); width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; transition: 0.2s;
-        }
-        .call-btn.active { background: var(--accent);
-        }
-        #video-grid { position: fixed; inset: 0; background: black; z-index: 3000; display: none;
-        }
+        .call-btn { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; transition: 0.2s; }
+        .call-btn.active { background: var(--accent); }
+        #video-grid { position: fixed; inset: 0; background: black; z-index: 3000; display: none; }
 
         /* Toggle Switch */
-        .toggle-checkbox:checked { right: 0;
-            border-color: var(--accent); }
-        .toggle-checkbox:checked + .toggle-label { background-color: var(--accent);
-        }
+        .toggle-checkbox:checked { right: 0; border-color: var(--accent); }
+        .toggle-checkbox:checked + .toggle-label { background-color: var(--accent); }
     </style>
 </head>
 <body>
@@ -112,15 +81,30 @@
 <div id="story-overlay">
     <div id="story-prev" class="story-nav-btn hidden" onclick="navStory(-1)">‹</div>
     <div id="story-media-container" class="relative w-full h-full flex items-center justify-center p-4"></div>
-    <div class="absolute bottom-10 text-center w-full text-xl font-bold text-white shadow-lg" id="story-caption"></div>
+    <div class="absolute top-10 text-center w-full text-xl font-bold text-white shadow-lg z-[6010]" id="story-caption"></div>
     <div id="story-next" class="story-nav-btn hidden" onclick="navStory(1)">›</div>
     <button onclick="closeStory()" class="absolute top-6 right-6 text-white text-3xl z-[6020] opacity-70 hover:opacity-100">✕</button>
+    
+    <div id="story-reply-bar">
+        <div class="flex justify-center gap-4 mb-2">
+            <button onclick="reactToStory('🔥')" class="story-emoji-btn">🔥</button>
+            <button onclick="reactToStory('😂')" class="story-emoji-btn">😂</button>
+            <button onclick="reactToStory('😍')" class="story-emoji-btn">😍</button>
+            <button onclick="reactToStory('😢')" class="story-emoji-btn">😢</button>
+            <button onclick="reactToStory('👏')" class="story-emoji-btn">👏</button>
+            <button onclick="reactToStory('😮')" class="story-emoji-btn">😮</button>
+        </div>
+        <form onsubmit="event.preventDefault(); replyToStory(this.querySelector('input').value); this.reset();" class="flex gap-2">
+            <input type="text" placeholder="Reply to story..." class="flex-1 bg-white/20 border border-white/30 rounded-full px-4 py-3 text-white placeholder-white/70 outline-none backdrop-blur-md">
+            <button type="submit" class="bg-white/20 rounded-full w-12 h-12 flex items-center justify-center text-white backdrop-blur-md">➤</button>
+        </form>
+    </div>
 </div>
 
 <div id="video-grid">
     <div id="remote-video" class="w-full h-full"></div>
     <div id="local-video" class="absolute top-10 right-6 w-32 h-48 border-2 border-white/20 rounded-2xl overflow-hidden bg-black shadow-2xl"></div>
-    <div class="absolute bottom-10 left-0 right-0 flex justify-center gap-4">
+    <div class="absolute bottom-10 left-0 right-0 flex justify-center gap-4 z-[3010]">
         <button id="btn-mute" onclick="toggleMute()" class="call-btn">🎤</button>
         <button id="btn-cam" onclick="toggleCam()" class="call-btn">📷</button>
         <button id="btn-screen" onclick="toggleScreenShare()" class="call-btn">🖥️</button>
@@ -129,7 +113,7 @@
 </div>
 
 <div id="logs-modal" class="modal-view">
-    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-red-500">Deleted Logs</h2><button onclick="this.closest('.modal-view').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button></div>
+    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-red-500">Deleted Logs (Realtime)</h2><button onclick="this.closest('.modal-view').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button></div>
     <div id="logs-content" class="space-y-4 pb-20"></div>
 </div>
 
@@ -139,11 +123,9 @@
 </div>
 
 <div id="story-history-modal" class="modal-view">
-    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-pink-500">Story Archive</h2><button 
-    onclick="this.closest('.modal-view').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button></div>
+    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-pink-500">Story Archive</h2><button onclick="this.closest('.modal-view').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button></div>
     <div id="story-history-content" class="grid grid-cols-2 gap-3 pb-20"></div>
 </div>
-
 
 <div id="search-bar">
     <div class="flex gap-2">
@@ -163,7 +145,7 @@
             <div>
                 <div class="font-bold text-md leading-none" id="partner-name">...</div>
                 <div id="partner-status" class="text-[11px] opacity-70 font-medium mt-0.5 text-blue-200 whitespace-normal leading-3 max-w-[200px]">No status</div>
-                <div id="live-preview" class="text-[9px] text-[var(--accent)] italic h-3"></div>
+                <div id="live-preview" class="text-[9px] text-[var(--accent)] italic h-3 mt-1 overflow-hidden whitespace-nowrap w-40"></div>
             </div>
         </div>
         <div class="flex gap-2">
@@ -177,15 +159,17 @@
 
     <footer class="p-4 bg-transparent">
         <div id="staging-area" class="grid grid-cols-4 gap-2 mb-2 empty:hidden"></div>
+        
         <div id="reply-box" class="hidden bg-blue-500/10 p-3 rounded-t-2xl border-l-4 border-blue-600 flex justify-between items-center mb-[-10px] pb-5">
             <span id="reply-text" class="text-[11px] italic truncate pr-4"></span>
             <button onclick="cancelReply()">✕</button>
-        
         </div>
+        
         <div id="edit-box" class="hidden bg-yellow-500/10 p-3 rounded-t-2xl border-l-4 border-yellow-600 flex justify-between items-center mb-[-10px] pb-5">
             <span class="text-[11px] text-yellow-300 italic">Editing message...</span>
             <button onclick="cancelEdit()">✕</button>
         </div>
+        
         <form id="chat-form" class="flex items-center bg-black/40 border border-white/10 rounded-full p-1 pl-4 shadow-2xl backdrop-blur-md">
             <label class="cursor-pointer opacity-50 p-2">📎<input type="file" id="file-input" class="hidden" multiple accept="image/*" onchange="handleFileSelect(this)"></label>
             <input id="msg-input" placeholder="Message..." autocomplete="off" class="flex-1 bg-transparent py-3 px-2 text-sm outline-none">
@@ -197,8 +181,7 @@
 <div id="sidebar" class="fixed left-[-300px] top-0 bottom-0 w-[280px] bg-[var(--sidebar-bg)] z-[1000] p-6 flex flex-col transition-all duration-300 border-r border-white/10">
     <div class="mb-6 text-center">
         <h1 class="text-[var(--accent)] font-black text-2xl">MidNight</h1>
-        <p class="text-[9px] opacity-40 tracking-widest uppercase">Version 2.2</p>
-    
+        <p class="text-[9px] opacity-40 tracking-widest uppercase">Version 2.3</p>
     </div>
 
     <div class="flex flex-col items-center mb-8">
@@ -218,18 +201,16 @@
         
         <div class="bg-white/5 p-4 rounded-2xl space-y-3">
             <p class="text-[10px] font-bold opacity-40 uppercase">Update Status / Story</p>
-            <input id="status-txt-input" placeholder="What's up?"
-            class="w-full bg-black/40 p-3 rounded-xl text-xs outline-none border border-white/5">
+            <input id="status-txt-input" placeholder="What's up?" class="w-full bg-black/40 p-3 rounded-xl text-xs outline-none border border-white/5">
             <label class="block bg-white/5 p-3 rounded-xl text-[10px] text-center cursor-pointer border border-dashed border-white/20 hover:bg-white/10 transition">📸 Select Media (Multiple) <input type="file" id="status-media-input" class="hidden" multiple accept="image/*,video/*"></label>
             <div class="grid grid-cols-2 gap-2">
                 <button onclick="updateStatus()" class="bg-blue-600 p-2 rounded-lg text-[10px] font-bold uppercase">Post</button>
-                <button onclick="clearStatus()" class="bg-red-600/20 text-red-500 p-2 rounded-lg 
-                text-[10px] font-bold uppercase">Clear</button>
+                <button onclick="clearStatus()" class="bg-red-600/20 text-red-500 p-2 rounded-lg text-[10px] font-bold uppercase">Clear</button>
             </div>
         </div>
 
         <div class="bg-white/5 p-4 rounded-2xl space-y-2">
-            <p class="text-[10px] font-bold opacity-40 uppercase">Customization</p>
+            <p class="text-[10px] font-bold opacity-40 uppercase">Customization (Mutual)</p>
             <div class="grid grid-cols-2 gap-2">
                 <button onclick="setTheme('default')" class="text-[10px] p-2 bg-slate-800 rounded hover:bg-slate-700 transition">DARK MODE</button>
                 <button onclick="setTheme('love')" class="text-[10px] p-2 bg-pink-900 rounded hover:bg-pink-800 transition">LOVE THEME</button>
@@ -255,115 +236,146 @@
     </div>
 </div>
 
-<video id="pip-src" autoplay muted playsinline style="position:fixed;
-top:-9999px;"></video>
+<video id="pip-src" autoplay muted playsinline style="position:fixed; top:-9999px;"></video>
 <canvas id="pip-canvas" width="400" height="250" class="hidden"></canvas>
 <div id="overlay-bg" onclick="closeSidebar()" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-[900]"></div>
 
 <script>
+    // --- SUPABASE CONFIG ---
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
     
+    // --- VARIABLES ---
     let me, you, chatChannel, stagedFiles = [], allMessages = [], replyId = null, editingId = null;
-    let storyItems = [], storyIndex = 0, partnerData = null, myData = null;
+    let storyItems = [], storyIndex = 0, partnerData = null, myData = null, chatCode = null;
+    let typingTimer = null;
     let rtc = { client: null, localVideoTrack: null, localAudioTrack: null, screenTrack: null, isScreenSharing: false };
-
-    // Default PFP configurations
+    
+    // Default PFPs
     const defaults = { 'RJ': { bg: '#000', col: '#fff', t: 'R' }, 'Allyvia': { bg: '#fef08a', col: '#000', t: 'A' } };
 
+    // --- INITIALIZATION ---
     async function init() {
-        const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
-        const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
-        if(!data) return;
+        chatCode = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
+        const { data } = await _db.from('chat_codes').select('*').eq('code', chatCode).single();
+        if(!data) { alert("Invalid code"); return; }
+        
         me = data.username;
         you = (me === 'RJ' ? 'Allyvia' : 'RJ');
-        localStorage.setItem('chat_secret_code', code);
+        localStorage.setItem('chat_secret_code', chatCode);
         document.getElementById('me-name').textContent = me;
 
-        // --- RJ SPECIFIC SETTINGS ---
+        // --- RJ PERMISSIONS ---
         if(me === 'RJ') {
             document.getElementById('rj-settings').classList.remove('hidden');
-            // Show logs only if it's RJ
             document.getElementById('admin-logs').classList.remove('hidden');
             document.getElementById('receipt-toggle').addEventListener('change', toggleReadReceipts);
+        } else {
+            // Ensure Allyvia cannot see logs even if she inspects elements (hard hidden in rendering logic too)
+            document.getElementById('admin-logs').innerHTML = ''; 
         }
 
-        // Initialize Real-time Channel with robust listening
+        // --- REALTIME LISTENERS ---
         chatChannel = _db.channel('midnight-v2');
         chatChannel
             .on('broadcast', { event: 'sync' }, p => handleSync(p.payload))
-            .on('broadcast', { event: 'typing' }, p => {
-                document.getElementById('live-preview').textContent = p.payload.text ? `${you} is typing...` : "";
-            })
-            // Listen for NEW messages
+            .on('broadcast', { event: 'typing' }, p => handleTyping(p.payload))
+            // Insert
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
                  if(p.new.receiver === me) markAsRead(p.new.id);
                  loadMessages();
             })
-            // Listen for UPDATES (Read receipts, Edits)
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'private_messages' }, (p) => {
-                 loadMessages();
-            })
-            // Listen for DELETES
+            // Update
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'private_messages' }, () => loadMessages())
+            // Delete
             .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'private_messages' }, () => {
                  loadMessages();
             })
-            // Listen for CONFIG changes (Themes, Status, PFPs)
+            // Config Change (Mutual Theme Sync)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_codes' }, () => syncConfigs())
+            // Log Listener (for RJ)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'deleted_logs' }, () => {
+                if(me === 'RJ' && document.getElementById('logs-modal').style.display === 'block') viewDeletedLogs();
+            })
             .subscribe();
 
         syncConfigs(); loadMessages(); updateCounter(); setInterval(drawPiP, 250);
     }
 
-    // --- SYNCHRONIZATION ENGINE ---
+    // --- TYPING LOGIC (One-sided & Timeout) ---
+    function handleTyping(p) {
+        const preview = document.getElementById('live-preview');
+        clearTimeout(typingTimer);
+
+        if (p.isAllyvia) {
+            // Allyvia typed -> RJ sees text
+            if(me === 'RJ') preview.textContent = "Allyvia is typing: " + p.text; 
+            else preview.textContent = ""; // Allyvia doesn't see her own ghost
+        } else if (p.isRJ) {
+            // RJ typed -> Allyvia sees generic
+            if(me === 'Allyvia') preview.textContent = "RJ is typing...";
+        }
+
+        // 3 Seconds Timeout
+        typingTimer = setTimeout(() => {
+            preview.textContent = "";
+        }, 3000);
+    }
+
+    document.getElementById('msg-input').oninput = e => {
+        const payload = me === 'Allyvia' 
+            ? { isAllyvia: true, text: e.target.value } 
+            : { isRJ: true };
+        chatChannel.send({ type: 'broadcast', event: 'typing', payload });
+    };
+
+    // --- SYNC ENGINE ---
     async function syncConfigs() {
-        // Fetch fresh data for both users
-        const { data } = await _db.from('chat_codes').select('*');
+        // Fetch all users with this code to sync mutual settings
+        const { data } = await _db.from('chat_codes').select('*').eq('code', chatCode);
         myData = data.find(u => u.username === me);
         partnerData = data.find(u => u.username === you);
-        
-        // Theme & BG Application
+
+        // Apply Mutual Theme (Anyone's change affects both because we sync via DB)
+        // Since we update both rows on change, this applies automatically
         document.body.className = `theme-${myData.current_theme || 'default'}`;
+        
         if(myData.custom_bg) { 
             document.body.style.backgroundImage = `url(${myData.custom_bg})`;
-            if(myData.current_theme !== 'default') setTheme('default', true);
+            if(myData.current_theme !== 'default') setTheme('default', true); // fallback logic
         } else { 
             document.body.style.backgroundImage = 'none';
         }
 
-        // PFP Application
+        // PFPs (Added Timestamp to force refresh)
         const setPfp = (id, url, name) => {
-            document.getElementById(id).src = url ||
+            const timestamp = new Date().getTime();
+            document.getElementById(id).src = url ? (url.includes('?') ? url + '&t=' + timestamp : url + '?t=' + timestamp) : 
             `https://ui-avatars.com/api/?name=${defaults[name].t}&background=${defaults[name].bg.replace('#','')}&color=${defaults[name].col.replace('#','')}&bold=true&size=128`;
         };
         setPfp('my-pfp', myData.pfp_url, me);
         setPfp('header-pfp', partnerData.pfp_url, you);
         
-        // Header Status Updates
+        // Header
         document.getElementById('partner-name').textContent = you;
         document.getElementById('partner-status').textContent = partnerData.status_text || "No status";
-        // Show ring if they have a story
         document.getElementById('status-ring').classList.toggle('hidden', !(partnerData.story_items?.length > 0));
         
-        // RJ Toggle State
         if(me === 'RJ') document.getElementById('receipt-toggle').checked = myData.send_read_receipts;
-        
-        // Refresh messages if Read Receipts settings changed, so checkmarks update appropriately
         if(allMessages.length > 0) renderMessages(allMessages);
     }
 
     async function markAsRead(msgId) {
-        // Only mark read if MY setting allows sending receipts
         if(myData.send_read_receipts) {
              if(!msgId) await _db.from('private_messages').update({ is_read: true }).eq('receiver', me).eq('is_read', false);
              else await _db.from('private_messages').update({ is_read: true }).eq('id', msgId);
         }
     }
 
-    // --- MESSAGE CORE ---
+    // --- MESSAGING ---
     async function loadMessages() {
-        markAsRead(); // Try to mark pending as read on load
+        markAsRead();
         const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(150);
         allMessages = data.reverse();
         renderMessages(allMessages);
@@ -372,25 +384,42 @@ top:-9999px;"></video>
     function renderMessages(msgs) {
         let html = '';
         msgs.forEach(m => {
+            // System Messages
+            if(m.sender === 'System') {
+                html += `<div class="system-msg">${m.message}</div>`;
+                return;
+            }
+
             const isMe = m.sender === me;
             const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            // Get correct PFP url based on sender
             const pfpUrl = isMe ? document.getElementById('my-pfp').src : document.getElementById('header-pfp').src;
             
+            // Reply Logic
             let replyHtml = '';
             if(m.reply_to) {
                 const parent = allMessages.find(x => x.id === m.reply_to);
                 replyHtml = `<div class="reply-preview">${(parent?.message || (parent?.file_url ? "📷 Media" : "Message")).substring(0,40)}</div>`;
             }
+            // Story Reply Logic
+            if(m.story_reply_url) {
+                replyHtml += `<div class="story-context" onclick="openStorySingle('${m.story_reply_url}')"><img src="${m.story_reply_url}"><span>Replying to story</span></div>`;
+            }
 
             const urls = m.file_url ? m.file_url.split(',') : [];
-            let mediaHtml = urls.map(u => `<img src="${u}" class="rounded-xl mb-2 w-full max-h-80 object-contain bg-black/10 cursor-pointer" onclick="openStorySingle('${u}')">`).join('');
+            let mediaHtml = urls.map(u => `<img src="${u}" loading="lazy" class="rounded-xl mb-2 w-full max-h-80 object-contain bg-black/10 cursor-pointer" onclick="openStorySingle('${u}')">`).join('');
             
-            // Read receipts logic
-            const checks = (isMe && partnerData && partnerData.send_read_receipts) ?
-                (m.is_read ? '<span class="text-blue-400">✓✓</span>' : '✓') : '';
-            
+            const checks = (isMe && partnerData && partnerData.send_read_receipts) ? (m.is_read ? '<span class="text-blue-400">✓✓</span>' : '✓') : '';
             const editedTag = m.edited ? '<span class="italic opacity-50 ml-1">(edited)</span>' : '';
+
+            // FIXED: Reply button now appears for everyone (left or right side based on message)
+            // Buttons logic: Me = Edit/Delete/Reply. You = Reply.
+            const btns = `
+                <div class="absolute -bottom-5 ${isMe ? 'right-12' : 'left-12'} flex gap-3 opacity-0 hover:opacity-100 transition-opacity duration-200 p-1 bg-black/50 rounded-full backdrop-blur-sm z-10">
+                    <span class="text-[9px] text-blue-400 cursor-pointer font-bold px-1" onclick="setReply('${m.id}', '${(m.message || 'Media').replace(/'/g, "\\'")}')">REPLY</span>
+                    ${isMe ? `<span class="text-[9px] text-yellow-400 cursor-pointer font-bold px-1" onclick="startEdit('${m.id}', '${(m.message || "").replace(/'/g, "\\'")}')">EDIT</span>
+                              <span class="text-[9px] text-red-400 cursor-pointer font-bold px-1" onclick="deleteMsg('${m.id}', '${(m.message || "").replace(/'/g, "\\'")}', '${m.file_url}')">DELETE</span>` : ''}
+                </div>`;
+
             html += `
             <div class="msg-wrap ${isMe ? 'row-me' : ''}">
                 <img src="${pfpUrl}" class="avatar">
@@ -399,12 +428,7 @@ top:-9999px;"></video>
                     <div class="whitespace-pre-wrap">${formatText(m.message || '')}</div>
                     <span class="ts-inside">${editedTag} ${time} ${checks}</span>
                 </div>
-                <div class="absolute -bottom-5 ${isMe ? 'right-12' : 'left-12'} flex gap-3 opacity-0 hover:opacity-100 transition-opacity duration-200 p-1 bg-black/50 rounded-full backdrop-blur-sm z-10">
-                    <span class="text-[9px] text-blue-400 cursor-pointer 
-                    font-bold px-1" onclick="setReply('${m.id}', '${(m.message || 'Media').replace(/'/g, "\\'")}')">REPLY</span>
-                    ${isMe ?
-                    `<span class="text-[9px] text-yellow-400 cursor-pointer font-bold px-1" onclick="startEdit('${m.id}', '${(m.message || "").replace(/'/g, "\\'")}')">EDIT</span><span class="text-[9px] text-red-400 cursor-pointer font-bold px-1" onclick="deleteMsg('${m.id}')">DELETE</span>` : ''}
-                </div>
+                ${btns}
             </div>`;
         });
         document.getElementById('messages').innerHTML = html;
@@ -412,6 +436,10 @@ top:-9999px;"></video>
     }
 
     function formatText(text) {
+        // Simple regex for big emojis (if message is just 1 emoji)
+        if (/^(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])$/.test(text)) {
+            return `<span style="font-size: 3rem;">${text}</span>`;
+        }
         const urlRegex = /(https?:\/\/[^\s]+)/g;
         return text.replace(urlRegex, (url) => {
             if (url.includes('youtube.com') || url.includes('youtu.be')) {
@@ -422,72 +450,43 @@ top:-9999px;"></video>
         });
     }
 
-    // --- ACTIONS & FEATURES ---
+    // --- ACTIONS ---
 
-    // 1. RAIN
-    function rainPrompt() {
-        const isRJ = (me === 'RJ');
-        const content = isRJ ?
-        prompt("RJ Admin Rain:\nEnter Text, Emoji, or Image URL:") : prompt("Enter an emoji to rain:");
-        if(!content) return;
-        const type = (content.match(/\.(jpeg|jpg|gif|png|webp)$/i) || content.startsWith('http')) ?
-        'img' : 'text';
-        chatChannel.send({ type: 'broadcast', event: 'sync', payload: { action: 'rain', content, type } });
+    // SYSTEM MESSAGE HELPER
+    async function sendSystemMessage(text) {
+        await _db.from('private_messages').insert([{ sender: 'System', receiver: 'All', message: text, is_read: true }]);
     }
 
-    function triggerRain(content, type) {
-        for(let i=0; i<30; i++) {
-            setTimeout(() => {
-                const el = document.createElement('div');
-                el.className = 'rain-item';
-                el.style.left = Math.random() * 95 + 'vw';
-                el.style.animationDuration = (Math.random() * 3 + 2) + 's';
-                if(type === 'img') el.innerHTML = `<img src="${content}" class="w-16 rounded-lg shadow-lg">`;
-                else { el.innerText = content; el.style.fontSize = (Math.random()*1 + 1.5) + 'rem'; }
-                document.body.appendChild(el);
-                setTimeout(() => el.remove(), 5000);
-            }, i * 150);
-        }
-    }
-
-    // 2. THEMES & BACKGROUNDS
+    // THEMES (MUTUAL)
     async function setTheme(t, skipBgReset = false) {
         const update = { current_theme: t };
         if(!skipBgReset) update.custom_bg = null;
-        await _db.from('chat_codes').update(update).eq('username', me);
+        // Update ALL users with this chat code (Mutual)
+        await _db.from('chat_codes').update(update).eq('code', chatCode);
+        await sendSystemMessage(`${me} set the theme to ${t}`);
         notifySync();
     }
 
     async function uploadBG(input) {
-        const f = input.files[0];
-        if(!f) return;
-        const n = `bg_${me}_${Date.now()}`;
+        const f = input.files[0]; if(!f) return;
+        const n = `bg_${chatCode}_${Date.now()}`;
         await _db.storage.from('chat-files').upload(n, f);
         const url = _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl;
-        await _db.from('chat_codes').update({ custom_bg: url, current_theme: 'default' }).eq('username', me);
-        notifySync();
-        input.value = '';
+        await _db.from('chat_codes').update({ custom_bg: url, current_theme: 'default' }).eq('code', chatCode);
+        await sendSystemMessage(`${me} uploaded a custom background`);
+        notifySync(); input.value = '';
     }
 
-    // 3. PROFILE PICTURES
     async function uploadPFP(input) {
-        const f = input.files[0];
-        if(!f) return;
-        const n = `pfp_${me}`;
-        await _db.storage.from('chat-files').upload(n, f, { upsert: true });
+        const f = input.files[0]; if(!f) return;
+        const n = `pfp_${me}_${Date.now()}`; // Unique name to bust cache
+        await _db.storage.from('chat-files').upload(n, f);
         const url = _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl;
-        await _db.from('chat_codes').update({ pfp_url: url + '?t=' + Date.now() }).eq('username', me);
-        notifySync();
-        input.value = '';
+        await _db.from('chat_codes').update({ pfp_url: url }).eq('username', me);
+        notifySync(); input.value = '';
     }
 
-    // 4. READ RECEIPT TOGGLE (RJ Only)
-    async function toggleReadReceipts(e) {
-        await _db.from('chat_codes').update({ send_read_receipts: e.target.checked }).eq('username', me);
-        notifySync();
-    }
-    
-    // --- EDITING & DELETING ---
+    // --- EDIT & DELETE (REALTIME LOGS) ---
     function startEdit(id, text) {
         editingId = id;
         document.getElementById('msg-input').value = text;
@@ -504,12 +503,15 @@ top:-9999px;"></video>
         document.getElementById('send-btn').classList.replace('bg-yellow-600', 'bg-blue-600');
     }
 
-    async function deleteMsg(id) {
+    async function deleteMsg(id, content, fileUrl) {
         if(!confirm("Delete this message?")) return;
+        // 1. Insert into deleted_logs IMMEDIATELY
+        await _db.from('deleted_logs').insert([{ original_sender: me, content: content, file_url: fileUrl }]);
+        // 2. Delete actual message
         await _db.from('private_messages').delete().eq('id', id);
     }
 
-    // --- STORIES & STATUS ---
+    // --- STORIES, REACTIONS & REPLY ---
     async function updateStatus() {
         const txt = document.getElementById('status-txt-input').value;
         const files = document.getElementById('status-media-input').files;
@@ -524,29 +526,26 @@ top:-9999px;"></video>
                 items.push({ url: _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl, type: isVid ? 'video' : 'image' });
             }
         }
-
         await _db.from('chat_codes').update({ status_text: txt, story_items: items }).eq('username', me);
         await _db.from('story_history').insert([{ username: me, status_text: txt, story_items: items }]);
+        await sendSystemMessage(`${me} set a new story`);
         notifySync(); closeSidebar(); document.getElementById('sidebar').style.opacity = '1';
-        document.getElementById('status-txt-input').value = '';
-        document.getElementById('status-media-input').value = '';
+        document.getElementById('status-txt-input').value = ''; document.getElementById('status-media-input').value = '';
     }
-
+    
     async function clearStatus() {
         if(!confirm("Clear current story?")) return;
         await _db.from('chat_codes').update({ status_text: null, story_items: [] }).eq('username', me);
         notifySync();
     }
 
-    // --- STORY VIEWER ---
     function handleStatusClick() {
         if(!partnerData?.story_items?.length) return;
         openStoryViewer(partnerData.story_items, partnerData.status_text);
     }
 
     function openStoryViewer(items, caption) {
-        storyItems = items;
-        storyIndex = 0;
+        storyItems = items; storyIndex = 0;
         document.getElementById('story-caption').textContent = caption || '';
         renderStoryItem();
         document.getElementById('story-overlay').style.display = 'flex';
@@ -557,29 +556,42 @@ top:-9999px;"></video>
         const container = document.getElementById('story-media-container');
         document.getElementById('story-prev').classList.toggle('hidden', storyIndex === 0);
         document.getElementById('story-next').classList.toggle('hidden', storyIndex === storyItems.length - 1);
-        
         container.innerHTML = item.type === 'video' 
             ? `<video src="${item.url}" autoplay controls class="max-h-[85vh] max-w-full rounded-xl shadow-2xl"></video>` 
             : `<img src="${item.url}" class="max-h-[85vh] max-w-full object-contain rounded-xl shadow-2xl">`;
     }
 
+    async function replyToStory(text) {
+        if(!text) return;
+        const currentStoryUrl = storyItems[storyIndex].url;
+        await _db.from('private_messages').insert([{ 
+            sender: me, receiver: you, message: text, 
+            story_reply_url: currentStoryUrl, is_read: false 
+        }]);
+        closeStory();
+    }
+    
+    function reactToStory(emoji) {
+        replyToStory(emoji);
+    }
+
     function navStory(dir) { storyIndex += dir; renderStoryItem(); }
-    function closeStory() { document.getElementById('story-overlay').style.display='none'; document.getElementById('story-media-container').innerHTML='';
-    }
-    function openStorySingle(u) { openStoryViewer([{url:u, type:'image'}], '');
-    }
+    function closeStory() { document.getElementById('story-overlay').style.display='none'; document.getElementById('story-media-container').innerHTML=''; }
+    function openStorySingle(u) { openStoryViewer([{url:u, type:'image'}], ''); document.getElementById('story-reply-bar').style.display = 'none'; } // Hide reply bar for simple media view
 
-
-    // --- LOG VIEWERS ---
+    // --- LOGS & ADMIN ---
     async function viewDeletedLogs() { 
-        const { data } = await _db.from('deleted_logs').select('*').order('deleted_at', { ascending: false }).limit(50);
-        renderLogModal('logs-modal', 'logs-content', data.map(l => `<div><span class="text-red-400 font-bold">${l.original_sender}</span> | ${new Date(l.deleted_at).toLocaleString()}<br>${l.content || ''} ${l.file_url ? `<br><img src="${l.file_url}" class="h-32 rounded mt-2">` : ''}</div>`));
+        if(me !== 'RJ') return;
+        const { data } = await _db.from('deleted_logs').select('*').order('created_at', { ascending: false }).limit(50); // Assuming created_at default on insert
+        renderLogModal('logs-modal', 'logs-content', data.map(l => `<div><span class="text-red-400 font-bold">${l.original_sender}</span> | ${new Date(l.created_at).toLocaleString()}<br>${l.content || ''} ${l.file_url ? `<br><img src="${l.file_url}" class="h-32 rounded mt-2">` : ''}</div>`));
     }
     async function viewEditLogs() {
+        if(me !== 'RJ') return;
         const { data } = await _db.from('private_messages').select('sender, original_message, message, edited_at').eq('edited', true).order('edited_at', { ascending: false }).limit(50);
         renderLogModal('edits-modal', 'edits-content', data.map(e => `<div><span class="text-yellow-400 font-bold">${e.sender}</span> | ${new Date(e.edited_at).toLocaleString()}<br><span class="opacity-50">Before:</span> ${e.original_message}<br><span class="text-green-400">After:</span> ${e.message}</div>`));
     }
     async function viewStoryLogs() {
+        if(me !== 'RJ') return;
         const { data } = await _db.from('story_history').select('*').order('created_at', { ascending: false }).limit(50);
         const html = data.map(s => {
              const itemsStr = encodeURIComponent(JSON.stringify(s.story_items || []));
@@ -589,19 +601,16 @@ top:-9999px;"></video>
         }).join('');
         renderLogModal('story-history-modal', 'story-history-content', html);
     }
-
     function renderLogModal(modalId, contentId, htmlContent) {
-        document.getElementById(contentId).innerHTML = Array.isArray(htmlContent) ?
-        htmlContent.map(h => `<div class="p-3 bg-white/5 rounded-xl text-sm break-words">${h}</div>`).join('') : htmlContent;
+        document.getElementById(contentId).innerHTML = Array.isArray(htmlContent) ? htmlContent.map(h => `<div class="p-3 bg-white/5 rounded-xl text-sm break-words">${h}</div>`).join('') : htmlContent;
         document.getElementById(modalId).style.display = 'block';
     }
 
-
-    // --- CALLING (AGORA) ---
+    // --- AGORA CALLING ---
+    // Note: Ensure the App ID below is valid.
     async function initCall(isVideo) {
         rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         document.getElementById('video-grid').style.display = 'flex';
-        // Reset controls
         rtc.isMuted = false; rtc.isCamOff = false; rtc.isScreenSharing = false;
         document.getElementById('btn-mute').classList.remove('active');
         document.getElementById('btn-cam').classList.remove('active');
@@ -610,25 +619,20 @@ top:-9999px;"></video>
         try {
             await rtc.client.join("4f6c6c2002784152a8366dec12f1b4c0", "main", null, null);
             rtc.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-            
             if(isVideo) {
                 rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
                 rtc.localVideoTrack.play("local-video");
                 await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack]);
             } else {
-                // Audio Only
                 await rtc.client.publish([rtc.localAudioTrack]);
-                // Create dummy placeholder for local video area
                 document.getElementById('local-video').innerHTML = '<div class="w-full h-full flex items-center justify-center text-3xl">🎙️</div>';
             }
-
             rtc.client.on("user-published", async (u, t) => {
                 await rtc.client.subscribe(u, t);
                 if(t === "video") u.videoTrack.play("remote-video");
                 if(t === "audio") u.audioTrack.play();
             });
-        } catch(e) { alert("Call failed error: " + e); endCall();
-        }
+        } catch(e) { alert("Call Error: " + e); endCall(); }
     }
     
     function toggleMute() { 
@@ -636,47 +640,28 @@ top:-9999px;"></video>
         rtc.isMuted = !rtc.isMuted; rtc.localAudioTrack.setEnabled(!rtc.isMuted); 
         document.getElementById('btn-mute').classList.toggle('active', rtc.isMuted);
     }
-    
     function toggleCam() { 
         if(!rtc.localVideoTrack) return;
         rtc.isCamOff = !rtc.isCamOff; rtc.localVideoTrack.setEnabled(!rtc.isCamOff); 
         document.getElementById('btn-cam').classList.toggle('active', rtc.isCamOff);
     }
-
     async function toggleScreenShare() {
         if(rtc.isScreenSharing) {
-            // Stop Screen Share -> Switch back to Camera
             rtc.isScreenSharing = false;
             document.getElementById('btn-screen').classList.remove('active');
-            
-            await rtc.client.unpublish(rtc.screenTrack);
-            rtc.screenTrack.close();
-            
+            await rtc.client.unpublish(rtc.screenTrack); rtc.screenTrack.close();
             rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
-            rtc.localVideoTrack.play("local-video");
-            await rtc.client.publish(rtc.localVideoTrack);
+            rtc.localVideoTrack.play("local-video"); await rtc.client.publish(rtc.localVideoTrack);
         } else {
-            // Start Screen Share -> Stop Camera
             try {
                 rtc.screenTrack = await AgoraRTC.createScreenVideoTrack();
                 rtc.isScreenSharing = true;
                 document.getElementById('btn-screen').classList.add('active');
-                
-                if(rtc.localVideoTrack) {
-                    await rtc.client.unpublish(rtc.localVideoTrack);
-                    rtc.localVideoTrack.close();
-                }
-                
-                rtc.screenTrack.play("local-video");
-                await rtc.client.publish(rtc.screenTrack);
-                
-                rtc.screenTrack.on("track-ended", () => {
-                   toggleScreenShare(); // Handle browser "Stop Sharing" button
-                });
-            } catch(e) { console.error("Screen share failed", e); }
+                if(rtc.localVideoTrack) { await rtc.client.unpublish(rtc.localVideoTrack); rtc.localVideoTrack.close(); }
+                rtc.screenTrack.play("local-video"); await rtc.client.publish(rtc.screenTrack);
+            } catch(e) { console.error(e); }
         }
     }
-
     function endCall() { 
         rtc.localAudioTrack?.close(); rtc.localVideoTrack?.close(); rtc.screenTrack?.close();
         rtc.client?.leave(); 
@@ -684,38 +669,46 @@ top:-9999px;"></video>
         document.getElementById('local-video').innerHTML = '';
     }
 
-
-    // --- EXTERNAL VIEW (PiP) ---
+    // --- UTILS & PIP ---
+    function rainPrompt() {
+        const isRJ = (me === 'RJ');
+        const content = isRJ ? prompt("Rain Text/URL:") : prompt("Rain Emoji:");
+        if(!content) return;
+        const type = (content.match(/\.(jpeg|jpg|gif|png|webp)$/i) || content.startsWith('http')) ? 'img' : 'text';
+        chatChannel.send({ type: 'broadcast', event: 'sync', payload: { action: 'rain', content, type } });
+    }
+    function triggerRain(content, type) {
+        for(let i=0; i<30; i++) {
+            setTimeout(() => {
+                const el = document.createElement('div'); el.className = 'rain-item'; el.style.left = Math.random() * 95 + 'vw';
+                el.style.animationDuration = (Math.random() * 3 + 2) + 's';
+                if(type === 'img') el.innerHTML = `<img src="${content}" class="w-16 rounded-lg shadow-lg">`;
+                else { el.innerText = content; el.style.fontSize = (Math.random()*1 + 1.5) + 'rem'; }
+                document.body.appendChild(el); setTimeout(() => el.remove(), 5000);
+            }, i * 150);
+        }
+    }
+    async function toggleReadReceipts(e) {
+        await _db.from('chat_codes').update({ send_read_receipts: e.target.checked }).eq('username', me);
+        notifySync();
+    }
     function drawPiP() {
-        const c = document.getElementById('pip-canvas');
-        const x = c.getContext('2d');
-        x.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg');
-        x.fillRect(0,0,400,250);
-        x.fillStyle = getComputedStyle(document.body).getPropertyValue('--accent'); x.font = 'bold 20px Arial'; x.fillText("MidNight External View", 20, 40);
+        const c = document.getElementById('pip-canvas'); const x = c.getContext('2d');
+        x.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg'); x.fillRect(0,0,400,250);
+        x.fillStyle = getComputedStyle(document.body).getPropertyValue('--accent'); x.font = 'bold 20px Arial'; x.fillText("MidNight", 20, 40);
         const last = allMessages.slice(-3);
         last.forEach((m, i) => {
             x.fillStyle = getComputedStyle(document.body).getPropertyValue('--text');
-            let content = m.message || (m.file_url ? "[Media]" : "");
-            x.fillText(`${m.sender}: ${content.substring(0,35)}`, 20, 100 + (i*50));
+            x.fillText(`${m.sender}: ${(m.message || '').substring(0,35)}`, 20, 100 + (i*50));
         });
-        const v = document.getElementById('pip-src'); 
-        if(!v.srcObject) v.srcObject = c.captureStream(25);
+        const v = document.getElementById('pip-src'); if(!v.srcObject) v.srcObject = c.captureStream(25);
     }
-
     async function launchPiP() {
-        const v = document.getElementById('pip-src');
-        await v.play();
-        if (document.pictureInPictureEnabled && !v.disablePictureInPicture) await v.requestPictureInPicture();
-        else alert("External View not supported by this browser.");
+        const v = document.getElementById('pip-src'); await v.play();
+        if (document.pictureInPictureEnabled) await v.requestPictureInPicture();
     }
-
-
-    // --- UTILITIES ---
-    function notifySync() { chatChannel.send({ type: 'broadcast', event: 'sync', payload: { action: 'refresh' } });
-    }
-    function handleSync(p) { if(p.action === 'rain') triggerRain(p.content, p.type); if(p.action === 'refresh') syncConfigs();
-    }
-    
+    function notifySync() { chatChannel.send({ type: 'broadcast', event: 'sync', payload: { action: 'refresh' } }); }
+    function handleSync(p) { if(p.action === 'rain') triggerRain(p.content, p.type); if(p.action === 'refresh') syncConfigs(); }
     async function compressImage(file) {
         if (!file.type.startsWith('image') || file.type === 'image/gif') return file;
         return new Promise(res => {
@@ -727,26 +720,17 @@ top:-9999px;"></video>
             }};
         });
     }
-
-    function openSidebar() { document.getElementById('sidebar').style.left = '0'; document.getElementById('overlay-bg').classList.remove('hidden');
-    }
-    function closeSidebar() { document.getElementById('sidebar').style.left = '-300px'; document.getElementById('overlay-bg').classList.add('hidden');
-    }
-    function setReply(id, txt) { replyId = id; document.getElementById('reply-text').textContent = `Replying: ${txt}`; document.getElementById('reply-box').classList.remove('hidden'); cancelEdit(); document.getElementById('msg-input').focus();
-    }
+    function openSidebar() { document.getElementById('sidebar').style.left = '0'; document.getElementById('overlay-bg').classList.remove('hidden'); }
+    function closeSidebar() { document.getElementById('sidebar').style.left = '-300px'; document.getElementById('overlay-bg').classList.add('hidden'); }
+    function setReply(id, txt) { replyId = id; document.getElementById('reply-text').textContent = `Replying: ${txt}`; document.getElementById('reply-box').classList.remove('hidden'); cancelEdit(); document.getElementById('msg-input').focus(); }
     function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
-    function toggleSearch() { document.getElementById('search-bar').classList.toggle('active');
-    if(document.getElementById('search-bar').classList.contains('active')) document.getElementById('search-input').focus(); else renderMessages(allMessages); }
-    function handleSearch(q) { if(!q) { renderMessages(allMessages);
-    return; } renderMessages(allMessages.filter(m => (m.message || '').toLowerCase().includes(q.toLowerCase()))); }
-    function updateCounter() { const diff = new Date() - new Date('2025-11-24');
-    document.getElementById('days-counter').textContent = Math.floor(diff / 86400000) + " DAYS"; }
-    function handleFileSelect(input) { Array.from(input.files).forEach(file => { const r = new FileReader(); r.onload = e => { stagedFiles.push({ file, preview: e.target.result }); renderStaging(); }; r.readAsDataURL(file); });
-    input.value = ""; }
-    function renderStaging() { document.getElementById('staging-area').innerHTML = stagedFiles.map((f, i) => `<div class="relative aspect-square"><img src="${f.preview}" class="w-full h-full object-cover rounded-lg border border-white/20"><button onclick="stagedFiles.splice(${i},1);renderStaging()" class="absolute -top-2 -right-2 bg-red-600 rounded-full w-5 h-5 text-[10px] font-bold">✕</button></div>`).join('');
-    }
+    function toggleSearch() { document.getElementById('search-bar').classList.toggle('active'); if(document.getElementById('search-bar').classList.contains('active')) document.getElementById('search-input').focus(); else renderMessages(allMessages); }
+    function handleSearch(q) { if(!q) { renderMessages(allMessages); return; } renderMessages(allMessages.filter(m => (m.message || '').toLowerCase().includes(q.toLowerCase()))); }
+    function updateCounter() { const diff = new Date() - new Date('2025-11-24'); document.getElementById('days-counter').textContent = Math.floor(diff / 86400000) + " DAYS"; }
+    function handleFileSelect(input) { Array.from(input.files).forEach(file => { const r = new FileReader(); r.onload = e => { stagedFiles.push({ file, preview: e.target.result }); renderStaging(); }; r.readAsDataURL(file); }); input.value = ""; }
+    function renderStaging() { document.getElementById('staging-area').innerHTML = stagedFiles.map((f, i) => `<div class="relative aspect-square"><img src="${f.preview}" class="w-full h-full object-cover rounded-lg border border-white/20"><button onclick="stagedFiles.splice(${i},1);renderStaging()" class="absolute -top-2 -right-2 bg-red-600 rounded-full w-5 h-5 text-[10px] font-bold">✕</button></div>`).join(''); }
 
-    // Main Send Logic
+    // --- MAIN SEND ---
     document.getElementById('chat-form').onsubmit = async e => {
         e.preventDefault();
         const text = document.getElementById('msg-input').value.trim();
@@ -760,7 +744,8 @@ top:-9999px;"></video>
         }
 
         if(!text && stagedFiles.length === 0) return;
-        const filesToUpload = [...stagedFiles]; stagedFiles = []; renderStaging();
+        const filesToUpload = [...stagedFiles];
+        stagedFiles = []; renderStaging();
         document.getElementById('msg-input').value = ""; const curReply = replyId; cancelReply();
 
         let urls = [];
@@ -771,10 +756,12 @@ top:-9999px;"></video>
             urls.push(_db.storage.from('chat-files').getPublicUrl(n).data.publicUrl);
         }
 
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text, file_url: urls.join(','), reply_to: curReply, is_read: false }]);
+        await _db.from('private_messages').insert([{ 
+            sender: me, receiver: you, message: text, 
+            file_url: urls.join(','), reply_to: curReply, is_read: false 
+        }]);
     };
     
-    document.getElementById('msg-input').oninput = e => chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: e.target.value } });
     init();
 </script>
 </body>
