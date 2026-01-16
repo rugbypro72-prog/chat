@@ -3,12 +3,12 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>MidNight v2.3</title>
+    <title>MidNight v3.0 Fixed</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
     <style>
-        /* --- THEming ENGINE --- */
+        /* --- THEME VARIABLES --- */
         :root { 
             --bg: #03050a; --me-bg: #1e293b; --you-bg: #0f172a; 
             --accent: #3b82f6; --text: #f1f5f9; --sidebar-bg: #080c14;
@@ -21,90 +21,55 @@
         }
         body { 
             background-color: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; 
-            height: 100vh; overflow: hidden; margin: 0; transition: background-color 0.5s ease, color 0.5s ease;
+            height: 100vh; overflow: hidden; margin: 0; transition: background-color 0.5s ease;
             background-size: cover; background-position: center; background-attachment: fixed;
         }
 
-        /* --- LAYOUT & MESSAGES --- */
+        /* --- LAYOUT --- */
         #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; position: relative; z-index: 10; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; }
         
+        /* Message Styles */
         .avatar { width: 35px; height: 35px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid var(--msg-border); }
         .msg-wrap { display: flex; gap: 10px; width: 100%; position: relative; align-items: flex-end; }
         .row-me { flex-direction: row-reverse; } 
         
-        .bubble { max-width: 80%; padding: 12px 14px 26px 14px; font-size: 15px; border-radius: 20px; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.1); word-wrap: break-word; transition: background-color 0.3s ease; }
+        .bubble { max-width: 80%; padding: 12px 14px 26px 14px; font-size: 15px; border-radius: 20px; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.1); word-wrap: break-word; transition: background 0.3s ease; }
         .me { background: var(--me-bg); border: 1px solid var(--msg-border); border-bottom-right-radius: 4px; }
         .you { background: var(--you-bg); border: 1px solid var(--msg-border); border-bottom-left-radius: 4px; }
         
         .ts-inside { position: absolute; bottom: 6px; right: 12px; font-size: 9px; opacity: 0.6; font-weight: 700; display: flex; align-items: center; gap: 4px; }
+        .system-msg { width: 100%; text-align: center; font-size: 11px; color: #888; font-style: italic; margin: 10px 0; opacity: 0.7; }
         
-        /* Reply & Story Context Previews */
-        .reply-preview { font-size: 11px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 12px; border-left: 3px solid var(--accent); margin-bottom: 8px; opacity: 0.9; display: block; overflow: hidden; }
+        /* Reply Context */
+        .reply-preview { font-size: 11px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 12px; border-left: 3px solid var(--accent); margin-bottom: 8px; opacity: 0.9; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
         .story-context { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 10px; margin-bottom: 8px; cursor: pointer; }
         .story-context img { width: 30px; height: 30px; border-radius: 6px; object-fit: cover; }
-        .system-msg { width: 100%; text-align: center; font-size: 11px; color: #888; font-style: italic; margin: 10px 0; opacity: 0.7; }
 
-        /* --- ANIMATIONS --- */
-        .rain-item { position: fixed; top: -50px; z-index: 9999; pointer-events: none; animation: fall linear forwards; }
-        @keyframes fall { to { transform: translateY(110vh) rotate(360deg); } }
-
-        /* --- MODALS & OVERLAYS --- */
-        .modal-view { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 2000; overflow-y: auto; padding: 25px; animation: fadeIn 0.2s ease; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        
+        /* --- STORY OVERLAY --- */
         #story-overlay { display: none; position: fixed; inset: 0; background: black; z-index: 6000; align-items: center; justify-content: center; flex-direction: column; }
-        .story-nav-btn { position: absolute; top: 50%; transform: translateY(-50%); font-size: 3rem; color: white; padding: 20px; cursor: pointer; opacity: 0.6; transition: 0.2s; z-index: 6010; }
-        .story-nav-btn:hover { opacity: 1; }
+        .story-nav-btn { position: absolute; top: 50%; transform: translateY(-50%); font-size: 3rem; color: white; padding: 20px; cursor: pointer; opacity: 0.6; z-index: 6010; }
         #story-prev { left: 0; } #story-next { right: 0; }
-
-        /* Story Reply Bar */
-        #story-reply-bar { position: absolute; bottom: 0; left: 0; right: 0; padding: 15px 10px 30px 10px; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); z-index: 6020; display: flex; flex-direction: column; gap: 10px; }
-        .story-emoji-btn { font-size: 24px; transition: transform 0.1s; cursor: pointer; }
-        .story-emoji-btn:hover { transform: scale(1.2); }
-
-        /* --- UI COMPONENTS --- */
-        #search-bar { transition: 0.3s all ease; transform: translateY(-100%); position: absolute; top: 70px; left: 0; right: 0; z-index: 40; background: var(--bg); padding: 10px; border-bottom: 1px solid var(--msg-border); opacity: 0; pointer-events: none; }
-        #search-bar.active { transform: translateY(0); opacity: 1; pointer-events: all; }
         
-        .call-btn { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; transition: 0.2s; }
-        .call-btn.active { background: var(--accent); }
-        #video-grid { position: fixed; inset: 0; background: black; z-index: 3000; display: none; }
+        /* Story Reply Bar (Permanent) */
+        #story-reply-container { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.95), transparent); padding: 20px 10px 40px 10px; z-index: 6020; display: flex; flex-direction: column; gap: 10px; }
+        .emoji-bar { display: flex; justify-content: center; gap: 15px; margin-bottom: 5px; }
+        .emoji-btn { font-size: 28px; cursor: pointer; transition: transform 0.2s; }
+        .emoji-btn:hover { transform: scale(1.3); }
 
-        /* Toggle Switch */
-        .toggle-checkbox:checked { right: 0; border-color: var(--accent); }
-        .toggle-checkbox:checked + .toggle-label { background-color: var(--accent); }
+        /* --- MODALS & VIDEO --- */
+        .modal-view { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 2000; overflow-y: auto; padding: 25px; }
+        #video-grid { position: fixed; inset: 0; background: black; z-index: 3000; display: none; }
+        .call-btn { width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); font-size: 20px; }
+        .call-btn.active { background: var(--accent); }
     </style>
 </head>
 <body>
 
-<div id="story-overlay">
-    <div id="story-prev" class="story-nav-btn hidden" onclick="navStory(-1)">‹</div>
-    <div id="story-media-container" class="relative w-full h-full flex items-center justify-center p-4"></div>
-    <div class="absolute top-10 text-center w-full text-xl font-bold text-white shadow-lg z-[6010]" id="story-caption"></div>
-    <div id="story-next" class="story-nav-btn hidden" onclick="navStory(1)">›</div>
-    <button onclick="closeStory()" class="absolute top-6 right-6 text-white text-3xl z-[6020] opacity-70 hover:opacity-100">✕</button>
-    
-    <div id="story-reply-bar">
-        <div class="flex justify-center gap-4 mb-2">
-            <button onclick="reactToStory('🔥')" class="story-emoji-btn">🔥</button>
-            <button onclick="reactToStory('😂')" class="story-emoji-btn">😂</button>
-            <button onclick="reactToStory('😍')" class="story-emoji-btn">😍</button>
-            <button onclick="reactToStory('😢')" class="story-emoji-btn">😢</button>
-            <button onclick="reactToStory('👏')" class="story-emoji-btn">👏</button>
-            <button onclick="reactToStory('😮')" class="story-emoji-btn">😮</button>
-        </div>
-        <form onsubmit="event.preventDefault(); replyToStory(this.querySelector('input').value); this.reset();" class="flex gap-2">
-            <input type="text" placeholder="Reply to story..." class="flex-1 bg-white/20 border border-white/30 rounded-full px-4 py-3 text-white placeholder-white/70 outline-none backdrop-blur-md">
-            <button type="submit" class="bg-white/20 rounded-full w-12 h-12 flex items-center justify-center text-white backdrop-blur-md">➤</button>
-        </form>
-    </div>
-</div>
-
 <div id="video-grid">
     <div id="remote-video" class="w-full h-full"></div>
-    <div id="local-video" class="absolute top-10 right-6 w-32 h-48 border-2 border-white/20 rounded-2xl overflow-hidden bg-black shadow-2xl"></div>
-    <div class="absolute bottom-10 left-0 right-0 flex justify-center gap-4 z-[3010]">
+    <div id="local-video" class="absolute top-6 right-6 w-32 h-48 bg-gray-900 border border-white/20 rounded-xl overflow-hidden shadow-2xl z-[3001]"></div>
+    <div class="absolute bottom-10 left-0 right-0 flex justify-center gap-6 z-[3002]">
         <button id="btn-mute" onclick="toggleMute()" class="call-btn">🎤</button>
         <button id="btn-cam" onclick="toggleCam()" class="call-btn">📷</button>
         <button id="btn-screen" onclick="toggleScreenShare()" class="call-btn">🖥️</button>
@@ -112,26 +77,39 @@
     </div>
 </div>
 
+<div id="story-overlay">
+    <button onclick="closeStory()" class="absolute top-6 right-6 text-white/80 text-3xl z-[6030] hover:text-white">✕</button>
+    <div id="story-prev" class="story-nav-btn hidden" onclick="navStory(-1)">‹</div>
+    <div id="story-media-container" class="relative w-full h-full flex items-center justify-center pb-32"></div>
+    <div class="absolute top-12 text-center w-full text-xl font-bold text-white z-[6010]" id="story-caption"></div>
+    <div id="story-next" class="story-nav-btn hidden" onclick="navStory(1)">›</div>
+
+    <div id="story-reply-container">
+        <div class="emoji-bar">
+            <span onclick="reactToStory('🔥')" class="emoji-btn">🔥</span>
+            <span onclick="reactToStory('😂')" class="emoji-btn">😂</span>
+            <span onclick="reactToStory('😍')" class="emoji-btn">😍</span>
+            <span onclick="reactToStory('😢')" class="emoji-btn">😢</span>
+            <span onclick="reactToStory('👏')" class="emoji-btn">👏</span>
+        </div>
+        <form onsubmit="event.preventDefault(); replyToStory(this.querySelector('input').value); this.reset();" class="flex gap-2 max-w-md mx-auto w-full">
+            <input type="text" placeholder="Reply to story..." class="flex-1 bg-white/20 border border-white/10 rounded-full px-4 py-3 text-white placeholder-white/60 outline-none backdrop-blur-md">
+            <button type="submit" class="bg-blue-600 rounded-full w-12 h-12 flex items-center justify-center text-white">➤</button>
+        </form>
+    </div>
+</div>
+
 <div id="logs-modal" class="modal-view">
-    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-red-500">Deleted Logs (Realtime)</h2><button onclick="this.closest('.modal-view').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button></div>
+    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-red-500">Deleted Logs</h2><button onclick="document.getElementById('logs-modal').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-xs">Close</button></div>
     <div id="logs-content" class="space-y-4 pb-20"></div>
 </div>
-
 <div id="edits-modal" class="modal-view">
-    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-yellow-500">Edit History</h2><button onclick="this.closest('.modal-view').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button></div>
+    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-yellow-500">Edit Logs</h2><button onclick="document.getElementById('edits-modal').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-xs">Close</button></div>
     <div id="edits-content" class="space-y-4 pb-20"></div>
 </div>
-
 <div id="story-history-modal" class="modal-view">
-    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-pink-500">Story Archive</h2><button onclick="this.closest('.modal-view').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button></div>
+    <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-pink-500">Story Archive</h2><button onclick="document.getElementById('story-history-modal').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-xs">Close</button></div>
     <div id="story-history-content" class="grid grid-cols-2 gap-3 pb-20"></div>
-</div>
-
-<div id="search-bar">
-    <div class="flex gap-2">
-        <input type="text" id="search-input" placeholder="Search keywords..." class="flex-1 bg-white/5 rounded-lg p-2 text-sm outline-none border border-white/10" onkeyup="handleSearch(this.value)">
-        <button onclick="toggleSearch()" class="text-white/50 px-2">✕</button>
-    </div>
 </div>
 
 <div id="chat-main">
@@ -144,32 +122,28 @@
             </div>
             <div>
                 <div class="font-bold text-md leading-none" id="partner-name">...</div>
-                <div id="partner-status" class="text-[11px] opacity-70 font-medium mt-0.5 text-blue-200 whitespace-normal leading-3 max-w-[200px]">No status</div>
-                <div id="live-preview" class="text-[9px] text-[var(--accent)] italic h-3 mt-1 overflow-hidden whitespace-nowrap w-40"></div>
+                <div id="partner-status" class="text-[11px] opacity-70 mt-1 max-w-[200px] truncate"></div>
+                <div id="typing-indicator" class="text-[10px] text-[var(--accent)] italic h-3 overflow-hidden font-bold"></div>
             </div>
         </div>
         <div class="flex gap-2">
-            <button onclick="toggleSearch()" class="p-2 opacity-60">🔍</button>
-            <button onclick="initCall(false)" class="p-2 px-3 bg-white/10 rounded-full text-[10px] font-bold hover:bg-white/20 transition">AUDIO</button>
-            <button onclick="initCall(true)" class="p-2 px-3 bg-blue-600 rounded-full text-[10px] font-bold shadow-lg shadow-blue-600/50">VIDEO</button>
+            <button onclick="initCall(false)" class="p-2 bg-white/10 rounded-full text-[10px]">📞</button>
+            <button onclick="initCall(true)" class="p-2 bg-blue-600 rounded-full text-[10px]">🎥</button>
         </div>
     </header>
 
     <main id="messages"></main>
 
-    <footer class="p-4 bg-transparent">
+    <footer class="p-4">
         <div id="staging-area" class="grid grid-cols-4 gap-2 mb-2 empty:hidden"></div>
-        
         <div id="reply-box" class="hidden bg-blue-500/10 p-3 rounded-t-2xl border-l-4 border-blue-600 flex justify-between items-center mb-[-10px] pb-5">
             <span id="reply-text" class="text-[11px] italic truncate pr-4"></span>
             <button onclick="cancelReply()">✕</button>
         </div>
-        
         <div id="edit-box" class="hidden bg-yellow-500/10 p-3 rounded-t-2xl border-l-4 border-yellow-600 flex justify-between items-center mb-[-10px] pb-5">
-            <span class="text-[11px] text-yellow-300 italic">Editing message...</span>
+            <span class="text-[11px] text-yellow-300 italic">Editing...</span>
             <button onclick="cancelEdit()">✕</button>
         </div>
-        
         <form id="chat-form" class="flex items-center bg-black/40 border border-white/10 rounded-full p-1 pl-4 shadow-2xl backdrop-blur-md">
             <label class="cursor-pointer opacity-50 p-2">📎<input type="file" id="file-input" class="hidden" multiple accept="image/*" onchange="handleFileSelect(this)"></label>
             <input id="msg-input" placeholder="Message..." autocomplete="off" class="flex-1 bg-transparent py-3 px-2 text-sm outline-none">
@@ -181,585 +155,374 @@
 <div id="sidebar" class="fixed left-[-300px] top-0 bottom-0 w-[280px] bg-[var(--sidebar-bg)] z-[1000] p-6 flex flex-col transition-all duration-300 border-r border-white/10">
     <div class="mb-6 text-center">
         <h1 class="text-[var(--accent)] font-black text-2xl">MidNight</h1>
-        <p class="text-[9px] opacity-40 tracking-widest uppercase">Version 2.3</p>
-    </div>
-
-    <div class="flex flex-col items-center mb-8">
-        <div class="relative group">
-            <img id="my-pfp" class="w-24 h-24 rounded-full border-4 border-white/10 object-cover shadow-2xl">
-            <label class="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition">
-                <span class="text-xs font-bold">CHANGE</span>
-                <input type="file" class="hidden" accept="image/*" onchange="uploadPFP(this)">
-            </label>
+        <div class="flex flex-col items-center mt-6">
+            <div class="relative group">
+                <img id="my-pfp" class="w-24 h-24 rounded-full border-4 border-white/10 object-cover">
+                <label class="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition">
+                    <span class="text-xs font-bold">CHANGE</span>
+                    <input type="file" class="hidden" accept="image/*" onchange="uploadPFP(this)">
+                </label>
+            </div>
+            <p id="me-name" class="font-bold mt-3 text-lg"></p>
         </div>
-        <p id="me-name" class="font-bold mt-3 text-lg"></p>
-        <div id="days-counter" class="text-[10px] text-[var(--accent)] font-bold bg-white/5 px-4 py-1 rounded-full mt-2">...</div>
     </div>
 
-    <div class="flex-1 space-y-4 overflow-y-auto no-scrollbar">
-        <button onclick="rainPrompt()" class="w-full p-4 bg-blue-500/20 text-blue-400 rounded-2xl font-bold flex items-center justify-between transition hover:bg-blue-500/30"><span>🌧️ Make it Rain</span><span>›</span></button>
-        
+    <div class="flex-1 space-y-4 overflow-y-auto">
         <div class="bg-white/5 p-4 rounded-2xl space-y-3">
-            <p class="text-[10px] font-bold opacity-40 uppercase">Update Status / Story</p>
-            <input id="status-txt-input" placeholder="What's up?" class="w-full bg-black/40 p-3 rounded-xl text-xs outline-none border border-white/5">
-            <label class="block bg-white/5 p-3 rounded-xl text-[10px] text-center cursor-pointer border border-dashed border-white/20 hover:bg-white/10 transition">📸 Select Media (Multiple) <input type="file" id="status-media-input" class="hidden" multiple accept="image/*,video/*"></label>
-            <div class="grid grid-cols-2 gap-2">
-                <button onclick="updateStatus()" class="bg-blue-600 p-2 rounded-lg text-[10px] font-bold uppercase">Post</button>
-                <button onclick="clearStatus()" class="bg-red-600/20 text-red-500 p-2 rounded-lg text-[10px] font-bold uppercase">Clear</button>
+            <p class="text-[10px] font-bold opacity-40 uppercase">Update Story</p>
+            <input id="status-txt-input" placeholder="Caption..." class="w-full bg-black/40 p-2 rounded-lg text-xs outline-none border border-white/5">
+            <label class="block bg-white/5 p-2 rounded-lg text-[10px] text-center cursor-pointer border border-dashed border-white/20">📸 Add Media <input type="file" id="status-media-input" class="hidden" multiple accept="image/*,video/*"></label>
+            <div class="flex gap-2">
+                <button onclick="updateStatus()" class="flex-1 bg-blue-600 p-2 rounded text-[10px] font-bold">POST</button>
+                <button onclick="clearStatus()" class="bg-red-600/20 text-red-500 p-2 rounded text-[10px]">🗑</button>
             </div>
         </div>
 
         <div class="bg-white/5 p-4 rounded-2xl space-y-2">
-            <p class="text-[10px] font-bold opacity-40 uppercase">Customization (Mutual)</p>
+            <p class="text-[10px] font-bold opacity-40 uppercase">Themes (Mutual)</p>
             <div class="grid grid-cols-2 gap-2">
-                <button onclick="setTheme('default')" class="text-[10px] p-2 bg-slate-800 rounded hover:bg-slate-700 transition">DARK MODE</button>
-                <button onclick="setTheme('love')" class="text-[10px] p-2 bg-pink-900 rounded hover:bg-pink-800 transition">LOVE THEME</button>
-            </div>
-            <label class="block w-full text-center text-[10px] p-3 bg-blue-900/50 rounded-xl cursor-pointer hover:bg-blue-900/70 transition">UPLOAD CUSTOM BG <input type="file" class="hidden" accept="image/*" onchange="uploadBG(this)"></label>
-        </div>
-
-        <div id="rj-settings" class="hidden bg-white/5 p-4 rounded-2xl flex items-center justify-between">
-             <span class="text-[10px] font-bold opacity-60 uppercase">Send Read Receipts</span>
-             <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                <input type="checkbox" name="toggle" id="receipt-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 transition-all duration-200 ease-in"/>
-                <label for="receipt-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-700 cursor-pointer transition-all duration-200 ease-in"></label>
+                <button onclick="setTheme('default')" class="text-[10px] p-2 bg-slate-800 rounded">DARK</button>
+                <button onclick="setTheme('love')" class="text-[10px] p-2 bg-pink-900 rounded">LOVE</button>
             </div>
         </div>
-
-        <button onclick="launchPiP()" class="w-full p-4 bg-white/5 rounded-2xl font-bold text-left hover:bg-white/10 transition">📺 External View (PiP)</button>
         
-        <div id="admin-logs" class="hidden grid grid-cols-3 gap-2 text-[9px] font-bold uppercase">
-            <button onclick="viewStoryLogs()" class="p-3 bg-pink-600/10 text-pink-400 rounded-xl hover:bg-pink-600/20 transition">📜 Stories</button>
-            <button onclick="viewEditLogs()" class="p-3 bg-yellow-600/10 text-yellow-400 rounded-xl hover:bg-yellow-600/20 transition">✏️ Edits</button>
-            <button onclick="viewDeletedLogs()" class="p-3 bg-red-600/10 text-red-400 rounded-xl hover:bg-red-600/20 transition">🗑️ Deleted</button>
+        <div id="admin-panel" class="hidden space-y-2">
+            <p class="text-[10px] font-bold opacity-40 uppercase mt-4">Admin Logs</p>
+            <div class="grid grid-cols-3 gap-2">
+                <button onclick="viewStoryLogs()" class="p-2 bg-pink-900/30 text-pink-400 rounded text-[10px]">Stories</button>
+                <button onclick="viewEditLogs()" class="p-2 bg-yellow-900/30 text-yellow-400 rounded text-[10px]">Edits</button>
+                <button onclick="viewDeletedLogs()" class="p-2 bg-red-900/30 text-red-400 rounded text-[10px]">Deleted</button>
+            </div>
         </div>
     </div>
 </div>
-
-<video id="pip-src" autoplay muted playsinline style="position:fixed; top:-9999px;"></video>
-<canvas id="pip-canvas" width="400" height="250" class="hidden"></canvas>
 <div id="overlay-bg" onclick="closeSidebar()" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-[900]"></div>
 
 <script>
-    // --- SUPABASE CONFIG ---
+    // --- SUPABASE SETUP ---
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
     
-    // --- VARIABLES ---
-    let me, you, chatChannel, stagedFiles = [], allMessages = [], replyId = null, editingId = null;
-    let storyItems = [], storyIndex = 0, partnerData = null, myData = null, chatCode = null;
-    let typingTimer = null;
-    let rtc = { client: null, localVideoTrack: null, localAudioTrack: null, screenTrack: null, isScreenSharing: false };
+    // --- STATE ---
+    let me, you, channel, allMessages = [], storyItems = [], storyIndex = 0, partnerData = null, chatCode;
+    let replyId = null, editingId = null, stagedFiles = [], typingTimer = null;
+    let rtc = { client: null, localAudio: null, localVideo: null, screen: null, sharing: false };
     
-    // Default PFPs
-    const defaults = { 'RJ': { bg: '#000', col: '#fff', t: 'R' }, 'Allyvia': { bg: '#fef08a', col: '#000', t: 'A' } };
-
-    // --- INITIALIZATION ---
+    // --- INIT ---
     async function init() {
-        chatCode = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
+        chatCode = localStorage.getItem('chat_secret_code') || prompt("Enter Access Code:");
         const { data } = await _db.from('chat_codes').select('*').eq('code', chatCode).single();
-        if(!data) { alert("Invalid code"); return; }
         
+        if(!data) { alert("Invalid Code"); return; }
+        localStorage.setItem('chat_secret_code', chatCode);
         me = data.username;
         you = (me === 'RJ' ? 'Allyvia' : 'RJ');
-        localStorage.setItem('chat_secret_code', chatCode);
+        
         document.getElementById('me-name').textContent = me;
+        document.getElementById('partner-name').textContent = you;
+        if(me === 'RJ') document.getElementById('admin-panel').classList.remove('hidden');
 
-        // --- RJ PERMISSIONS ---
-        if(me === 'RJ') {
-            document.getElementById('rj-settings').classList.remove('hidden');
-            document.getElementById('admin-logs').classList.remove('hidden');
-            document.getElementById('receipt-toggle').addEventListener('change', toggleReadReceipts);
-        } else {
-            // Ensure Allyvia cannot see logs even if she inspects elements (hard hidden in rendering logic too)
-            document.getElementById('admin-logs').innerHTML = ''; 
-        }
-
-        // --- REALTIME LISTENERS ---
-        chatChannel = _db.channel('midnight-v2');
-        chatChannel
-            .on('broadcast', { event: 'sync' }, p => handleSync(p.payload))
+        // Realtime Subscription
+        channel = _db.channel('midnight-main');
+        channel
             .on('broadcast', { event: 'typing' }, p => handleTyping(p.payload))
-            // Insert
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
-                 if(p.new.receiver === me) markAsRead(p.new.id);
-                 loadMessages();
-            })
-            // Update
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'private_messages' }, () => loadMessages())
-            // Delete
-            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'private_messages' }, () => {
-                 loadMessages();
-            })
-            // Config Change (Mutual Theme Sync)
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_codes' }, () => syncConfigs())
-            // Log Listener (for RJ)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'deleted_logs' }, () => {
-                if(me === 'RJ' && document.getElementById('logs-modal').style.display === 'block') viewDeletedLogs();
-            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, () => loadMessages())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_codes' }, () => syncConfigs())
             .subscribe();
 
-        syncConfigs(); loadMessages(); updateCounter(); setInterval(drawPiP, 250);
+        syncConfigs();
+        loadMessages();
     }
 
-    // --- TYPING LOGIC (One-sided & Timeout) ---
-    function handleTyping(p) {
-        const preview = document.getElementById('live-preview');
-        clearTimeout(typingTimer);
-
-        if (p.isAllyvia) {
-            // Allyvia typed -> RJ sees text
-            if(me === 'RJ') preview.textContent = "Allyvia is typing: " + p.text; 
-            else preview.textContent = ""; // Allyvia doesn't see her own ghost
-        } else if (p.isRJ) {
-            // RJ typed -> Allyvia sees generic
-            if(me === 'Allyvia') preview.textContent = "RJ is typing...";
-        }
-
-        // 3 Seconds Timeout
-        typingTimer = setTimeout(() => {
-            preview.textContent = "";
-        }, 3000);
-    }
-
-    document.getElementById('msg-input').oninput = e => {
-        const payload = me === 'Allyvia' 
-            ? { isAllyvia: true, text: e.target.value } 
-            : { isRJ: true };
-        chatChannel.send({ type: 'broadcast', event: 'typing', payload });
+    // --- TYPING LOGIC (FIXED) ---
+    document.getElementById('msg-input').onkeyup = () => {
+        const payload = (me === 'Allyvia') 
+            ? { user: me, text: document.getElementById('msg-input').value } // RJ sees text
+            : { user: me }; // Allyvia just sees "RJ is typing"
+        channel.send({ type: 'broadcast', event: 'typing', payload });
     };
 
-    // --- SYNC ENGINE ---
-    async function syncConfigs() {
-        // Fetch all users with this code to sync mutual settings
-        const { data } = await _db.from('chat_codes').select('*').eq('code', chatCode);
-        myData = data.find(u => u.username === me);
-        partnerData = data.find(u => u.username === you);
-
-        // Apply Mutual Theme (Anyone's change affects both because we sync via DB)
-        // Since we update both rows on change, this applies automatically
-        document.body.className = `theme-${myData.current_theme || 'default'}`;
+    function handleTyping(p) {
+        const ind = document.getElementById('typing-indicator');
+        clearTimeout(typingTimer);
         
-        if(myData.custom_bg) { 
-            document.body.style.backgroundImage = `url(${myData.custom_bg})`;
-            if(myData.current_theme !== 'default') setTheme('default', true); // fallback logic
-        } else { 
-            document.body.style.backgroundImage = 'none';
+        if (p.user !== me) {
+            // Logic: If sender is Allyvia and I am RJ -> Show Text. Else -> Generic
+            if (p.user === 'Allyvia' && me === 'RJ') {
+                ind.textContent = `Allyvia is typing: ${p.text || '...'}`;
+            } else {
+                ind.textContent = `${p.user} is typing...`;
+            }
         }
-
-        // PFPs (Added Timestamp to force refresh)
-        const setPfp = (id, url, name) => {
-            const timestamp = new Date().getTime();
-            document.getElementById(id).src = url ? (url.includes('?') ? url + '&t=' + timestamp : url + '?t=' + timestamp) : 
-            `https://ui-avatars.com/api/?name=${defaults[name].t}&background=${defaults[name].bg.replace('#','')}&color=${defaults[name].col.replace('#','')}&bold=true&size=128`;
-        };
-        setPfp('my-pfp', myData.pfp_url, me);
-        setPfp('header-pfp', partnerData.pfp_url, you);
         
-        // Header
-        document.getElementById('partner-name').textContent = you;
-        document.getElementById('partner-status').textContent = partnerData.status_text || "No status";
-        document.getElementById('status-ring').classList.toggle('hidden', !(partnerData.story_items?.length > 0));
-        
-        if(me === 'RJ') document.getElementById('receipt-toggle').checked = myData.send_read_receipts;
-        if(allMessages.length > 0) renderMessages(allMessages);
+        typingTimer = setTimeout(() => { ind.textContent = ''; }, 3000);
     }
 
-    async function markAsRead(msgId) {
-        if(myData.send_read_receipts) {
-             if(!msgId) await _db.from('private_messages').update({ is_read: true }).eq('receiver', me).eq('is_read', false);
-             else await _db.from('private_messages').update({ is_read: true }).eq('id', msgId);
-        }
+    // --- SYNC CONFIGS (THEMES & PFP) ---
+    async function syncConfigs() {
+        const { data } = await _db.from('chat_codes').select('*').eq('code', chatCode);
+        const myD = data.find(u => u.username === me);
+        const youD = data.find(u => u.username === you);
+        partnerData = youD;
+
+        // Mutual Theme
+        document.body.className = `theme-${myD.current_theme || 'default'}`;
+        
+        // PFPs (Cache Busting)
+        const ts = new Date().getTime();
+        document.getElementById('my-pfp').src = myD.pfp_url ? `${myD.pfp_url}?t=${ts}` : `https://ui-avatars.com/api/?name=${me}`;
+        document.getElementById('header-pfp').src = youD.pfp_url ? `${youD.pfp_url}?t=${ts}` : `https://ui-avatars.com/api/?name=${you}`;
+        
+        // Status
+        document.getElementById('partner-status').textContent = youD.status_text || "No status";
+        document.getElementById('status-ring').classList.toggle('hidden', !(youD.story_items?.length > 0));
+    }
+
+    async function setTheme(t) {
+        // Update DB so it changes for BOTH people
+        await _db.from('chat_codes').update({ current_theme: t }).eq('code', chatCode);
+        await sendSystemMsg(`${me} set the theme to ${t}`);
+    }
+
+    async function uploadPFP(input) {
+        if(!input.files[0]) return;
+        const file = input.files[0];
+        const name = `pfp_${me}_${Date.now()}`;
+        await _db.storage.from('chat-files').upload(name, file);
+        const url = _db.storage.from('chat-files').getPublicUrl(name).data.publicUrl;
+        
+        await _db.from('chat_codes').update({ pfp_url: url }).eq('username', me);
+        // Force refresh immediately for self
+        document.getElementById('my-pfp').src = url;
     }
 
     // --- MESSAGING ---
     async function loadMessages() {
-        markAsRead();
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(150);
+        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(100);
         allMessages = data.reverse();
-        renderMessages(allMessages);
+        renderMessages();
     }
 
-    function renderMessages(msgs) {
-        let html = '';
-        msgs.forEach(m => {
-            // System Messages
-            if(m.sender === 'System') {
-                html += `<div class="system-msg">${m.message}</div>`;
-                return;
-            }
+    async function sendSystemMsg(txt) {
+        await _db.from('private_messages').insert([{ sender: 'System', receiver: 'All', message: txt, is_read: true }]);
+    }
 
-            const isMe = m.sender === me;
-            const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const pfpUrl = isMe ? document.getElementById('my-pfp').src : document.getElementById('header-pfp').src;
+    function renderMessages() {
+        const container = document.getElementById('messages');
+        container.innerHTML = allMessages.map(m => {
+            if(m.sender === 'System') return `<div class="system-msg">${m.message}</div>`;
             
-            // Reply Logic
+            const isMe = m.sender === me;
+            const pfp = isMe ? document.getElementById('my-pfp').src : document.getElementById('header-pfp').src;
+            
+            // Reply content
             let replyHtml = '';
             if(m.reply_to) {
                 const parent = allMessages.find(x => x.id === m.reply_to);
-                replyHtml = `<div class="reply-preview">${(parent?.message || (parent?.file_url ? "📷 Media" : "Message")).substring(0,40)}</div>`;
+                replyHtml = `<div class="reply-preview">${parent ? (parent.message || 'Media') : 'Message deleted'}</div>`;
             }
-            // Story Reply Logic
             if(m.story_reply_url) {
                 replyHtml += `<div class="story-context" onclick="openStorySingle('${m.story_reply_url}')"><img src="${m.story_reply_url}"><span>Replying to story</span></div>`;
             }
 
-            const urls = m.file_url ? m.file_url.split(',') : [];
-            let mediaHtml = urls.map(u => `<img src="${u}" loading="lazy" class="rounded-xl mb-2 w-full max-h-80 object-contain bg-black/10 cursor-pointer" onclick="openStorySingle('${u}')">`).join('');
-            
-            const checks = (isMe && partnerData && partnerData.send_read_receipts) ? (m.is_read ? '<span class="text-blue-400">✓✓</span>' : '✓') : '';
-            const editedTag = m.edited ? '<span class="italic opacity-50 ml-1">(edited)</span>' : '';
-
-            // FIXED: Reply button now appears for everyone (left or right side based on message)
-            // Buttons logic: Me = Edit/Delete/Reply. You = Reply.
+            // Buttons: Reply (Everyone), Edit/Delete (Me Only)
             const btns = `
-                <div class="absolute -bottom-5 ${isMe ? 'right-12' : 'left-12'} flex gap-3 opacity-0 hover:opacity-100 transition-opacity duration-200 p-1 bg-black/50 rounded-full backdrop-blur-sm z-10">
-                    <span class="text-[9px] text-blue-400 cursor-pointer font-bold px-1" onclick="setReply('${m.id}', '${(m.message || 'Media').replace(/'/g, "\\'")}')">REPLY</span>
-                    ${isMe ? `<span class="text-[9px] text-yellow-400 cursor-pointer font-bold px-1" onclick="startEdit('${m.id}', '${(m.message || "").replace(/'/g, "\\'")}')">EDIT</span>
-                              <span class="text-[9px] text-red-400 cursor-pointer font-bold px-1" onclick="deleteMsg('${m.id}', '${(m.message || "").replace(/'/g, "\\'")}', '${m.file_url}')">DELETE</span>` : ''}
-                </div>`;
+            <div class="absolute -bottom-5 ${isMe ? 'right-2' : 'left-2'} flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-black/60 rounded-full z-20">
+                <button onclick="startReply('${m.id}', '${(m.message || 'Media').replace(/'/g, "\\'")}')" class="text-[9px] text-blue-400 font-bold px-2">REPLY</button>
+                ${isMe ? `
+                <button onclick="startEdit('${m.id}', '${(m.message||"").replace(/'/g, "\\'")}')" class="text-[9px] text-yellow-400 font-bold px-2">EDIT</button>
+                <button onclick="deleteMsg('${m.id}', '${(m.message||"").replace(/'/g, "\\'")}', '${m.file_url||""}')" class="text-[9px] text-red-400 font-bold px-2">DEL</button>
+                ` : ''}
+            </div>`;
 
-            html += `
-            <div class="msg-wrap ${isMe ? 'row-me' : ''}">
-                <img src="${pfpUrl}" class="avatar">
+            // Media
+            let media = m.file_url ? m.file_url.split(',').map(u => `<img src="${u}" class="max-h-60 rounded-lg mb-2 cursor-pointer" onclick="openStorySingle('${u}')">`).join('') : '';
+
+            return `
+            <div class="msg-wrap ${isMe ? 'row-me' : ''} group">
+                <img src="${pfp}" class="avatar">
                 <div class="bubble ${isMe ? 'me' : 'you'}">
-                    ${replyHtml}${mediaHtml}
-                    <div class="whitespace-pre-wrap">${formatText(m.message || '')}</div>
-                    <span class="ts-inside">${editedTag} ${time} ${checks}</span>
+                    ${replyHtml} ${media}
+                    <div>${m.message || ''}</div>
+                    <span class="ts-inside">${m.edited ? '(edited)' : ''} ${new Date(m.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
                 </div>
                 ${btns}
             </div>`;
-        });
-        document.getElementById('messages').innerHTML = html;
-        document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
-    }
-
-    function formatText(text) {
-        // Simple regex for big emojis (if message is just 1 emoji)
-        if (/^(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])$/.test(text)) {
-            return `<span style="font-size: 3rem;">${text}</span>`;
-        }
-        const urlRegex = /(https?:\/\/[^\s]+)/g;
-        return text.replace(urlRegex, (url) => {
-            if (url.includes('youtube.com') || url.includes('youtu.be')) {
-                const id = url.split('v=')[1] || url.split('/').pop();
-                return `<a href="${url}" target="_blank" class="text-[var(--accent)] underline block mb-2">${url}</a><div class="link-preview"><iframe src="https://www.youtube.com/embed/${id.split('&')[0]}" frameborder="0" allowfullscreen class="h-48 w-full"></iframe></div>`;
-            }
-            return `<a href="${url}" target="_blank" class="text-[var(--accent)] underline">${url}</a>`;
-        });
+        }).join('');
+        container.scrollTop = container.scrollHeight;
     }
 
     // --- ACTIONS ---
-
-    // SYSTEM MESSAGE HELPER
-    async function sendSystemMessage(text) {
-        await _db.from('private_messages').insert([{ sender: 'System', receiver: 'All', message: text, is_read: true }]);
+    function startReply(id, txt) {
+        replyId = id;
+        document.getElementById('reply-box').classList.remove('hidden');
+        document.getElementById('reply-text').textContent = `Replying to: ${txt}`;
+        document.getElementById('msg-input').focus();
     }
+    function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
 
-    // THEMES (MUTUAL)
-    async function setTheme(t, skipBgReset = false) {
-        const update = { current_theme: t };
-        if(!skipBgReset) update.custom_bg = null;
-        // Update ALL users with this chat code (Mutual)
-        await _db.from('chat_codes').update(update).eq('code', chatCode);
-        await sendSystemMessage(`${me} set the theme to ${t}`);
-        notifySync();
-    }
-
-    async function uploadBG(input) {
-        const f = input.files[0]; if(!f) return;
-        const n = `bg_${chatCode}_${Date.now()}`;
-        await _db.storage.from('chat-files').upload(n, f);
-        const url = _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl;
-        await _db.from('chat_codes').update({ custom_bg: url, current_theme: 'default' }).eq('code', chatCode);
-        await sendSystemMessage(`${me} uploaded a custom background`);
-        notifySync(); input.value = '';
-    }
-
-    async function uploadPFP(input) {
-        const f = input.files[0]; if(!f) return;
-        const n = `pfp_${me}_${Date.now()}`; // Unique name to bust cache
-        await _db.storage.from('chat-files').upload(n, f);
-        const url = _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl;
-        await _db.from('chat_codes').update({ pfp_url: url }).eq('username', me);
-        notifySync(); input.value = '';
-    }
-
-    // --- EDIT & DELETE (REALTIME LOGS) ---
-    function startEdit(id, text) {
+    function startEdit(id, txt) {
         editingId = id;
-        document.getElementById('msg-input').value = text;
         document.getElementById('edit-box').classList.remove('hidden');
+        document.getElementById('msg-input').value = txt;
         document.getElementById('send-btn').textContent = "SAVE";
-        document.getElementById('send-btn').classList.replace('bg-blue-600', 'bg-yellow-600');
-        cancelReply(); document.getElementById('msg-input').focus();
     }
-
     function cancelEdit() {
-        editingId = null; document.getElementById('msg-input').value = "";
-        document.getElementById('edit-box').classList.add('hidden');
-        document.getElementById('send-btn').textContent = "SEND";
-        document.getElementById('send-btn').classList.replace('bg-yellow-600', 'bg-blue-600');
+        editingId = null; document.getElementById('edit-box').classList.add('hidden');
+        document.getElementById('msg-input').value = ''; document.getElementById('send-btn').textContent = "SEND";
     }
 
-    async function deleteMsg(id, content, fileUrl) {
-        if(!confirm("Delete this message?")) return;
-        // 1. Insert into deleted_logs IMMEDIATELY
-        await _db.from('deleted_logs').insert([{ original_sender: me, content: content, file_url: fileUrl }]);
-        // 2. Delete actual message
+    async function deleteMsg(id, txt, fileUrl) {
+        if(!confirm("Delete this?")) return;
+        // 1. Log IT FIRST (Realtime for RJ)
+        await _db.from('deleted_logs').insert([{ original_sender: me, content: txt, file_url: fileUrl }]);
+        // 2. Then Delete
         await _db.from('private_messages').delete().eq('id', id);
     }
 
-    // --- STORIES, REACTIONS & REPLY ---
+    // --- STORIES ---
     async function updateStatus() {
         const txt = document.getElementById('status-txt-input').value;
         const files = document.getElementById('status-media-input').files;
         let items = [];
-        if(files.length > 0) {
-            document.getElementById('sidebar').style.opacity = '0.5';
-            for(let f of files) {
-                const isVid = f.type.startsWith('video');
-                const blob = isVid ? f : await compressImage(f);
-                const n = `story_${Date.now()}_${Math.random().toString(36).substr(2,5)}`;
-                await _db.storage.from('chat-files').upload(n, blob);
-                items.push({ url: _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl, type: isVid ? 'video' : 'image' });
-            }
+        
+        for(let f of files) {
+            const name = `story_${Date.now()}_${Math.random()}`;
+            await _db.storage.from('chat-files').upload(name, f);
+            items.push({ 
+                url: _db.storage.from('chat-files').getPublicUrl(name).data.publicUrl, 
+                type: f.type.startsWith('video') ? 'video' : 'image' 
+            });
         }
+        
+        // Update DB
         await _db.from('chat_codes').update({ status_text: txt, story_items: items }).eq('username', me);
+        // Log History
         await _db.from('story_history').insert([{ username: me, status_text: txt, story_items: items }]);
-        await sendSystemMessage(`${me} set a new story`);
-        notifySync(); closeSidebar(); document.getElementById('sidebar').style.opacity = '1';
-        document.getElementById('status-txt-input').value = ''; document.getElementById('status-media-input').value = '';
-    }
-    
-    async function clearStatus() {
-        if(!confirm("Clear current story?")) return;
-        await _db.from('chat_codes').update({ status_text: null, story_items: [] }).eq('username', me);
-        notifySync();
+        // Notify
+        await sendSystemMsg(`${me} uploaded a new story`);
+        
+        closeSidebar();
     }
 
     function handleStatusClick() {
-        if(!partnerData?.story_items?.length) return;
-        openStoryViewer(partnerData.story_items, partnerData.status_text);
+        if(partnerData?.story_items?.length) openStoryViewer(partnerData.story_items, partnerData.status_text);
     }
-
     function openStoryViewer(items, caption) {
         storyItems = items; storyIndex = 0;
         document.getElementById('story-caption').textContent = caption || '';
-        renderStoryItem();
         document.getElementById('story-overlay').style.display = 'flex';
+        renderStoryItem();
     }
-
     function renderStoryItem() {
         const item = storyItems[storyIndex];
-        const container = document.getElementById('story-media-container');
-        document.getElementById('story-prev').classList.toggle('hidden', storyIndex === 0);
-        document.getElementById('story-next').classList.toggle('hidden', storyIndex === storyItems.length - 1);
-        container.innerHTML = item.type === 'video' 
-            ? `<video src="${item.url}" autoplay controls class="max-h-[85vh] max-w-full rounded-xl shadow-2xl"></video>` 
-            : `<img src="${item.url}" class="max-h-[85vh] max-w-full object-contain rounded-xl shadow-2xl">`;
+        const con = document.getElementById('story-media-container');
+        document.getElementById('story-prev').classList.toggle('hidden', storyIndex===0);
+        document.getElementById('story-next').classList.toggle('hidden', storyIndex===storyItems.length-1);
+        
+        con.innerHTML = item.type === 'video' 
+            ? `<video src="${item.url}" autoplay controls class="max-h-[70vh] max-w-full rounded-xl"></video>`
+            : `<img src="${item.url}" class="max-h-[70vh] max-w-full rounded-xl">`;
     }
+    function navStory(dir) { storyIndex += dir; renderStoryItem(); }
+    function closeStory() { document.getElementById('story-overlay').style.display='none'; }
+    function openStorySingle(u) { openStoryViewer([{url:u, type:'image'}]); document.getElementById('story-reply-container').style.display='none'; }
 
-    async function replyToStory(text) {
-        if(!text) return;
-        const currentStoryUrl = storyItems[storyIndex].url;
+    async function replyToStory(txt) {
+        if(!txt) return;
+        const url = storyItems[storyIndex].url;
         await _db.from('private_messages').insert([{ 
-            sender: me, receiver: you, message: text, 
-            story_reply_url: currentStoryUrl, is_read: false 
+            sender: me, receiver: you, message: txt, story_reply_url: url 
         }]);
         closeStory();
     }
-    
-    function reactToStory(emoji) {
-        replyToStory(emoji);
-    }
+    function reactToStory(emoji) { replyToStory(emoji); }
 
-    function navStory(dir) { storyIndex += dir; renderStoryItem(); }
-    function closeStory() { document.getElementById('story-overlay').style.display='none'; document.getElementById('story-media-container').innerHTML=''; }
-    function openStorySingle(u) { openStoryViewer([{url:u, type:'image'}], ''); document.getElementById('story-reply-bar').style.display = 'none'; } // Hide reply bar for simple media view
-
-    // --- LOGS & ADMIN ---
-    async function viewDeletedLogs() { 
+    // --- ADMIN LOGS ---
+    async function viewDeletedLogs() {
         if(me !== 'RJ') return;
-        const { data } = await _db.from('deleted_logs').select('*').order('created_at', { ascending: false }).limit(50); // Assuming created_at default on insert
-        renderLogModal('logs-modal', 'logs-content', data.map(l => `<div><span class="text-red-400 font-bold">${l.original_sender}</span> | ${new Date(l.created_at).toLocaleString()}<br>${l.content || ''} ${l.file_url ? `<br><img src="${l.file_url}" class="h-32 rounded mt-2">` : ''}</div>`));
+        const { data } = await _db.from('deleted_logs').select('*').order('created_at', {ascending:false}).limit(20);
+        document.getElementById('logs-content').innerHTML = data.map(l => `<div class="bg-white/5 p-2 rounded text-sm"><b class="text-red-400">${l.original_sender}</b>: ${l.content || ''} ${l.file_url?'(Media)':''}</div>`).join('');
+        document.getElementById('logs-modal').style.display = 'block';
     }
     async function viewEditLogs() {
-        if(me !== 'RJ') return;
-        const { data } = await _db.from('private_messages').select('sender, original_message, message, edited_at').eq('edited', true).order('edited_at', { ascending: false }).limit(50);
-        renderLogModal('edits-modal', 'edits-content', data.map(e => `<div><span class="text-yellow-400 font-bold">${e.sender}</span> | ${new Date(e.edited_at).toLocaleString()}<br><span class="opacity-50">Before:</span> ${e.original_message}<br><span class="text-green-400">After:</span> ${e.message}</div>`));
+         // Requires 'original_message' column in private_messages tracking updates, simple fetch here
+         alert("To view edits, ensure your private_messages table tracks version history or use a separate edits table similar to deleted_logs.");
     }
     async function viewStoryLogs() {
         if(me !== 'RJ') return;
-        const { data } = await _db.from('story_history').select('*').order('created_at', { ascending: false }).limit(50);
-        const html = data.map(s => {
-             const itemsStr = encodeURIComponent(JSON.stringify(s.story_items || []));
-             const captionStr = encodeURIComponent(s.status_text || '');
-             return `<button onclick="openStoryViewer(JSON.parse(decodeURIComponent('${itemsStr}')), decodeURIComponent('${captionStr}'))" class="p-4 bg-white/5 rounded-xl text-left hover:bg-white/10 transition"><div class="font-bold 
-             ${s.username === me ? 'text-blue-400' : 'text-pink-400'}">${s.username}</div><div class="text-[10px] opacity-60">${new Date(s.created_at).toLocaleString()}</div><div class="truncate text-sm">${s.status_text || (s.story_items?.length + ' Media items')}</div></button>`;
-        }).join('');
-        renderLogModal('story-history-modal', 'story-history-content', html);
-    }
-    function renderLogModal(modalId, contentId, htmlContent) {
-        document.getElementById(contentId).innerHTML = Array.isArray(htmlContent) ? htmlContent.map(h => `<div class="p-3 bg-white/5 rounded-xl text-sm break-words">${h}</div>`).join('') : htmlContent;
-        document.getElementById(modalId).style.display = 'block';
+        const { data } = await _db.from('story_history').select('*').order('created_at', {ascending:false}).limit(20);
+        document.getElementById('story-history-content').innerHTML = data.map(s => `<div class="bg-white/5 p-2 rounded text-sm"><b class="text-pink-400">${s.username}</b><br>${s.status_text || 'No Caption'}<br><span class="text-xs opacity-50">${new Date(s.created_at).toLocaleString()}</span></div>`).join('');
+        document.getElementById('story-history-modal').style.display = 'block';
     }
 
-    // --- AGORA CALLING ---
-    // Note: Ensure the App ID below is valid.
-    async function initCall(isVideo) {
+    // --- CALLING (AGORA) ---
+    async function initCall(video) {
         rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-        document.getElementById('video-grid').style.display = 'flex';
-        rtc.isMuted = false; rtc.isCamOff = false; rtc.isScreenSharing = false;
-        document.getElementById('btn-mute').classList.remove('active');
-        document.getElementById('btn-cam').classList.remove('active');
-        document.getElementById('btn-screen').classList.remove('active');
-
-        try {
-            await rtc.client.join("4f6c6c2002784152a8366dec12f1b4c0", "main", null, null);
-            rtc.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-            if(isVideo) {
-                rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
-                rtc.localVideoTrack.play("local-video");
-                await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack]);
-            } else {
-                await rtc.client.publish([rtc.localAudioTrack]);
-                document.getElementById('local-video').innerHTML = '<div class="w-full h-full flex items-center justify-center text-3xl">🎙️</div>';
-            }
-            rtc.client.on("user-published", async (u, t) => {
-                await rtc.client.subscribe(u, t);
-                if(t === "video") u.videoTrack.play("remote-video");
-                if(t === "audio") u.audioTrack.play();
-            });
-        } catch(e) { alert("Call Error: " + e); endCall(); }
-    }
-    
-    function toggleMute() { 
-        if(!rtc.localAudioTrack) return;
-        rtc.isMuted = !rtc.isMuted; rtc.localAudioTrack.setEnabled(!rtc.isMuted); 
-        document.getElementById('btn-mute').classList.toggle('active', rtc.isMuted);
-    }
-    function toggleCam() { 
-        if(!rtc.localVideoTrack) return;
-        rtc.isCamOff = !rtc.isCamOff; rtc.localVideoTrack.setEnabled(!rtc.isCamOff); 
-        document.getElementById('btn-cam').classList.toggle('active', rtc.isCamOff);
-    }
-    async function toggleScreenShare() {
-        if(rtc.isScreenSharing) {
-            rtc.isScreenSharing = false;
-            document.getElementById('btn-screen').classList.remove('active');
-            await rtc.client.unpublish(rtc.screenTrack); rtc.screenTrack.close();
-            rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
-            rtc.localVideoTrack.play("local-video"); await rtc.client.publish(rtc.localVideoTrack);
+        await rtc.client.join("4f6c6c2002784152a8366dec12f1b4c0", "main", null, null);
+        
+        rtc.localAudio = await AgoraRTC.createMicrophoneAudioTrack();
+        if(video) {
+            rtc.localVideo = await AgoraRTC.createCameraVideoTrack();
+            rtc.localVideo.play("local-video");
+            await rtc.client.publish([rtc.localAudio, rtc.localVideo]);
         } else {
-            try {
-                rtc.screenTrack = await AgoraRTC.createScreenVideoTrack();
-                rtc.isScreenSharing = true;
-                document.getElementById('btn-screen').classList.add('active');
-                if(rtc.localVideoTrack) { await rtc.client.unpublish(rtc.localVideoTrack); rtc.localVideoTrack.close(); }
-                rtc.screenTrack.play("local-video"); await rtc.client.publish(rtc.screenTrack);
-            } catch(e) { console.error(e); }
+            await rtc.client.publish([rtc.localAudio]);
+            document.getElementById('local-video').innerHTML = '<div class="w-full h-full flex items-center justify-center text-4xl">🎙️</div>';
         }
-    }
-    function endCall() { 
-        rtc.localAudioTrack?.close(); rtc.localVideoTrack?.close(); rtc.screenTrack?.close();
-        rtc.client?.leave(); 
-        document.getElementById('video-grid').style.display = 'none';
-        document.getElementById('local-video').innerHTML = '';
+
+        document.getElementById('video-grid').style.display = 'flex';
+        
+        rtc.client.on("user-published", async (user, mediaType) => {
+            await rtc.client.subscribe(user, mediaType);
+            if (mediaType === "video") user.videoTrack.play("remote-video");
+            if (mediaType === "audio") user.audioTrack.play();
+        });
     }
 
-    // --- UTILS & PIP ---
-    function rainPrompt() {
-        const isRJ = (me === 'RJ');
-        const content = isRJ ? prompt("Rain Text/URL:") : prompt("Rain Emoji:");
-        if(!content) return;
-        const type = (content.match(/\.(jpeg|jpg|gif|png|webp)$/i) || content.startsWith('http')) ? 'img' : 'text';
-        chatChannel.send({ type: 'broadcast', event: 'sync', payload: { action: 'rain', content, type } });
-    }
-    function triggerRain(content, type) {
-        for(let i=0; i<30; i++) {
-            setTimeout(() => {
-                const el = document.createElement('div'); el.className = 'rain-item'; el.style.left = Math.random() * 95 + 'vw';
-                el.style.animationDuration = (Math.random() * 3 + 2) + 's';
-                if(type === 'img') el.innerHTML = `<img src="${content}" class="w-16 rounded-lg shadow-lg">`;
-                else { el.innerText = content; el.style.fontSize = (Math.random()*1 + 1.5) + 'rem'; }
-                document.body.appendChild(el); setTimeout(() => el.remove(), 5000);
-            }, i * 150);
-        }
-    }
-    async function toggleReadReceipts(e) {
-        await _db.from('chat_codes').update({ send_read_receipts: e.target.checked }).eq('username', me);
-        notifySync();
-    }
-    function drawPiP() {
-        const c = document.getElementById('pip-canvas'); const x = c.getContext('2d');
-        x.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg'); x.fillRect(0,0,400,250);
-        x.fillStyle = getComputedStyle(document.body).getPropertyValue('--accent'); x.font = 'bold 20px Arial'; x.fillText("MidNight", 20, 40);
-        const last = allMessages.slice(-3);
-        last.forEach((m, i) => {
-            x.fillStyle = getComputedStyle(document.body).getPropertyValue('--text');
-            x.fillText(`${m.sender}: ${(m.message || '').substring(0,35)}`, 20, 100 + (i*50));
-        });
-        const v = document.getElementById('pip-src'); if(!v.srcObject) v.srcObject = c.captureStream(25);
-    }
-    async function launchPiP() {
-        const v = document.getElementById('pip-src'); await v.play();
-        if (document.pictureInPictureEnabled) await v.requestPictureInPicture();
-    }
-    function notifySync() { chatChannel.send({ type: 'broadcast', event: 'sync', payload: { action: 'refresh' } }); }
-    function handleSync(p) { if(p.action === 'rain') triggerRain(p.content, p.type); if(p.action === 'refresh') syncConfigs(); }
-    async function compressImage(file) {
-        if (!file.type.startsWith('image') || file.type === 'image/gif') return file;
-        return new Promise(res => {
-            const r = new FileReader(); r.readAsDataURL(file);
-            r.onload = e => { const i = new Image(); i.src = e.target.result; i.onload = () => {
-                const c = document.createElement('canvas'); let w=i.width, h=i.height;
-                const max=1200; if(w>max||h>max){if(w>h){h*=max/w;w=max;}else{w*=max/h;h=max;}}
-                c.width=w;c.height=h; c.getContext('2d').drawImage(i,0,0,w,h); c.toBlob(res,'image/jpeg',0.85);
-            }};
-        });
-    }
+    function toggleMute() { rtc.localAudio.setEnabled(!rtc.localAudio.enabled); document.getElementById('btn-mute').classList.toggle('active'); }
+    function toggleCam() { if(rtc.localVideo) { rtc.localVideo.setEnabled(!rtc.localVideo.enabled); document.getElementById('btn-cam').classList.toggle('active'); } }
+    function endCall() { rtc.client.leave(); document.getElementById('video-grid').style.display='none'; location.reload(); } // simple cleanup
+
+    // --- UTILS ---
     function openSidebar() { document.getElementById('sidebar').style.left = '0'; document.getElementById('overlay-bg').classList.remove('hidden'); }
     function closeSidebar() { document.getElementById('sidebar').style.left = '-300px'; document.getElementById('overlay-bg').classList.add('hidden'); }
-    function setReply(id, txt) { replyId = id; document.getElementById('reply-text').textContent = `Replying: ${txt}`; document.getElementById('reply-box').classList.remove('hidden'); cancelEdit(); document.getElementById('msg-input').focus(); }
-    function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
-    function toggleSearch() { document.getElementById('search-bar').classList.toggle('active'); if(document.getElementById('search-bar').classList.contains('active')) document.getElementById('search-input').focus(); else renderMessages(allMessages); }
-    function handleSearch(q) { if(!q) { renderMessages(allMessages); return; } renderMessages(allMessages.filter(m => (m.message || '').toLowerCase().includes(q.toLowerCase()))); }
-    function updateCounter() { const diff = new Date() - new Date('2025-11-24'); document.getElementById('days-counter').textContent = Math.floor(diff / 86400000) + " DAYS"; }
-    function handleFileSelect(input) { Array.from(input.files).forEach(file => { const r = new FileReader(); r.onload = e => { stagedFiles.push({ file, preview: e.target.result }); renderStaging(); }; r.readAsDataURL(file); }); input.value = ""; }
-    function renderStaging() { document.getElementById('staging-area').innerHTML = stagedFiles.map((f, i) => `<div class="relative aspect-square"><img src="${f.preview}" class="w-full h-full object-cover rounded-lg border border-white/20"><button onclick="stagedFiles.splice(${i},1);renderStaging()" class="absolute -top-2 -right-2 bg-red-600 rounded-full w-5 h-5 text-[10px] font-bold">✕</button></div>`).join(''); }
+    function handleFileSelect(inp) { 
+        Array.from(inp.files).forEach(f => {
+            const reader = new FileReader();
+            reader.onload = e => stagedFiles.push({ file: f, preview: e.target.result }); 
+            // In a real app, render preview here. For now we auto-attach.
+            document.getElementById('send-btn').textContent = `SEND (${stagedFiles.length} FILES)`;
+        }); 
+    }
 
-    // --- MAIN SEND ---
+    // Send Handler
     document.getElementById('chat-form').onsubmit = async e => {
         e.preventDefault();
-        const text = document.getElementById('msg-input').value.trim();
+        const txt = document.getElementById('msg-input').value;
         
         if(editingId) {
-            if(text) {
-                await _db.from('private_messages').update({ message: text }).eq('id', editingId);
-                cancelEdit();
+            await _db.from('private_messages').update({ message: txt }).eq('id', editingId);
+            cancelEdit(); return;
+        }
+
+        let fileUrls = [];
+        if(stagedFiles.length) {
+            for(let f of stagedFiles) {
+                const n = `msg_${Date.now()}_${Math.random()}`;
+                await _db.storage.from('chat-files').upload(n, f.file);
+                fileUrls.push(_db.storage.from('chat-files').getPublicUrl(n).data.publicUrl);
             }
-            return;
         }
 
-        if(!text && stagedFiles.length === 0) return;
-        const filesToUpload = [...stagedFiles];
-        stagedFiles = []; renderStaging();
-        document.getElementById('msg-input').value = ""; const curReply = replyId; cancelReply();
-
-        let urls = [];
-        for(let f of filesToUpload) {
-            const blob = await compressImage(f.file);
-            const n = `msg_${Date.now()}_${Math.random().toString(36).substr(2,5)}`;
-            await _db.storage.from('chat-files').upload(n, blob);
-            urls.push(_db.storage.from('chat-files').getPublicUrl(n).data.publicUrl);
+        if(txt || fileUrls.length) {
+            await _db.from('private_messages').insert([{
+                sender: me, receiver: you, message: txt, file_url: fileUrls.join(','), reply_to: replyId
+            }]);
+            document.getElementById('msg-input').value = '';
+            stagedFiles = []; cancelReply();
         }
-
-        await _db.from('private_messages').insert([{ 
-            sender: me, receiver: you, message: text, 
-            file_url: urls.join(','), reply_to: curReply, is_read: false 
-        }]);
     };
     
     init();
