@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>MidNight v2.0</title>
+    <title>MidNight v2.1</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
@@ -18,7 +18,7 @@
         body.theme-love {
             --bg: #1a0b12; --me-bg: #5c1e3a; --you-bg: #361121; 
             --accent: #ec4899; --sidebar-bg: #260f19;
-            --msg-border: rgba(236, 72, 153, 0.3);
+             --msg-border: rgba(236, 72, 153, 0.3);
         }
 
         body { 
@@ -214,7 +214,7 @@
 
 <script>
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
+    const SB_KEY = 'REDACTED_FOR_SAFETY'; // Replace with your key if needed
     const _db = supabase.createClient(SB_URL, SB_KEY);
     
     let me, you, chatChannel, stagedFiles = [], allMessages = [], replyId = null, editingId = null;
@@ -227,28 +227,29 @@
     async function init() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
         const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
-        if (!data) return;
+        if(!data) return;
         me = data.username; you = (me === 'RJ' ? 'Allyvia' : 'RJ');
         localStorage.setItem('chat_secret_code', code);
         document.getElementById('me-name').textContent = me;
-
-        if (me === 'RJ') {
+        
+        if(me === 'RJ') {
             document.getElementById('rj-settings').classList.remove('hidden');
             document.getElementById('receipt-toggle').addEventListener('change', toggleReadReceipts);
         }
 
         chatChannel = _db.channel('midnight-v2');
-
-        // Subscribe to real-time changes
+        // Real-time subscriptions
         chatChannel
+            .on('broadcast', { event: 'sync' }, p => handleSync(p.payload))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'private_messages' }, (p) => {
-                if (p.eventType === 'INSERT') {
+                if(p.eventType === 'INSERT') {
                     renderNewMessage(p.new);
-                    if (p.new.receiver === me) markAsRead(p.new.id);
-                } else if (p.eventType === 'UPDATE') {
+                    if(p.new.receiver === me) markAsRead(p.new.id);
+                } else if(p.eventType === 'UPDATE') {
                     updateMessageInUI(p.new);
                 }
-            });
+            })
+            .subscribe();
 
         // Initial load
         loadMessages();
@@ -261,7 +262,7 @@
 
     // --- Role Check ---
     async function isAdmin() {
-        return me === 'RJ'; // Extend if roles are stored in DB
+        return me === 'RJ'; // Extend if you have roles stored in DB
     }
 
     // --- SYNCHRONIZATION ---
@@ -272,28 +273,35 @@
 
         // Theme & BG
         document.body.className = `theme-${myData.current_theme || 'default'}`;
-        if (myData.custom_bg) {
-            document.body.style.backgroundImage = `url(${myData.custom_bg})`;
-            if (myData.current_theme !== 'default') setTheme('default', true);
-        } else {
-            document.body.style.backgroundImage = 'none';
+        if(myData.custom_bg) { 
+            document.body.style.backgroundImage = `url(${myData.custom_bg})`; 
+            if(myData.current_theme !== 'default') setTheme('default', true); 
+        } else { 
+            document.body.style.backgroundImage = 'none'; 
         }
 
         // PFP
         const setPfp = (id, url, name) => {
-            document.getElementById(id).src = url || `https://ui-avatars.com/api/?name=${defaults[name].t}&background=${defaults[name].bg.replace('#', '')}&color=${defaults[name].col.replace('#', '')}&bold=true&size=128`;
+            document.getElementById(id).src = url || `https://ui-avatars.com/api/?name=${defaults[name].t}&background=${defaults[name].bg.replace('#','')}&color=${defaults[name].col.replace('#','')}&bold=true&size=128`;
         };
         setPfp('my-pfp', myData.pfp_url, me);
         setPfp('header-pfp', partnerData.pfp_url, you);
-
-        // Header status
+        
+        // Header Status Updates
         document.getElementById('partner-name').textContent = you;
         document.getElementById('partner-status').textContent = partnerData.status_text || "No status";
+        // Show ring if they have a story
         document.getElementById('status-ring').classList.toggle('hidden', !(partnerData.story_items?.length > 0));
 
-        // RJ toggle
-        if (me === 'RJ') {
-            document.getElementById('receipt-toggle').checked = myData.send_read_receipts;
+        // RJ Toggle State
+        if(me === 'RJ') document.getElementById('receipt-toggle').checked = myData.send_read_receipts;
+    }
+
+    async function markAsRead(msgId) {
+        // Only mark read if MY setting allows sending receipts
+        if(myData && myData.send_read_receipts) {
+             if(!msgId) await _db.from('private_messages').update({ is_read: true }).eq('receiver', me).eq('is_read', false);
+             else await _db.from('private_messages').update({ is_read: true }).eq('id', msgId);
         }
     }
 
@@ -326,7 +334,7 @@
         const urls = msg.file_url ? msg.file_url.split(',') : [];
         let mediaHtml = urls.map(u => `<img src="${u}" class="rounded-xl mb-2 w-full max-h-80 object-contain bg-black/10 cursor-pointer" onclick="openStorySingle('${u}')">`).join('');
 
-        const checks = (isMe && partnerData.send_read_receipts) ? (msg.is_read ? '<span class="text-blue-400">✓✓</span>' : '✓') : '';
+        const checks = (isMe && partnerData?.send_read_receipts) ? (msg.is_read ? '<span class="text-blue-400">✓✓</span>' : '✓') : '';
         const editedTag = msg.edited ? '<span class="italic opacity-50 ml-1">(edited)</span>' : '';
 
         const html = `
@@ -360,29 +368,30 @@
     }
 
     function triggerRain(content, type) {
-        for (let i = 0; i < 30; i++) {
+        for(let i=0; i<30; i++) {
             setTimeout(() => {
                 const el = document.createElement('div');
                 el.className = 'rain-item';
                 el.style.left = Math.random() * 95 + 'vw';
                 el.style.animationDuration = (Math.random() * 3 + 2) + 's';
-                if (type === 'img') el.innerHTML = `<img src="${content}" class="w-16 rounded-lg shadow-lg">`;
-                else { el.innerText = content; el.style.fontSize = (Math.random() * 1 + 1.5) + 'rem'; }
+                if(type === 'img') el.innerHTML = `<img src="${content}" class="w-16 rounded-lg shadow-lg">`;
+                else { el.innerText = content; el.style.fontSize = (Math.random()*1 + 1.5) + 'rem'; }
                 document.body.appendChild(el);
                 setTimeout(() => el.remove(), 5000);
             }, i * 150);
         }
     }
 
+    // 3. THEME & BACKGROUND
     async function setTheme(t, skipBgReset = false) {
         const update = { current_theme: t };
-        if (!skipBgReset) update.custom_bg = null;
+        if(!skipBgReset) update.custom_bg = null;
         await _db.from('chat_codes').update(update).eq('username', me);
         notifySync();
     }
 
     async function uploadBG(input) {
-        const f = input.files[0]; if (!f) return;
+        const f = input.files[0]; if(!f) return;
         const n = `bg_${me}_${Date.now()}`;
         await _db.storage.from('chat-files').upload(n, f);
         const url = _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl;
@@ -391,8 +400,9 @@
         input.value = '';
     }
 
+    // 3. PROFILE PICTURES
     async function uploadPFP(input) {
-        const f = input.files[0]; if (!f) return;
+        const f = input.files[0]; if(!f) return;
         const n = `pfp_${me}`;
         await _db.storage.from('chat-files').upload(n, f, { upsert: true });
         const url = _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl;
@@ -405,7 +415,8 @@
         await _db.from('chat_codes').update({ send_read_receipts: e.target.checked }).eq('username', me);
         notifySync();
     }
-
+    
+    // --- EDITING & DELETING ---
     function startEdit(id, text) {
         editingId = id;
         document.getElementById('msg-input').value = text;
@@ -423,42 +434,41 @@
     }
 
     async function deleteMsg(id) {
-        if (!confirm("Delete this message?")) return;
+        if(!confirm("Delete this message?")) return;
         await _db.from('private_messages').delete().eq('id', id);
         loadMessages();
     }
 
-    async function updateStatus() {
-        const txt = document.getElementById('status-txt-input').value;
-        const files = document.getElementById('status-media-input').files;
-        let items = [];
-        if (files.length > 0) {
-            document.getElementById('sidebar').style.opacity = '0.5';
-            for (let f of files) {
-                const isVid = f.type.startsWith('video');
-                const blob = isVid ? f : await compressImage(f);
-                const n = `story_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-                await _db.storage.from('chat-files').upload(n, blob);
-                items.push({ url: _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl, type: isVid ? 'video' : 'image' });
-            }
-        }
-        await _db.from('chat_codes').update({ status_text: txt, story_items: items }).eq('username', me);
-        await _db.from('story_history').insert([{ username: me, status_text: txt, story_items: items }]);
-        notifySync();
-        closeSidebar();
-        document.getElementById('sidebar').style.opacity = '1';
-        document.getElementById('status-txt-input').value = '';
-        document.getElementById('status-media-input').value = '';
+    // --- LOG VIEWERS (Admin only) ---
+    async function viewDeletedLogs() {
+        if(!(await isAdmin())) return;
+        const { data } = await _db.from('deleted_logs').select('*').order('deleted_at', { ascending: false }).limit(50);
+        renderLogModal('logs-modal', 'logs-content', data.map(l => `<div><span class="text-red-400 font-bold">${l.original_sender}</span> | ${new Date(l.deleted_at).toLocaleString()}<br>${l.content || ''} ${l.file_url ? `<br><img src="${l.file_url}" class="h-32 rounded mt-2">` : ''}</div>`));
+    }
+    async function viewEditLogs() {
+        if(!(await isAdmin())) return;
+        const { data } = await _db.from('private_messages').select('sender, original_message, message, edited_at').eq('edited', true).order('edited_at', { ascending: false }).limit(50);
+        renderLogModal('edits-modal', 'edits-content', data.map(e => `<div><span class="text-yellow-400 font-bold">${e.sender}</span> | ${new Date(e.edited_at).toLocaleString()}<br><span class="opacity-50">Before:</span> ${e.original_message}<br><span class="text-green-400">After:</span> ${e.message}</div>`));
+    }
+    async function viewStoryLogs() {
+        if(!(await isAdmin())) return;
+        const { data } = await _db.from('story_history').select('*').order('created_at', { ascending: false }).limit(50);
+        const html = data.map(s => {
+            const itemsStr = encodeURIComponent(JSON.stringify(s.story_items || []));
+            const captionStr = encodeURIComponent(s.status_text || '');
+            return `<button onclick="openStoryViewer(JSON.parse(decodeURIComponent('${itemsStr}')), decodeURIComponent('${captionStr}'))" class="p-4 bg-white/5 rounded-xl text-left hover:bg-white/10 transition"><div class="font-bold ${s.username === me ? 'text-blue-400' : 'text-pink-400'}">${s.username}</div><div class="text-[10px] opacity-60">${new Date(s.created_at).toLocaleString()}</div><div class="truncate text-sm">${s.status_text || (s.story_items?.length + ' Media items')}</div></button>`;
+        }).join('');
+        renderLogModal('story-history-modal', 'story-history-content', html);
     }
 
-    async function clearStatus() {
-        if (!confirm("Clear current story?")) return;
-        await _db.from('chat_codes').update({ status_text: null, story_items: [] }).eq('username', me);
-        notifySync();
+    function renderLogModal(modalId, contentId, htmlContent) {
+        document.getElementById(contentId).innerHTML = Array.isArray(htmlContent) ? htmlContent.map(h => `<div class="p-3 bg-white/5 rounded-xl text-sm break-words">${h}</div>`).join('') : htmlContent;
+        document.getElementById(modalId).style.display = 'block';
     }
 
+    // --- STORY VIEWER ---
     function handleStatusClick() {
-        if (!partnerData?.story_items?.length) return;
+        if(!partnerData?.story_items?.length) return;
         openStoryViewer(partnerData.story_items, partnerData.status_text);
     }
 
@@ -483,144 +493,36 @@
     function closeStory() { document.getElementById('story-overlay').style.display='none'; document.getElementById('story-media-container').innerHTML=''; }
     function openStorySingle(u) { openStoryViewer([{url:u, type:'image'}], ''); }
 
-    // Log Viewers with role check
-    async function viewDeletedLogs() {
-        if (!(await isAdmin())) return; // only RJ
-        const { data } = await _db.from('deleted_logs').select('*').order('deleted_at', { ascending: false }).limit(50);
-        renderLogModal('logs-modal', 'logs-content', data.map(l => `<div><span class="text-red-400 font-bold">${l.original_sender}</span> | ${new Date(l.deleted_at).toLocaleString()}<br>${l.content || ''} ${l.file_url ? `<br><img src="${l.file_url}" class="h-32 rounded mt-2">` : ''}</div>`));
-    }
-    async function viewEditLogs() {
-        if (!(await isAdmin())) return; // only RJ
-        const { data } = await _db.from('private_messages').select('sender, original_message, message, edited_at').eq('edited', true).order('edited_at', { ascending: false }).limit(50);
-        renderLogModal('edits-modal', 'edits-content', data.map(e => `<div><span class="text-yellow-400 font-bold">${e.sender}</span> | ${new Date(e.edited_at).toLocaleString()}<br><span class="opacity-50">Before:</span> ${e.original_message}<br><span class="text-green-400">After:</span> ${e.message}</div>`));
-    }
-    async function viewStoryLogs() {
-        if (!(await isAdmin())) return; // only RJ
-        const { data } = await _db.from('story_history').select('*').order('created_at', { ascending: false }).limit(50);
-        const html = data.map(s => {
-            const itemsStr = encodeURIComponent(JSON.stringify(s.story_items || []));
-            const captionStr = encodeURIComponent(s.status_text || '');
-            return `<button onclick="openStoryViewer(JSON.parse(decodeURIComponent('${itemsStr}')), decodeURIComponent('${captionStr}'))" class="p-4 bg-white/5 rounded-xl text-left hover:bg-white/10 transition"><div class="font-bold ${s.username === me ? 'text-blue-400' : 'text-pink-400'}">${s.username}</div><div class="text-[10px] opacity-60">${new Date(s.created_at).toLocaleString()}</div><div class="truncate text-sm">${s.status_text || (s.story_items?.length + ' Media items')}</div></button>`;
-        }).join('');
-        renderLogModal('story-history-modal', 'story-history-content', html);
-    }
+    // --- LOG VIEWERS - initial wire-up for "Story Archive", "Edits", "Deleted" ---
 
-    function renderLogModal(modalId, contentId, htmlContent) {
-        document.getElementById(contentId).innerHTML = Array.isArray(htmlContent) ? htmlContent.map(h => `<div class="p-3 bg-white/5 rounded-xl text-sm break-words">${h}</div>`).join('') : htmlContent;
-        document.getElementById(modalId).style.display = 'block';
-    }
 
-    // --- Agora Video Calling ---
+    // --- LOG VIEWERS (Admin only, continued) ---
+    // (Handled above; functions are here to keep integration cohesive)
+
+    // --- AGORA VIDEO CALLING ---
     async function initCall(video) {
         rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         document.getElementById('video-grid').style.display = 'flex';
         try {
             await rtc.client.join("4f6c6c2002784152a8366dec12f1b4c0", "main", null, null);
             rtc.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-            if (video) {
+            if(video) {
                 rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
                 rtc.localVideoTrack.play("local-video");
                 await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack]);
-            } else {
-                await rtc.client.publish([rtc.localAudioTrack]);
-            }
+            } else { await rtc.client.publish([rtc.localAudioTrack]); }
             rtc.client.on("user-published", async (u, t) => {
                 await rtc.client.subscribe(u, t);
-                if (t === "video") u.videoTrack.play("remote-video");
-                if (t === "audio") u.audioTrack.play();
+                if(t === "video") u.videoTrack.play("remote-video");
+                if(t === "audio") u.audioTrack.play();
             });
-        } catch (e) { alert("Call failed error: " + e); endCall(); }
+        } catch(e) { alert("Call failed error: " + e); endCall(); }
     }
     function toggleMute() { rtc.isMuted = !rtc.isMuted; rtc.localAudioTrack.setEnabled(!rtc.isMuted); document.getElementById('btn-mute').classList.toggle('active', rtc.isMuted); }
     function toggleCam() { rtc.isCamOff = !rtc.isCamOff; rtc.localVideoTrack.setEnabled(!rtc.isCamOff); document.getElementById('btn-cam').classList.toggle('active', rtc.isCamOff); }
     function endCall() { rtc.localAudioTrack?.close(); rtc.localVideoTrack?.close(); rtc.client?.leave(); document.getElementById('video-grid').style.display = 'none'; }
 
-    // --- External View (PiP) ---
-    function drawPiP() {
-        const c = document.getElementById('pip-canvas'); const x = c.getContext('2d');
-        x.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg'); x.fillRect(0, 0, 400, 250);
-        x.fillStyle = getComputedStyle(document.body).getPropertyValue('--accent'); x.font = 'bold 20px Arial'; x.fillText("MidNight External View", 20, 40);
-        const last = allMessages.slice(-3);
-        last.forEach((m, i) => {
-            x.fillStyle = getComputedStyle(document.body).getPropertyValue('--text');
-            let content = m.message || (m.file_url ? "[Media]" : "");
-            x.fillText(`${m.sender}: ${content.substring(0, 35)}`, 20, 100 + (i * 50));
-        });
-        const v = document.getElementById('pip-src');
-        if (!v.srcObject) v.srcObject = c.captureStream(25);
-    }
-
-    async function launchPiP() {
-        const v = document.getElementById('pip-src'); await v.play();
-        if (document.pictureInPictureEnabled && !v.disablePictureInPicture) await v.requestPictureInPicture();
-        else alert("External View not supported by this browser.");
-    }
-
-    // --- Utilities ---
-    function notifySync() { chatChannel.send({ type: 'broadcast', event: 'sync', payload: { action: 'refresh' } }); }
-    function handleSync(p) { if (p.action === 'rain') triggerRain(p.content, p.type); if (p.action === 'refresh') syncConfigs(); }
-    async function isAdmin() { return me === 'RJ'; }
-
-    // --- Event Handlers ---
-    document.getElementById('chat-form').onsubmit = async e => {
-        e.preventDefault();
-        const text = document.getElementById('msg-input').value.trim();
-        if (editingId) {
-            if (text) {
-                await _db.from('private_messages').update({ message: text }).eq('id', editingId);
-                cancelEdit();
-            }
-            return;
-        }
-        if (!text && stagedFiles.length === 0) return;
-        const filesToUpload = [...stagedFiles]; stagedFiles = []; renderStaging();
-        document.getElementById('msg-input').value = "";
-        const curReply = replyId; cancelReply();
-
-        let urls = [];
-        for (let f of filesToUpload) {
-            const blob = await compressImage(f.file);
-            const n = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-            await _db.storage.from('chat-files').upload(n, blob);
-            urls.push(_db.storage.from('chat-files').getPublicUrl(n).data.publicUrl);
-        }
-
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text, file_url: urls.join(','), reply_to: curReply, is_read: false }]);
-    };
-
-    document.getElementById('msg-input').oninput = e => {
-        chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: e.target.value } });
-    };
-
-    // --- Role-based logs & story views ---
-    async function viewDeletedLogs() {
-        if (!(await isAdmin())) return;
-        const { data } = await _db.from('deleted_logs').select('*').order('deleted_at', { ascending: false }).limit(50);
-        renderLogModal('logs-modal', 'logs-content', data.map(l => `<div><span class="text-red-400 font-bold">${l.original_sender}</span> | ${new Date(l.deleted_at).toLocaleString()}<br>${l.content || ''} ${l.file_url ? `<br><img src="${l.file_url}" class="h-32 rounded mt-2">` : ''}</div>`));
-    }
-    async function viewEditLogs() {
-        if (!(await isAdmin())) return;
-        const { data } = await _db.from('private_messages').select('sender, original_message, message, edited_at').eq('edited', true).order('edited_at', { ascending: false }).limit(50);
-        renderLogModal('edits-modal', 'edits-content', data.map(e => `<div><span class="text-yellow-400 font-bold">${e.sender}</span> | ${new Date(e.edited_at).toLocaleString()}<br><span class="opacity-50">Before:</span> ${e.original_message}<br><span class="text-green-400">After:</span> ${e.message}</div>`));
-    }
-    async function viewStoryLogs() {
-        if (!(await isAdmin())) return;
-        const { data } = await _db.from('story_history').select('*').order('created_at', { ascending: false }).limit(50);
-        const html = data.map(s => {
-            const itemsStr = encodeURIComponent(JSON.stringify(s.story_items || []));
-            const captionStr = encodeURIComponent(s.status_text || '');
-            return `<button onclick="openStoryViewer(JSON.parse(decodeURIComponent('${itemsStr}')), decodeURIComponent('${captionStr}'))" class="p-4 bg-white/5 rounded-xl text-left hover:bg-white/10 transition"><div class="font-bold ${s.username === me ? 'text-blue-400' : 'text-pink-400'}">${s.username}</div><div class="text-[10px] opacity-60">${new Date(s.created_at).toLocaleString()}</div><div class="truncate text-sm">${s.status_text || (s.story_items?.length + ' Media items')}</div></button>`;
-        }).join('');
-        renderLogModal('story-history-modal', 'story-history-content', html);
-    }
-
-    // --- Helper functions ---
-    function renderLogModal(modalId, contentId, htmlContent) {
-        document.getElementById(contentId).innerHTML = Array.isArray(htmlContent) ? htmlContent.map(h => `<div class="p-3 bg-white/5 rounded-xl text-sm break-words">${h}</div>`).join('') : htmlContent;
-        document.getElementById(modalId).style.display = 'block';
-    }
-
-    // --- Drawing PiP ---
+    // --- EXTERNAL VIEW (PiP) ---
     function drawPiP() {
         const c = document.getElementById('pip-canvas'); const x = c.getContext('2d');
         x.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg'); x.fillRect(0,0,400,250);
@@ -641,13 +543,108 @@
         else alert("External View not supported by this browser.");
     }
 
-    // --- Utility functions ---
+    // --- UTILITIES ---
     function notifySync() { chatChannel.send({ type: 'broadcast', event: 'sync', payload: { action: 'refresh' } }); }
     function handleSync(p) { if(p.action === 'rain') triggerRain(p.content, p.type); if(p.action === 'refresh') syncConfigs(); }
 
-    // --- Initialization ---
-    init();
+    // --- IMAGE HANDLING ---
+    async function compressImage(file) {
+        if (!file.type.startsWith('image') || file.type === 'image/gif') return file;
+        return new Promise(res => {
+            const r = new FileReader(); r.readAsDataURL(file);
+            r.onload = e => { const i = new Image(); i.src = e.target.result; i.onload = () => {
+                const c = document.createElement('canvas'); let w=i.width, h=i.height;
+                const max=1200; if(w>max||h>max){if(w>h){h*=max/w;w=max;}else{w*=max/h;h=max;}}
+                c.width=w;c.height=h; c.getContext('2d').drawImage(i,0,0,w,h); c.toBlob(res,'image/jpeg',0.85);
+            }}; 
+        });
+    }
 
+    // --- MAIN SEND LOGIC ---
+    // Local staging area, file handling, and send
+    const stagedFilesRef = () => stagedFiles;
+    document.getElementById('chat-form').onsubmit = async e => {
+        e.preventDefault();
+        const text = document.getElementById('msg-input').value.trim();
+        
+        // Edit mode
+        if(editingId) {
+            if(text) {
+                await _db.from('private_messages').update({ message: text }).eq('id', editingId);
+                cancelEdit();
+            }
+            return;
+        }
+
+        if(!text && stagedFiles.length === 0) return;
+        const filesToUpload = [...stagedFiles]; stagedFiles = []; // renderStaging not strictly required here, but kept for UI
+        document.getElementById('msg-input').value = "";
+        const curReply = replyId; cancelReply();
+
+        let urls = [];
+        for(let f of filesToUpload) {
+            const blob = await compressImage(f.file);
+            const n = `msg_${Date.now()}_${Math.random().toString(36).substr(2,5)}`;
+            await _db.storage.from('chat-files').upload(n, blob);
+            urls.push(_db.storage.from('chat-files').getPublicUrl(n).data.publicUrl);
+        }
+
+        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: text, file_url: urls.join(','), reply_to: curReply, is_read: false }]);
+    };
+
+    document.getElementById('msg-input').oninput = e => chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: e.target.value } });
+
+    // Status/Story helpers (existing functionality)
+    async function updateStatus() {
+        const txt = document.getElementById('status-txt-input').value;
+        const files = document.getElementById('status-media-input').files;
+        let items = [];
+        if(files.length > 0) {
+            document.getElementById('sidebar').style.opacity = '0.5';
+            for(let f of files) {
+                const isVid = f.type.startsWith('video');
+                const blob = isVid ? f : await compressImage(f);
+                const n = `story_${Date.now()}_${Math.random().toString(36).substr(2,5)}`;
+                await _db.storage.from('chat-files').upload(n, blob);
+                items.push({ url: _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl, type: isVid ? 'video' : 'image' });
+            }
+        }
+
+        await _db.from('chat_codes').update({ status_text: txt, story_items: items }).eq('username', me);
+        await _db.from('story_history').insert([{ username: me, status_text: txt, story_items: items }]);
+        notifySync(); closeSidebar(); document.getElementById('sidebar').style.opacity = '1';
+        document.getElementById('status-txt-input').value = '';
+        document.getElementById('status-media-input').value = '';
+    }
+
+    async function clearStatus() {
+        if(!confirm("Clear current story?")) return;
+        await _db.from('chat_codes').update({ status_text: null, story_items: [] }).eq('username', me);
+        notifySync();
+    }
+
+    // Story viewer controls (existing)
+    function handleStatusClick() {
+        if(!partnerData?.story_items?.length) return;
+        openStoryViewer(partnerData.story_items, partnerData.status_text);
+    }
+
+    // --- UI Toggles & Helpers ---
+    function openSidebar() { document.getElementById('sidebar').style.left = '0'; document.getElementById('overlay-bg').classList.remove('hidden'); }
+    function closeSidebar() { document.getElementById('sidebar').style.left = '-300px'; document.getElementById('overlay-bg').classList.add('hidden'); }
+    function setReply(id, txt) { replyId = id; document.getElementById('reply-text').textContent = `Replying: ${txt}`; document.getElementById('reply-box').classList.remove('hidden'); cancelEdit(); document.getElementById('msg-input').focus(); }
+    function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
+    function toggleSearch() { document.getElementById('search-bar').classList.toggle('active'); if(document.getElementById('search-bar').classList.contains('active')) document.getElementById('search-input').focus(); else renderMessages(allMessages); }
+    function handleSearch(q) { if(!q) { renderMessages(allMessages); return; } renderMessages(allMessages.filter(m => (m.message || '').toLowerCase().includes(q.toLowerCase()))); }
+    function updateCounter() { const diff = new Date() - new Date('2025-11-24'); document.getElementById('days-counter').textContent = Math.floor(diff / 86400000) + " DAYS"; }
+
+    // --- Interactions on file/input changes (staging) ---
+    let stagedFiles = [];
+    function handleFileSelect(input) { Array.from(input.files).forEach(file => { const r = new FileReader(); r.onload = e => { stagedFiles.push({ file, preview: e.target.result }); renderStaging(); }; r.readAsDataURL(file); }); input.value = ""; }
+    function renderStaging() { document.getElementById('staging-area').innerHTML = stagedFiles.map((f, i) => `<div class="relative aspect-square"><img src="${f.preview}" class="w-full h-full object-cover rounded-lg border border-white/20"><button onclick="stagedFiles.splice(${i},1);renderStaging()" class="absolute -top-2 -right-2 bg-red-600 rounded-full w-5 h-5 text-[10px] font-bold">✕</button></div>`).join(''); }
+
+    // --- Initialize on load ---
+    init();
 </script>
 </body>
 </html>
