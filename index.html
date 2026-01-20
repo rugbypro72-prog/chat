@@ -3,25 +3,31 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Midnight v12</title>
+    <title>Midnight v14 Final</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
     <style>
         :root { --bg: #03050a; --me: #1e293b; --you: #0f172a; --accent: #3b82f6; }
         body { background: var(--bg); color: #f1f5f9; font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; margin: 0; }
+        
+        /* LAYOUT & CHAT */
         #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; position: relative; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; }
-        .msg-wrap { display: flex; flex-direction: column; position: relative; }
+        .msg-wrap { display: flex; flex-direction: column; width: 100%; position: relative; }
         .row-me { align-items: flex-end; } .row-you { align-items: flex-start; }
         .bubble { max-width: 85%; padding: 12px 14px 26px 14px; font-size: 15px; border-radius: 20px; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.3); word-wrap: break-word; }
         .me { background: var(--me); border: 1px solid #334155; border-bottom-right-radius: 4px; }
         .you { background: var(--you); border: 1px solid #1e293b; border-bottom-left-radius: 4px; }
         .ts-inside { position: absolute; bottom: 6px; right: 12px; font-size: 9px; opacity: 0.5; font-weight: 700; text-transform: uppercase; display: flex; align-items: center; gap: 4px; }
         .reply-preview { font-size: 11px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 12px; border-left: 3px solid var(--accent); margin-bottom: 8px; opacity: 0.8; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        /* HOVER TOOLS */
         .msg-tools { opacity: 0; transition: 0.2s; display: flex; gap: 12px; margin-top: 4px; padding: 0 8px; }
         .msg-wrap:hover .msg-tools { opacity: 1; }
         .tool-btn { color: #60a5fa; font-size: 10px; font-weight: 800; cursor: pointer; text-transform: uppercase; }
+
+        /* ANIMATIONS & EXTRAS */
         #partner-name.has-media { color: #ef4444 !important; text-decoration: underline; cursor: pointer; animation: statusPulse 2s infinite; }
         @keyframes statusPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
         .heart-float { position: fixed; bottom: 0; font-size: 2.5rem; pointer-events: none; animation: floatUp 3s ease-in forwards; z-index: 9999; }
@@ -29,18 +35,39 @@
         .modal-view { display: none; position: fixed; inset: 0; background: #03050a; z-index: 2000; overflow-y: auto; padding: 25px; }
         #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 5000; align-items: center; justify-content: center; }
         #story-overlay { display: none; position: fixed; inset: 0; background: black; z-index: 6000; align-items: center; justify-content: center; flex-direction: column; }
+        
+        /* CALL UI */
         .call-btn { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; transition: 0.2s; }
-        .call-btn.active { background: #ef4444; }
+        .call-btn:active { transform: scale(0.95); }
+        .call-btn.active { background: #ef4444; color: white; } /* Red background for "Stop/Mute" states */
+        .call-btn.screen-active { background: #3b82f6; color: white; } /* Blue for screen share active */
+
         .link-preview { display: block; margin-top: 8px; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); }
         .link-preview img, .link-preview iframe { width: 100%; display: block; }
         .read-receipt { font-size: 10px; margin-left: 3px; }
         .read-active { color: #3b82f6; }
         .edited-tag { font-size: 9px; opacity: 0.6; font-style: italic; margin-right: 4px; }
+        
+        /* SEARCH & NAVIGATION */
         #search-bar { transition: 0.3s; transform: translateY(-100%); position: absolute; top: 70px; left: 0; right: 0; z-index: 40; background: var(--bg); padding: 10px; border-bottom: 1px solid white/10; }
         #search-bar.active { transform: translateY(0); }
         .story-nav-btn { position: absolute; top: 50%; transform: translateY(-50%); font-size: 3rem; color: white; padding: 20px; cursor: pointer; z-index: 6010; opacity: 0.5; transition: 0.2s; }
         .story-nav-btn:hover { opacity: 1; }
         #story-prev { left: 0; } #story-next { right: 0; }
+        
+        /* CALL ANIMATIONS */
+        .ring-pulse { animation: ring 1.5s infinite; }
+        @keyframes ring { 
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); } 
+            70% { box-shadow: 0 0 0 20px rgba(59, 130, 246, 0); } 
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); } 
+        }
+        
+        /* VIDEO GRID STYLES */
+        #remote-video video { object-fit: contain !important; }
+        /* Helper classes for local video toggle */
+        .video-cover video { object-fit: cover !important; }
+        .video-contain video { object-fit: contain !important; }
     </style>
 </head>
 <body>
@@ -55,20 +82,44 @@
 
 <div id="lightbox" onclick="this.style.display='none'"><img id="lightbox-img" class="max-w-[95%] max-h-[90%] rounded-lg"></div>
 
-<div id="video-grid" class="hidden fixed inset-0 bg-[#03050a] z-[3000] flex flex-col">
-    <div id="remote-video" class="flex-1 w-full bg-slate-900 flex items-center justify-center relative overflow-hidden">
-        <div id="remote-status" class="absolute inset-0 flex items-center justify-center text-white/20 font-bold uppercase tracking-widest pointer-events-none">
-            Waiting for feed...
-        </div>
+<div id="incoming-call-ui" class="hidden fixed inset-0 bg-black/95 z-[7000] flex flex-col items-center justify-center space-y-8">
+    <div class="w-32 h-32 bg-slate-800 rounded-full flex items-center justify-center text-6xl ring-pulse mb-4">🔔</div>
+    <div class="text-center">
+        <h2 class="text-3xl font-bold mb-2">Incoming Call</h2>
+        <p id="caller-id-disp" class="text-blue-400 text-xl animate-pulse">...</p>
+        <p id="call-type-disp" class="text-white/50 text-sm uppercase tracking-widest mt-2">Video Call</p>
+    </div>
+    <div class="flex gap-8 mt-8">
+        <button onclick="answerCall()" class="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-3xl shadow-2xl hover:scale-110 transition">📞</button>
+        <button onclick="rejectCall()" class="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center text-3xl shadow-2xl hover:scale-110 transition">✕</button>
+    </div>
+</div>
+
+<div id="outgoing-call-ui" class="hidden fixed inset-0 bg-black/95 z-[7000] flex flex-col items-center justify-center space-y-8">
+    <div class="w-32 h-32 bg-slate-800 rounded-full flex items-center justify-center text-6xl opacity-50 mb-4 animate-bounce">📡</div>
+    <div class="text-center">
+        <h2 class="text-3xl font-bold mb-2">Calling...</h2>
+        <p class="text-white/50 text-sm uppercase tracking-widest mt-2">Waiting for answer</p>
+    </div>
+    <button onclick="cancelCall()" class="w-16 h-16 bg-red-500/20 text-red-500 border border-red-500 rounded-full flex items-center justify-center text-2xl mt-8 hover:bg-red-500 hover:text-white transition">✕</button>
+</div>
+
+<div id="video-grid" class="hidden fixed inset-0 bg-[#03050a] z-[3000]">
+    <div class="absolute top-6 left-0 right-0 z-[3005] flex flex-col items-center pointer-events-none">
+        <div id="call-status" class="text-blue-400 text-xs font-bold tracking-widest uppercase animate-pulse mb-1">Connecting...</div>
+        <div id="call-timer" class="text-white text-2xl font-mono font-bold drop-shadow-lg">00:00</div>
     </div>
     
-    <div id="local-video" class="absolute top-6 right-6 w-32 h-48 border-2 border-white/20 rounded-2xl overflow-hidden z-[3001] bg-black shadow-2xl transition-all"></div>
+    <div id="remote-video" class="w-full h-full flex items-center justify-center text-white/20 relative">
+        <div class="absolute inset-0 flex items-center justify-center">Waiting for video...</div>
+    </div>
     
-    <div class="p-8 flex justify-center items-center gap-6 z-[3002] bg-gradient-to-t from-black/90 to-transparent">
-        <button id="btn-mute" onclick="toggleMute()" class="call-btn" title="Toggle Mic">🎤</button>
-        <button id="btn-cam" onclick="toggleCam()" class="call-btn" title="Toggle Camera">📷</button>
-        <button id="btn-screen" onclick="toggleScreen()" class="call-btn" title="Share Screen">📺</button>
-        <button onclick="endCall()" class="call-btn !bg-red-600 shadow-lg shadow-red-900/50" title="Hang Up">📞</button>
+    <div id="local-video" class="video-cover absolute top-20 right-6 w-32 h-48 border-2 border-white/20 rounded-2xl overflow-hidden z-[3001] bg-black shadow-2xl transition-all duration-300"></div>
+    
+    <div class="absolute bottom-10 left-0 right-0 flex justify-center items-center gap-4 z-[3002]">
+        <button id="btn-mute" onclick="toggleMute()" class="call-btn">🎤</button>
+        <button id="btn-cam" onclick="toggleCam()" class="call-btn">📷</button>
+        <button id="btn-screen" onclick="toggleScreen()" class="call-btn hidden md:flex">📺</button> <button onclick="hangUp()" class="call-btn !bg-red-600 hover:!bg-red-700">📞</button>
     </div>
 </div>
 
@@ -95,8 +146,8 @@
         </div>
         <div class="flex gap-2">
             <button onclick="toggleSearch()" class="p-2 text-lg opacity-60">🔍</button>
-            <button onclick="initCall(false)" class="p-2 px-4 bg-white/5 rounded-full text-[10px] font-bold uppercase">Voice</button>
-            <button onclick="initCall(true)" class="p-2 px-4 bg-blue-600 rounded-full text-[10px] font-bold uppercase">Video</button>
+            <button onclick="startCallRequest(false)" class="p-2 px-4 bg-white/5 rounded-full text-[10px] font-bold uppercase">Voice</button>
+            <button onclick="startCallRequest(true)" class="p-2 px-4 bg-blue-600 rounded-full text-[10px] font-bold uppercase">Video</button>
         </div>
     </header>
     <main id="messages"></main>
@@ -166,24 +217,46 @@
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
     
+    // APP STATE
     let me, you, chatChannel, stagedFiles = [], unread = 0, lastTwo = [], flashTimer = 0, replyId = null, editingId = null;
     let partnerStatusData = null, allMessagesCache = [], focusActive = false;
     let storyItems = [], storyIndex = 0;
     
+    // SOUNDS
     const notifSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
     notifSound.volume = 0.05;
+    let ringInterval = null;
+
+    // AGORA & CALL STATE
     const AGORA_APP_ID = "4f6c6c2002784152a8366dec12f1b4c0";
-    let rtc = { client: null, localVideoTrack: null, localAudioTrack: null, screenTrack: null, isMuted: false, isCamOff: false };
+    let rtc = { 
+        client: null, 
+        localVideoTrack: null, 
+        localAudioTrack: null, 
+        screenTrack: null, 
+        isMuted: false, 
+        isCamOff: false 
+    };
+    let incomingCallData = null; 
+    let callTimerInterval = null;
+    let callSeconds = 0;
 
     async function init() {
+        // MOBILE CHECK: Hide screen share on mobile
+        if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            document.getElementById('btn-screen').classList.add('hidden');
+        }
+
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
         const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
         if(!data) return;
+        
         me = data.username;
         you = (me === 'RJ' ? 'Allyvia' : 'RJ');
         localStorage.setItem('chat_secret_code', code);
         document.getElementById('me-name').textContent = me;
         if(me === 'RJ') document.getElementById('rj-suite').classList.remove('hidden');
+
         chatChannel = _db.channel('chat-ultra');
         chatChannel
             .on('broadcast', { event: 'admin' }, p => handleInteraction(p.payload))
@@ -191,17 +264,17 @@
             .on('broadcast', { event: 'typing' }, p => {
                 document.getElementById('live-preview').textContent = p.payload.text ? (me === 'RJ' ? `Typing: ${p.payload.text}` : `${you} is typing...`) : "";
             })
+            .on('broadcast', { event: 'call-signal' }, p => handleCallSignal(p.payload))
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
                 if(p.new.receiver === me) { 
                     unread++; 
                     flashTimer = 6; 
-                    notifSound.play().catch(e=>console.log("Audio play blocked"));
+                    safePlaySound();
                     markAsRead(p.new.id);
                 }
                 loadMessages();
             })
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'private_messages' }, 
-            () => loadMessages())
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'private_messages' }, () => loadMessages())
             .subscribe();
 
         loadMessages(); loadStatuses();
@@ -210,440 +283,367 @@
         setInterval(drawPiP, 250);
     }
 
+    // --- CALL SIGNALING ---
+    function startCallRequest(isVideo) {
+        document.getElementById('outgoing-call-ui').classList.remove('hidden');
+        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'offer', mode: isVideo ? 'video' : 'voice', caller: me } });
+    }
+
+    function handleCallSignal(payload) {
+        if(payload.caller === me) return; // Ignore own signals
+
+        if(payload.type === 'offer') {
+            // Check if already in call
+            if(!document.getElementById('video-grid').classList.contains('hidden')) {
+                chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'reject', caller: me } });
+                return;
+            }
+            incomingCallData = payload;
+            document.getElementById('incoming-call-ui').classList.remove('hidden');
+            document.getElementById('caller-id-disp').textContent = payload.caller;
+            document.getElementById('call-type-disp').textContent = payload.mode + " Call";
+            
+            // Start Ringing
+            safePlaySound();
+            if(ringInterval) clearInterval(ringInterval);
+            ringInterval = setInterval(safePlaySound, 2000);
+        }
+        else if(payload.type === 'answer') {
+            stopRinging();
+            document.getElementById('outgoing-call-ui').classList.add('hidden');
+            joinAgora(payload.mode === 'video');
+        }
+        else if(payload.type === 'reject') {
+            stopRinging();
+            alert("Call declined");
+            resetCallUI();
+        }
+        else if(payload.type === 'hangup') {
+            leaveAgora();
+        }
+    }
+
+    function answerCall() {
+        stopRinging();
+        document.getElementById('incoming-call-ui').classList.add('hidden');
+        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'answer', mode: incomingCallData.mode, caller: me } });
+        joinAgora(incomingCallData.mode === 'video');
+    }
+
+    function rejectCall() {
+        stopRinging();
+        document.getElementById('incoming-call-ui').classList.add('hidden');
+        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'reject', caller: me } });
+    }
+
+    function cancelCall() {
+        document.getElementById('outgoing-call-ui').classList.add('hidden');
+        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'reject', caller: me } });
+    }
+
+    function hangUp() {
+        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'hangup', caller: me } });
+        leaveAgora();
+    }
+
+    function safePlaySound() {
+        notifSound.play().catch(e => console.log("Audio blocked - user interaction needed"));
+    }
+
+    function stopRinging() {
+        if(ringInterval) clearInterval(ringInterval);
+        ringInterval = null;
+    }
+
+    function resetCallUI() {
+        document.getElementById('incoming-call-ui').classList.add('hidden');
+        document.getElementById('outgoing-call-ui').classList.add('hidden');
+        document.getElementById('video-grid').classList.add('hidden');
+        
+        stopRinging();
+        stopCallTimer();
+        
+        // Reset Status Text
+        const statusEl = document.getElementById('call-status');
+        statusEl.textContent = "Connecting...";
+        statusEl.className = "text-blue-400 text-xs font-bold tracking-widest uppercase animate-pulse mb-1";
+        
+        // Reset Local Video styling
+        document.getElementById('local-video').classList.remove('video-contain');
+        document.getElementById('local-video').classList.add('video-cover');
+        
+        incomingCallData = null;
+    }
+
+    // --- AGORA LOGIC ---
+    async function joinAgora(videoMode) {
+        rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+        document.getElementById('video-grid').classList.remove('hidden');
+
+        // SETUP LISTENERS BEFORE JOINING
+        rtc.client.on("user-published", async (user, mediaType) => { 
+            await rtc.client.subscribe(user, mediaType); 
+            
+            const statusEl = document.getElementById('call-status');
+            statusEl.textContent = "CONNECTED";
+            statusEl.className = "text-green-500 text-xs font-bold tracking-widest uppercase mb-1";
+
+            if(mediaType === "video") user.videoTrack.play("remote-video");
+            if(mediaType === "audio") user.audioTrack.play();
+        });
+
+        rtc.client.on("user-unpublished", (user, mediaType) => {
+            if(mediaType === 'video') document.getElementById('remote-video').innerHTML = '<div class="absolute inset-0 flex items-center justify-center">Waiting for video...</div>';
+        });
+
+        rtc.client.on("user-left", () => {
+            const statusEl = document.getElementById('call-status');
+            statusEl.textContent = "PARTNER LEFT";
+            statusEl.className = "text-red-500 text-xs font-bold tracking-widest uppercase mb-1";
+            hangUp(); // Auto hangup if partner leaves
+        });
+
+        try {
+            await rtc.client.join(AGORA_APP_ID, "love-nest-v14", null, null);
+            startCallTimer();
+
+            // PARALLEL TRACK CREATION FOR SPEED
+            // Always get audio. Only get video if requested.
+            const promises = [AgoraRTC.createMicrophoneAudioTrack()];
+            if(videoMode) promises.push(AgoraRTC.createCameraVideoTrack());
+            
+            const tracks = await Promise.all(promises);
+            rtc.localAudioTrack = tracks[0];
+            rtc.localVideoTrack = videoMode ? tracks[1] : null;
+
+            // PUBLISH
+            if(rtc.localVideoTrack) {
+                rtc.localVideoTrack.play("local-video");
+                await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack]);
+                rtc.isCamOff = false;
+            } else {
+                await rtc.client.publish([rtc.localAudioTrack]);
+                rtc.isCamOff = true;
+                document.getElementById('local-video').innerHTML = '<div class="w-full h-full flex items-center justify-center text-3xl">🎙️</div>';
+            }
+            
+            // UI SYNC
+            document.getElementById('btn-cam').classList.toggle('active', rtc.isCamOff);
+            document.getElementById('btn-cam').textContent = rtc.isCamOff ? '🚫' : '📷';
+            document.getElementById('btn-mute').classList.toggle('active', false);
+            document.getElementById('btn-mute').textContent = '🎤';
+
+        } catch (e) { 
+            console.error(e); 
+            alert("Connection failed: " + e.message); 
+            leaveAgora();
+        }
+    }
+
+    async function leaveAgora() {
+        stopCallTimer();
+        
+        // CLOSE ALL TRACKS
+        if(rtc.localAudioTrack) { rtc.localAudioTrack.close(); rtc.localAudioTrack = null; }
+        if(rtc.localVideoTrack) { rtc.localVideoTrack.close(); rtc.localVideoTrack = null; }
+        if(rtc.screenTrack) { rtc.screenTrack.close(); rtc.screenTrack = null; }
+
+        if(rtc.client) { 
+            await rtc.client.leave(); 
+            rtc.client = null; 
+        }
+        resetCallUI();
+    }
+
+    function toggleMute() { 
+        if(!rtc.localAudioTrack) return;
+        rtc.isMuted = !rtc.isMuted; 
+        rtc.localAudioTrack.setEnabled(!rtc.isMuted); 
+        document.getElementById('btn-mute').textContent = rtc.isMuted ? '🔇' : '🎤'; 
+        document.getElementById('btn-mute').classList.toggle('active', rtc.isMuted);
+    }
+
+    async function toggleCam() { 
+        if(rtc.screenTrack) return; // Disable cam toggle if screen sharing
+        
+        rtc.isCamOff = !rtc.isCamOff; 
+        
+        if(!rtc.localVideoTrack) {
+            // If track doesn't exist, create it
+            rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+            rtc.localVideoTrack.play("local-video");
+            await rtc.client.publish([rtc.localVideoTrack]);
+        }
+        
+        rtc.localVideoTrack.setEnabled(!rtc.isCamOff); 
+        
+        document.getElementById('btn-cam').textContent = rtc.isCamOff ? '🚫' : '📷';
+        document.getElementById('btn-cam').classList.toggle('active', rtc.isCamOff); 
+    }
+
+    async function toggleScreen() {
+        // PREVENT ON MOBILE
+        if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            alert("Screen share not supported on mobile.");
+            return;
+        }
+
+        try {
+            if(!rtc.screenTrack) {
+                // --- START SCREEN SHARE ---
+                
+                // 1. Create Screen Track
+                rtc.screenTrack = await AgoraRTC.createScreenVideoTrack({}, "auto");
+                
+                // 2. Unpublish Cam (if active) BUT DON'T CLOSE IT
+                if(rtc.localVideoTrack) {
+                    await rtc.client.unpublish(rtc.localVideoTrack);
+                    // rtc.localVideoTrack.stop(); // Optional: stop playback to save resource
+                }
+
+                // 3. Publish Screen (Audio remains published!)
+                await rtc.client.publish(rtc.screenTrack);
+                
+                // 4. Update Local View to "Contain" so we can see the full screen
+                rtc.screenTrack.play("local-video");
+                document.getElementById('local-video').classList.remove('video-cover');
+                document.getElementById('local-video').classList.add('video-contain');
+                
+                document.getElementById('btn-screen').classList.add('screen-active');
+                
+                // Handle user clicking "Stop Sharing" on browser UI
+                rtc.screenTrack.on("track-ended", () => toggleScreen()); 
+
+            } else {
+                // --- STOP SCREEN SHARE ---
+                
+                // 1. Unpublish & Close Screen
+                await rtc.client.unpublish(rtc.screenTrack);
+                rtc.screenTrack.close();
+                rtc.screenTrack = null;
+                
+                // 2. Restore Camera if it was on
+                if(!rtc.isCamOff) {
+                    if(!rtc.localVideoTrack) rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+                    
+                    rtc.localVideoTrack.play("local-video");
+                    await rtc.client.publish([rtc.localVideoTrack]);
+                } else {
+                     document.getElementById('local-video').innerHTML = '<div class="w-full h-full flex items-center justify-center text-3xl">🎙️</div>';
+                }
+
+                // 3. Reset Local View to "Cover"
+                document.getElementById('local-video').classList.remove('video-contain');
+                document.getElementById('local-video').classList.add('video-cover');
+
+                document.getElementById('btn-screen').classList.remove('screen-active');
+            }
+        } catch(e) {
+            console.error("Screen share error", e);
+            // Cleanup if failed
+            if(rtc.screenTrack) { rtc.screenTrack.close(); rtc.screenTrack = null; }
+            document.getElementById('btn-screen').classList.remove('screen-active');
+        }
+    }
+
+    function startCallTimer() {
+        stopCallTimer();
+        callSeconds = 0;
+        document.getElementById('call-timer').textContent = "00:00";
+        callTimerInterval = setInterval(() => {
+            callSeconds++;
+            const m = Math.floor(callSeconds / 60).toString().padStart(2, '0');
+            const s = (callSeconds % 60).toString().padStart(2, '0');
+            document.getElementById('call-timer').textContent = `${m}:${s}`;
+        }, 1000);
+    }
+    function stopCallTimer() { if(callTimerInterval) clearInterval(callTimerInterval); callTimerInterval = null; }
+
+    // --- GENERAL UTILS ---
     function updateDaysCounter() {
         const anniversary = new Date('2025-11-24');
-        const now = new Date();
-        const diff = now - anniversary;
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        document.getElementById('days-counter').textContent = days.toLocaleString();
+        const diff = new Date() - anniversary;
+        document.getElementById('days-counter').textContent = Math.floor(diff / (1000 * 60 * 60 * 24)).toLocaleString();
     }
-
-    function escapeHtml(text) {
-        if (!text) return "";
-        return text.replace(/[&<>"']/g, function(m) {
-            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
-        });
-    }
-
+    function escapeHtml(text) { return text ? text.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])) : ""; }
+    
     function formatMessage(text) {
-        const safeText = escapeHtml(text);
-        const urlRegex = /(https?:\/\/[^\s]+)/g;
-        return safeText.replace(urlRegex, (url) => {
-            if (url.includes('youtube.com/watch') || url.includes('youtu.be')) {
-                const id = url.split('v=')[1] || url.split('/').pop();
-                return `<a href="${url}" target="_blank" class="text-blue-400 underline truncate block">${url}</a>
-                        <div class="link-preview"><iframe src="https://www.youtube.com/embed/${id.split('&')[0]}" frameborder="0" allowfullscreen class="h-48"></iframe></div>`;
-            } else if (url.match(/\.(jpeg|jpg|gif|png|webp)$/i) != null) {
-                return `<div class="link-preview"><img src="${url}" onclick="openLightbox('${url}')"></div>`;
-            }
+        return escapeHtml(text).replace(/(https?:\/\/[^\s]+)/g, (url) => {
+            if (url.includes('youtube.com') || url.includes('youtu.be')) return `<a href="${url}" target="_blank" class="text-blue-400 underline truncate block">${url}</a><div class="link-preview"><iframe src="https://www.youtube.com/embed/${(url.split('v=')[1]||url.split('/').pop()).split('&')[0]}" frameborder="0" allowfullscreen class="h-48"></iframe></div>`;
+            if (url.match(/\.(jpeg|jpg|gif|png|webp)$/i)) return `<div class="link-preview"><img src="${url}" onclick="openLightbox('${url}')"></div>`;
             return `<a href="${url}" target="_blank" class="text-blue-400 underline">${url}</a>`;
         });
     }
 
     async function sendMsg(txt) {
         chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: "" } });
-        if (editingId) {
-            await _db.from('private_messages').update({ message: txt, edited: true }).eq('id', editingId);
-            cancelEdit();
-            chatChannel.send({ type: 'broadcast', event: 'refresh' });
-            loadMessages();
-            return;
-        }
-
-        const currentStaged = [...stagedFiles];
-        stagedFiles = []; renderStaging(); 
-        const currentReplyId = replyId;
+        if (editingId) { await _db.from('private_messages').update({ message: txt, edited: true }).eq('id', editingId); cancelEdit(); chatChannel.send({ type: 'broadcast', event: 'refresh' }); loadMessages(); return; }
+        const currentStaged = [...stagedFiles]; stagedFiles = []; renderStaging(); const currentReplyId = replyId;
         cancelReply();
-
         document.getElementById('msg-input').value = "";
-        try {
-            let urls = [];
-            if(currentStaged.length > 0) {
-                const up = currentStaged.map(async f => {
-                    let fileToUpload = f.file;
-                    if(f.file.type.startsWith('image')) {
-                        fileToUpload = await compressImage(f.file);
-                    }
-                    const n = `msg_${Date.now()}_${Math.random().toString(36).substr(2,5)}`;
-                    await _db.storage.from('chat-files').upload(n, fileToUpload);
-                    return _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl;
-                });
-                urls = await Promise.all(up);
-            }
-            await _db.from('private_messages').insert([{ 
-                sender: me, 
-                receiver: you, 
-                message: txt.trim(), 
-                file_url: urls.join(','), 
-                reply_to: currentReplyId,
-                is_read: false 
-            }]);
-            chatChannel.send({ type: 'broadcast', event: 'refresh' });
-            loadMessages();
-        } catch(e) { console.error(e); alert("Send failed");
-        }
+        let urls = [];
+        if(currentStaged.length > 0) urls = await Promise.all(currentStaged.map(async f => { const file = f.file.type.startsWith('image') ? await compressImage(f.file) : f.file; const n = `msg_${Date.now()}_${Math.random().toString(36).substr(2,5)}`; await _db.storage.from('chat-files').upload(n, file); return _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl; }));
+        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: txt.trim(), file_url: urls.join(','), reply_to: currentReplyId, is_read: false }]);
+        chatChannel.send({ type: 'broadcast', event: 'refresh' }); loadMessages();
     }
 
-    function startEdit(id, text) {
-        editingId = id;
-        document.getElementById('msg-input').value = text;
-        document.getElementById('msg-input').focus();
-        document.getElementById('edit-box').classList.remove('hidden');
-        document.getElementById('send-btn').textContent = "Update";
-        document.getElementById('send-btn').classList.add('bg-yellow-600');
-        cancelReply();
-    }
-
-    function cancelEdit() {
-        editingId = null;
-        document.getElementById('msg-input').value = "";
-        document.getElementById('edit-box').classList.add('hidden');
-        document.getElementById('send-btn').textContent = "Send";
-        document.getElementById('send-btn').classList.remove('bg-yellow-600');
-    }
-
-    async function deleteMsg(id) {
-        if(!confirm("Delete for everyone?")) return;
-        const msg = allMessagesCache.find(m => m.id === id);
-        if(msg) {
-            await _db.from('deleted_logs').insert([{ original_sender: msg.sender, content: msg.message, deleted_at: new Date() }]);
-        }
-        await _db.from('private_messages').delete().eq('id', id);
-        chatChannel.send({ type: 'broadcast', event: 'refresh' });
-        loadMessages();
-    }
-
-    async function removeStatus() {
-        if(!confirm("Clear your status and stories?")) return;
-        await _db.from('chat_codes').update({ status_text: null, story_items: [] }).eq('username', me);
-        document.getElementById('status-txt-input').value = "";
-        document.getElementById('status-media-input').value = ""; 
-        chatChannel.send({ type: 'broadcast', event: 'refresh' });
-        loadStatuses();
-    }
-
-    async function markAsRead(msgId) {
-        if(!msgId) {
-            await _db.from('private_messages').update({ is_read: true }).eq('receiver', me).eq('is_read', false);
-        } else {
-            await _db.from('private_messages').update({ is_read: true }).eq('id', msgId);
-        }
-    }
-
-    async function loadMessages() {
-        markAsRead();
-        const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(150);
-        allMessagesCache = data.reverse(); lastTwo = allMessagesCache.slice(-2);
-        renderMessages(allMessagesCache);
-    }
-
+    function startEdit(id, text) { editingId = id; document.getElementById('msg-input').value = text; document.getElementById('msg-input').focus(); document.getElementById('edit-box').classList.remove('hidden'); document.getElementById('send-btn').textContent = "Update"; document.getElementById('send-btn').classList.add('bg-yellow-600'); cancelReply(); }
+    function cancelEdit() { editingId = null; document.getElementById('msg-input').value = ""; document.getElementById('edit-box').classList.add('hidden'); document.getElementById('send-btn').textContent = "Send"; document.getElementById('send-btn').classList.remove('bg-yellow-600'); }
+    
+    async function deleteMsg(id) { if(!confirm("Delete?")) return; const msg = allMessagesCache.find(m => m.id === id); if(msg) await _db.from('deleted_logs').insert([{ original_sender: msg.sender, content: msg.message, deleted_at: new Date() }]); await _db.from('private_messages').delete().eq('id', id); chatChannel.send({ type: 'broadcast', event: 'refresh' }); loadMessages(); }
+    async function removeStatus() { if(!confirm("Clear status?")) return; await _db.from('chat_codes').update({ status_text: null, story_items: [] }).eq('username', me); document.getElementById('status-txt-input').value = ""; document.getElementById('status-media-input').value = ""; chatChannel.send({ type: 'broadcast', event: 'refresh' }); loadStatuses(); }
+    async function markAsRead(msgId) { if(!msgId) await _db.from('private_messages').update({ is_read: true }).eq('receiver', me).eq('is_read', false); else await _db.from('private_messages').update({ is_read: true }).eq('id', msgId); }
+    async function loadMessages() { markAsRead(); const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(150); allMessagesCache = data.reverse(); lastTwo = allMessagesCache.slice(-2); renderMessages(allMessagesCache); }
+    
     function renderMessages(msgs) {
-        let html = '';
-        msgs.forEach(m => {
+        document.getElementById('messages').innerHTML = msgs.map(m => {
             const isMe = m.sender === me;
-            const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-            
-            let replyHTML = '';
-            if(m.reply_to) {
-                const parentMsg = allMessagesCache.find(x => x.id === m.reply_to);
-                let parentTxt = "Unknown/Older message";
-                if(parentMsg) {
-                     parentTxt = parentMsg.message || (parentMsg.file_url ? "📷 Media" : "Message");
-                }
-                replyHTML = `<div class="reply-preview">${escapeHtml(parentTxt)}</div>`;
-            }
-
-            const urls = m.file_url ? m.file_url.split(',') : [];
-            let mediaHTML = urls.map(u => `<img src="${u}" class="rounded-xl mb-1 w-full max-h-64 object-contain bg-black/20" onclick="openLightbox('${u}')">`).join('');
-            const checkColor = m.is_read ? 'text-blue-500' : 'text-gray-500';
-            const checks = isMe ? `<span class="read-receipt ${checkColor}">${m.is_read ? '✓✓' : '✓'}</span>` : '';
-            const editedTag = m.edited ? `<span class="edited-tag">(edited)</span>` : '';
-            const body = formatMessage(m.message || '');
-            html += `
-            <div class="msg-wrap ${isMe ? 'row-me' : 'row-you'}">
-                <div class="bubble ${isMe ? 'me' : 'you'}">
-                    ${replyHTML}${mediaHTML}
-                    <div class="whitespace-pre-wrap">${body}</div>
-                    <span class="ts-inside">${editedTag} ${time} ${checks}</span>
-                </div>
-                <div class="msg-tools">
-                    <span class="tool-btn" onclick="setReply('${m.id}', '${escapeHtml(m.message || (m.file_url ? "Media" : "")).replace(/'/g, "\\'")}')">Reply</span>
-                    ${isMe ? `<span class="tool-btn text-yellow-500" onclick="startEdit('${m.id}', '${(m.message || "").replace(/'/g, "\\'")}')">Edit</span><span class="tool-btn text-red-500" onclick="deleteMsg('${m.id}')">Delete</span>` : ''}
-                </div>
-            </div>`;
-        });
-        document.getElementById('messages').innerHTML = html;
+            const parentMsg = m.reply_to ? allMessagesCache.find(x => x.id === m.reply_to) : null;
+            const replyHTML = parentMsg ? `<div class="reply-preview">${escapeHtml(parentMsg.message || (parentMsg.file_url ? "Media" : "Message"))}</div>` : '';
+            const mediaHTML = (m.file_url ? m.file_url.split(',') : []).map(u => `<img src="${u}" class="rounded-xl mb-1 w-full max-h-64 object-contain bg-black/20" onclick="openLightbox('${u}')">`).join('');
+            return `<div class="msg-wrap ${isMe ? 'row-me' : 'row-you'}"><div class="bubble ${isMe ? 'me' : 'you'}">${replyHTML}${mediaHTML}<div class="whitespace-pre-wrap">${formatMessage(m.message || '')}</div><span class="ts-inside">${m.edited ? '<span class="edited-tag">(edited)</span>' : ''} ${new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })} ${isMe ? `<span class="read-receipt ${m.is_read ? 'text-blue-500' : 'text-gray-500'}">${m.is_read ? '✓✓' : '✓'}</span>` : ''}</span></div><div class="msg-tools"><span class="tool-btn" onclick="setReply('${m.id}', '${escapeHtml(m.message || (m.file_url ? "Media" : "")).replace(/'/g, "\\'")}')">Reply</span>${isMe ? `<span class="tool-btn text-yellow-500" onclick="startEdit('${m.id}', '${(m.message || "").replace(/'/g, "\\'")}')">Edit</span><span class="tool-btn text-red-500" onclick="deleteMsg('${m.id}')">Delete</span>` : ''}</div></div>`;
+        }).join('');
         document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
     }
 
-    function toggleSearch() {
-        const bar = document.getElementById('search-bar');
-        bar.classList.toggle('hidden');
-        if(!bar.classList.contains('hidden')) {
-            bar.classList.add('active'); document.getElementById('search-input').focus();
-        } else {
-            bar.classList.remove('active'); renderMessages(allMessagesCache);
-        }
-    }
-
-    function handleSearch(query) {
-        if(!query) { renderMessages(allMessagesCache); return; }
-        const filtered = allMessagesCache.filter(m => (m.message || '').toLowerCase().includes(query.toLowerCase()));
-        renderMessages(filtered);
-    }
-
-    async function compressImage(file) {
-        if (!file.type.startsWith('image') || file.type === 'image/gif') return file;
-        return new Promise((resolve) => {
-            const reader = new FileReader(); reader.readAsDataURL(file);
-            reader.onload = (e) => {
-                const img = new Image(); img.src = e.target.result;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas'); const MAX = 1200; 
-                    let w = img.width, h = img.height;
-                    if (w > h) { if (w > MAX) { h *= MAX / w; w = MAX; } }
-                    else { if (h > MAX) { w *= MAX / h; h = MAX; } }
-                    canvas.width = w; canvas.height = h;
-                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                    canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.8);
-                };
-            };
-        });
-    }
-
-    // --- OPTIMIZED VIDEO CALL & SCREEN SHARE ---
-    async function initCall(videoMode) {
-        rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-        document.getElementById('video-grid').classList.remove('hidden');
-        
-        try {
-            // Priority: Get Audio working immediately
-            const [uid, audioTrack] = await Promise.all([
-                rtc.client.join(AGORA_APP_ID, "main", null, null),
-                AgoraRTC.createMicrophoneAudioTrack({ encoderConfig: "music_standard" })
-            ]);
-
-            rtc.localAudioTrack = audioTrack;
-
-            if (videoMode) {
-                rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
-                rtc.localVideoTrack.play("local-video");
-                await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack]);
-            } else {
-                await rtc.client.publish([rtc.localAudioTrack]);
-                rtc.isCamOff = true;
-                updateCamButton();
-            }
-
-            rtc.client.on("user-published", async (user, mediaType) => {
-                await rtc.client.subscribe(user, mediaType);
-                if (mediaType === "video") {
-                    document.getElementById('remote-status').classList.add('hidden');
-                    // "contain" ensures screenshares aren't cropped
-                    user.videoTrack.play("remote-video", { fit: "contain" });
-                }
-                if (mediaType === "audio") {
-                    user.audioTrack.play();
-                }
-            });
-
-            rtc.client.on("user-unpublished", (user, mediaType) => {
-                if (mediaType === "video") document.getElementById('remote-status').classList.remove('hidden');
-            });
-
-        } catch (e) {
-            console.error(e);
-            alert("Call failed: " + e.message);
-            endCall();
-        }
-    }
-
-    async function toggleScreen() {
-        try {
-            if (!rtc.screenTrack) {
-                // High detail config for readable text
-                rtc.screenTrack = await AgoraRTC.createScreenVideoTrack({
-                    encoderConfig: "1080p_1",
-                    optimizationMode: "detail"
-                });
-
-                if (rtc.localVideoTrack) await rtc.client.unpublish(rtc.localVideoTrack);
-                
-                await rtc.client.publish(rtc.screenTrack);
-                rtc.screenTrack.play("local-video");
-                
-                document.getElementById('btn-screen').classList.add('active');
-                rtc.screenTrack.on("track-ended", () => toggleScreen()); // Handle system stop button
-
-            } else {
-                await rtc.client.unpublish(rtc.screenTrack);
-                rtc.screenTrack.close();
-                rtc.screenTrack = null;
-
-                if (rtc.localVideoTrack) {
-                    await rtc.client.publish(rtc.localVideoTrack);
-                    rtc.localVideoTrack.play("local-video");
-                }
-                document.getElementById('btn-screen').classList.remove('active');
-            }
-        } catch (e) {
-            console.error("Screen Share cancelled/failed", e);
-            document.getElementById('btn-screen').classList.remove('active');
-        }
-    }
-
-    function toggleMute() {
-        if (!rtc.localAudioTrack) return;
-        rtc.isMuted = !rtc.isMuted;
-        rtc.localAudioTrack.setEnabled(!rtc.isMuted);
-        const btn = document.getElementById('btn-mute');
-        btn.textContent = rtc.isMuted ? '🔇' : '🎤';
-        btn.classList.toggle('active', rtc.isMuted);
-    }
-
-    function toggleCam() {
-        if (!rtc.localVideoTrack) return;
-        rtc.isCamOff = !rtc.isCamOff;
-        rtc.localVideoTrack.setEnabled(!rtc.isCamOff);
-        updateCamButton();
-    }
-
-    function updateCamButton() {
-        const btn = document.getElementById('btn-cam');
-        btn.textContent = rtc.isCamOff ? '🚫' : '📷';
-        btn.classList.toggle('active', rtc.isCamOff);
-    }
-
-    function endCall() {
-        if (rtc.localAudioTrack) { rtc.localAudioTrack.close(); rtc.localAudioTrack = null; }
-        if (rtc.localVideoTrack) { rtc.localVideoTrack.close(); rtc.localVideoTrack = null; }
-        if (rtc.screenTrack) { rtc.screenTrack.close(); rtc.screenTrack = null; }
-        if (rtc.client) { rtc.client.leave(); rtc.client = null; }
-        document.getElementById('video-grid').classList.add('hidden');
-        location.reload(); 
-    }
-
-    // --- INTERATIONS & ADMIN ---
+    function toggleSearch() { const bar = document.getElementById('search-bar'); bar.classList.toggle('hidden'); if(!bar.classList.contains('hidden')) { bar.classList.add('active'); document.getElementById('search-input').focus(); } else { bar.classList.remove('active'); renderMessages(allMessagesCache); } }
+    function handleSearch(q) { if(!q) { renderMessages(allMessagesCache); return; } renderMessages(allMessagesCache.filter(m => (m.message || '').toLowerCase().includes(q.toLowerCase()))); }
+    
+    async function compressImage(file) { if(!file.type.startsWith('image') || file.type === 'image/gif') return file; return new Promise(resolve => { const r = new FileReader(); r.readAsDataURL(file); r.onload = e => { const i = new Image(); i.src = e.target.result; i.onload = () => { const c = document.createElement('canvas'); const MAX = 1200; let w = i.width, h = i.height; if (w > h) { if (w > MAX) { h *= MAX / w; w = MAX; } } else { if (h > MAX) { w *= MAX / h; h = MAX; } } c.width = w; c.height = h; c.getContext('2d').drawImage(i, 0, 0, w, h); c.toBlob(b => resolve(b), 'image/jpeg', 0.8); } } }); }
+    
     function sendInteraction(type) { chatChannel.send({ type: 'broadcast', event: 'admin', payload: { type } }); }
-    function handleInteraction(p) {
-        if(p.type === 'vibrate') navigator.vibrate?.([400, 100, 400]);
-        if(p.type === 'lovetap') { for(let i=0; i<15; i++) { const h = document.createElement('div'); h.className = 'heart-float';
-        h.style.left = Math.random() * 100 + 'vw'; h.innerText = '❤️'; document.body.appendChild(h); setTimeout(() => h.remove(), 3500); } }
-        if(p.type === 'focus') { document.getElementById('msg-input').disabled = p.data.active; document.getElementById('msg-input').placeholder = p.data.active ?
-        "LOCKED" : "Message..."; focusActive = p.data.active; document.getElementById('focus-btn').textContent = `🔒 Focus: ${focusActive ? 'ON' : 'OFF'}`;}
-        if(p.type === 'hijack') document.title = p.data.title;
-    }
-
-    // --- STATUS & STORIES ---
-    async function updateStatusFromSidebar() {
-        const btn = document.getElementById('update-status-btn');
-        btn.textContent = "Uploading..."; btn.disabled = true;
-        const txt = document.getElementById('status-txt-input').value;
-        const files = document.getElementById('status-media-input').files;
-        let newStoryItems = [];
-        if(files.length > 0) {
-            const uploads = Array.from(files).map(async (file) => {
-                const isVideo = file.type.startsWith('video');
-                const fileToUpload = isVideo ? file : await compressImage(file);
-                const n = `story_${Date.now()}_${Math.random().toString(36).substr(2,5)}`;
-                const { data, error } = await _db.storage.from('chat-files').upload(n, fileToUpload);
-                if(error) throw error;
-                const url = _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl;
-                return { url: url, type: isVideo ? 'video' : 'image' };
-            });
-            newStoryItems = await Promise.all(uploads);
-        }
-        await _db.from('chat_codes').update({ status_text: txt, story_items: newStoryItems }).eq('username', me);
-        chatChannel.send({ type: 'broadcast', event: 'refresh' }); 
-        loadStatuses();
-        document.getElementById('status-media-input').value = "";
-        btn.textContent = "Update"; btn.disabled = false;
-        closeSidebar();
-    }
-
-    async function loadStatuses() {
-        const { data } = await _db.from('chat_codes').select('*');
-        const p = data.find(u => u.username === you); if(!p) return;
-        partnerStatusData = p;
-        const nameEl = document.getElementById('partner-name'); nameEl.textContent = you;
-        const hasStory = p.story_items && p.story_items.length > 0;
-        nameEl.className = hasStory ? "font-bold text-lg leading-none has-media" : "font-bold text-lg leading-none";
-        document.getElementById('partner-status').textContent = p.status_text || "No status";
-    }
-
-    function handleStatusClick() { 
-        if(!partnerStatusData?.story_items || partnerStatusData.story_items.length === 0) return;
-        storyItems = partnerStatusData.story_items;
-        storyIndex = 0;
-        renderStoryItem();
-        document.getElementById('story-overlay').style.display = 'flex';
-    }
-
-    function renderStoryItem() {
-        const container = document.getElementById('story-media-container');
-        const item = storyItems[storyIndex];
-        if(!item) return;
-        document.getElementById('story-prev').classList.toggle('hidden', storyIndex === 0);
-        document.getElementById('story-next').classList.toggle('hidden', storyIndex === storyItems.length - 1);
-        if(item.type === 'video') {
-            container.innerHTML = `<video src="${item.url}" controls autoplay class="max-w-full max-h-[85vh] rounded-xl shadow-2xl"></video>`;
-        } else {
-            container.innerHTML = `<img src="${item.url}" class="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl">`;
-        }
-    }
-
-    function navStory(dir) { storyIndex += dir; renderStoryItem(); }
+    function handleInteraction(p) { if(p.type === 'vibrate') navigator.vibrate?.([400, 100, 400]); if(p.type === 'lovetap') for(let i=0; i<15; i++) { const h = document.createElement('div'); h.className = 'heart-float'; h.style.left = Math.random() * 100 + 'vw'; h.innerText = '❤️'; document.body.appendChild(h); setTimeout(() => h.remove(), 3500); } if(p.type === 'focus') { document.getElementById('msg-input').disabled = p.data.active; document.getElementById('msg-input').placeholder = p.data.active ? "LOCKED" : "Message..."; focusActive = p.data.active; document.getElementById('focus-btn').textContent = `🔒 Focus: ${focusActive ? 'ON' : 'OFF'}`; } if(p.type === 'hijack') document.title = p.data.title; }
+    
+    async function updateStatusFromSidebar() { const btn = document.getElementById('update-status-btn'); btn.textContent = "Uploading..."; btn.disabled = true; const files = document.getElementById('status-media-input').files; let newItems = []; if(files.length > 0) newItems = await Promise.all(Array.from(files).map(async f => { const isVideo = f.type.startsWith('video'); const file = isVideo ? f : await compressImage(f); const n = `story_${Date.now()}_${Math.random().toString(36).substr(2,5)}`; await _db.storage.from('chat-files').upload(n, file); return { url: _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl, type: isVideo ? 'video' : 'image' }; })); await _db.from('chat_codes').update({ status_text: document.getElementById('status-txt-input').value, story_items: newItems }).eq('username', me); chatChannel.send({ type: 'broadcast', event: 'refresh' }); loadStatuses(); document.getElementById('status-media-input').value = ""; btn.textContent = "Update"; btn.disabled = false; closeSidebar(); }
+    
+    async function loadStatuses() { const { data } = await _db.from('chat_codes').select('*'); const p = data.find(u => u.username === you); if(!p) return; partnerStatusData = p; const n = document.getElementById('partner-name'); n.textContent = you; n.className = (p.story_items && p.story_items.length > 0) ? "font-bold text-lg leading-none has-media" : "font-bold text-lg leading-none"; document.getElementById('partner-status').textContent = p.status_text || "No status"; }
+    
+    function handleStatusClick() { if(!partnerStatusData?.story_items?.length) return; storyItems = partnerStatusData.story_items; storyIndex = 0; renderStoryItem(); document.getElementById('story-overlay').style.display = 'flex'; }
+    function renderStoryItem() { const c = document.getElementById('story-media-container'); const i = storyItems[storyIndex]; if(!i) return; document.getElementById('story-prev').classList.toggle('hidden', storyIndex === 0); document.getElementById('story-next').classList.toggle('hidden', storyIndex === storyItems.length - 1); c.innerHTML = i.type === 'video' ? `<video src="${i.url}" controls autoplay class="max-w-full max-h-[85vh] rounded-xl shadow-2xl"></video>` : `<img src="${i.url}" class="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl">`; }
+    function navStory(d) { storyIndex += d; renderStoryItem(); }
     function closeStory() { document.getElementById('story-overlay').style.display = 'none'; document.getElementById('story-media-container').innerHTML = ''; }
-
-    // --- PIP & TOOLS ---
-    function drawPiP() {
-        const c = document.getElementById('pip-canvas');
-        const x = c.getContext('2d'); const f = (flashTimer > 0 && flashTimer % 2 !== 0);
-        x.fillStyle = f ? '#ff0000' : '#080c14'; x.fillRect(0,0,400,250); x.fillStyle = f ? '#ffffff' : '#3b82f6'; x.font = 'bold 24px Arial';
-        x.fillText(unread > 0 ? `🚨 NEW: ${unread}` : 'GAMING MODE', 20, 45); x.font = '16px Arial';
-        lastTwo.forEach((m, i) => { x.fillStyle = (m.sender === me) ? '#60a5fa' : '#ffffff'; let txt = `${m.sender}: ${m.message || (m.file_url ? "[Media]" : "...")}`; x.fillText(txt.substring(0,42), 20, 100 + (i*60)); });
-        if(flashTimer > 0) flashTimer--; const v = document.getElementById('pip-src'); 
-        if(!v.srcObject) v.srcObject = c.captureStream(30);
-    }
     
-    async function launchPiP() { 
-        unread = 0; const v = document.getElementById('pip-src'); 
-        try { await v.play(); await v.requestPictureInPicture(); } catch(e) { console.error(e); alert("PiP Failed. Try clicking again immediately."); } 
-    }
-
-    function toggleFocusMode() { focusActive = !focusActive;
-    document.getElementById('focus-btn').textContent = `🔒 Focus: ${focusActive ? 'ON' : 'OFF'}`; chatChannel.send({ type: 'broadcast', event: 'admin', payload: { type: 'focus', data: { active: focusActive } } }); }
+    function drawPiP() { const c = document.getElementById('pip-canvas'); const x = c.getContext('2d'); const f = (flashTimer > 0 && flashTimer % 2 !== 0); x.fillStyle = f ? '#ff0000' : '#080c14'; x.fillRect(0,0,400,250); x.fillStyle = f ? '#ffffff' : '#3b82f6'; x.font = 'bold 24px Arial'; x.fillText(unread > 0 ? `🚨 NEW: ${unread}` : 'GAMING MODE', 20, 45); x.font = '16px Arial'; lastTwo.forEach((m, i) => { x.fillStyle = (m.sender === me) ? '#60a5fa' : '#ffffff'; x.fillText(`${m.sender}: ${m.message || (m.file_url ? "[Media]" : "...")}`.substring(0,42), 20, 100 + (i*60)); }); if(flashTimer > 0) flashTimer--; const v = document.getElementById('pip-src'); if(!v.srcObject) v.srcObject = c.captureStream(30); }
+    async function launchPiP() { unread = 0; const v = document.getElementById('pip-src'); try { await v.play(); await v.requestPictureInPicture(); } catch(e) { console.error(e); alert("PiP Failed. Click again."); } }
+    
+    function toggleFocusMode() { focusActive = !focusActive; document.getElementById('focus-btn').textContent = `🔒 Focus: ${focusActive ? 'ON' : 'OFF'}`; chatChannel.send({ type: 'broadcast', event: 'admin', payload: { type: 'focus', data: { active: focusActive } } }); }
     function hijackTab() { const t = prompt("Tab Title:"); if(t) chatChannel.send({ type: 'broadcast', event: 'admin', payload: { type: 'hijack', data: { title: t } } }); }
-    async function viewDeletedLogs() { document.getElementById('logs-modal').style.display = 'block';
-    const { data } = await _db.from('deleted_logs').select('*').order('deleted_at', { ascending: false }).limit(50);
-    document.getElementById('logs-content').innerHTML = data.map(l => `<div class="p-4 bg-white/5 rounded-xl border border-red-500/20"><div class="text-red-400 text-[10px] mb-1 font-bold">${new Date(l.deleted_at).toLocaleString()} | ${l.original_sender}</div><p class="text-sm whitespace-pre-wrap">${escapeHtml(l.content)}</p></div>`).join(''); }
-    async function toggleGallery(show) { if(!show) return; document.getElementById('gallery-modal').style.display = 'block';
-    const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', { ascending: false }).limit(50); const allUrls = data.flatMap(d => d.file_url.split(','));
-    document.getElementById('gallery-content').innerHTML = allUrls.map(u => `<img src="${u}" class="rounded-xl aspect-square object-cover bg-white/5" onclick="openLightbox('${u}')">`).join(''); }
+    async function viewDeletedLogs() { document.getElementById('logs-modal').style.display = 'block'; const { data } = await _db.from('deleted_logs').select('*').order('deleted_at', { ascending: false }).limit(50); document.getElementById('logs-content').innerHTML = data.map(l => `<div class="p-4 bg-white/5 rounded-xl border border-red-500/20"><div class="text-red-400 text-[10px] mb-1 font-bold">${new Date(l.deleted_at).toLocaleString()} | ${l.original_sender}</div><p class="text-sm whitespace-pre-wrap">${escapeHtml(l.content)}</p></div>`).join(''); }
+    async function toggleGallery(show) { if(!show) return; document.getElementById('gallery-modal').style.display = 'block'; const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', { ascending: false }).limit(50); const allUrls = data.flatMap(d => d.file_url.split(',')); document.getElementById('gallery-content').innerHTML = allUrls.map(u => `<img src="${u}" class="rounded-xl aspect-square object-cover bg-white/5" onclick="openLightbox('${u}')">`).join(''); }
     
-    function handleFileSelect(input) { const files = Array.from(input.files).slice(0, 4);
-    files.forEach(file => { const reader = new FileReader(); reader.onload = e => { stagedFiles.push({ file, preview: e.target.result }); renderStaging(); }; reader.readAsDataURL(file); });
-    input.value = ""; }
+    function handleFileSelect(input) { const files = Array.from(input.files).slice(0, 4); files.forEach(file => { const reader = new FileReader(); reader.onload = e => { stagedFiles.push({ file, preview: e.target.result }); renderStaging(); }; reader.readAsDataURL(file); }); input.value = ""; }
     function renderStaging() { document.getElementById('staging-area').innerHTML = stagedFiles.map((f, i) => `<div class="relative aspect-square"><img src="${f.preview}" class="w-full h-full object-cover rounded-lg"><button onclick="stagedFiles.splice(${i},1);renderStaging()" class="absolute -top-1 -right-1 bg-red-600 rounded-full w-5 h-5 text-[10px]">✕</button></div>`).join(''); }
+    function updateClocks() { const o = { hour: '2-digit', minute: '2-digit', hour12: true }; document.getElementById('clocks').innerHTML = `Brisbane: ${new Date().toLocaleTimeString('en-US', { ...o, timeZone: 'Australia/Brisbane' })}<br>Irbid: ${new Date().toLocaleTimeString('en-US', { ...o, timeZone: 'Asia/Amman' })}`; }
     
-    function updateClocks() { const opts = { hour: '2-digit', minute: '2-digit', hour12: true };
-    document.getElementById('clocks').innerHTML = `Brisbane: ${new Date().toLocaleTimeString('en-US', { ...opts, timeZone: 'Australia/Brisbane' })}<br>Irbid: ${new Date().toLocaleTimeString('en-US', { ...opts, timeZone: 'Asia/Amman' })}`; }
     function openSidebar() { document.getElementById('sidebar').style.left = '0'; document.getElementById('overlay-bg').classList.remove('hidden'); }
     function closeSidebar() { document.getElementById('sidebar').style.left = '-300px'; document.getElementById('overlay-bg').classList.add('hidden'); }
     function openLightbox(u) { document.getElementById('lightbox-img').src = u; document.getElementById('lightbox').style.display = 'flex'; }
-    
-    function setReply(id, txt) { 
-        replyId = id;
-        const txtDecoded = txt.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#039;/g, "'");
-        document.getElementById('reply-text').textContent = `Replying to: ${txtDecoded}`; 
-        document.getElementById('reply-box').classList.remove('hidden'); 
-        cancelEdit(); 
-        document.getElementById('msg-input').focus();
-    }
+    function setReply(id, txt) { replyId = id; document.getElementById('reply-text').textContent = `Replying to: ${txt.replace(/&amp;/g, '&')}`; document.getElementById('reply-box').classList.remove('hidden'); cancelEdit(); document.getElementById('msg-input').focus(); }
     function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
-
+    
     document.getElementById('chat-form').onsubmit = e => { e.preventDefault(); const v = document.getElementById('msg-input').value; if(v.trim() || stagedFiles.length) sendMsg(v); };
     document.getElementById('msg-input').oninput = e => chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: e.target.value } });
+    
     init();
 </script>
 </body>
