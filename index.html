@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Midnight v12</title>
+    <title>Midnight v13</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
@@ -42,9 +42,13 @@
         .story-nav-btn:hover { opacity: 1; }
         #story-prev { left: 0; } #story-next { right: 0; }
         
-        /* CALL ANIMATIONS */
+        /* CALL ANIMATIONS & STYLES */
         .ring-pulse { animation: ring 1.5s infinite; }
         @keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(59, 130, 246, 0); } 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); } }
+        
+        /* Video Contain Fix */
+        #remote-video video { object-fit: contain !important; }
+        #local-video video { object-fit: cover !important; }
     </style>
 </head>
 <body>
@@ -82,8 +86,18 @@
 </div>
 
 <div id="video-grid" class="hidden fixed inset-0 bg-[#03050a] z-[3000]">
-    <div id="remote-video" class="w-full h-full bg-slate-900 flex items-center justify-center text-white/20">Waiting for video...</div>
-    <div id="local-video" class="absolute top-10 right-6 w-32 h-48 border-2 border-white/20 rounded-2xl overflow-hidden z-[3001] bg-black shadow-2xl"></div>
+    
+    <div class="absolute top-6 left-0 right-0 z-[3005] flex flex-col items-center pointer-events-none">
+        <div id="call-status" class="text-blue-400 text-xs font-bold tracking-widest uppercase animate-pulse mb-1">Connecting...</div>
+        <div id="call-timer" class="text-white text-2xl font-mono font-bold drop-shadow-lg">00:00</div>
+    </div>
+
+    <div id="remote-video" class="w-full h-full flex items-center justify-center text-white/20 relative">
+        <div class="absolute inset-0 flex items-center justify-center">Waiting for video...</div>
+    </div>
+    
+    <div id="local-video" class="absolute top-20 right-6 w-32 h-48 border-2 border-white/20 rounded-2xl overflow-hidden z-[3001] bg-black shadow-2xl"></div>
+    
     <div class="absolute bottom-10 left-0 right-0 flex justify-center items-center gap-4 z-[3002]">
         <button id="btn-mute" onclick="toggleMute()" class="call-btn">🎤</button>
         <button id="btn-cam" onclick="toggleCam()" class="call-btn">📷</button>
@@ -198,7 +212,9 @@
     // AGORA & CALL VARS
     const AGORA_APP_ID = "4f6c6c2002784152a8366dec12f1b4c0";
     let rtc = { client: null, localVideoTrack: null, localAudioTrack: null, screenTrack: null, isMuted: false, isCamOff: false };
-    let incomingCallData = null; // Stores data about the call request
+    let incomingCallData = null; 
+    let callTimerInterval = null;
+    let callSeconds = 0;
 
     async function init() {
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
@@ -217,7 +233,7 @@
             .on('broadcast', { event: 'typing' }, p => {
                 document.getElementById('live-preview').textContent = p.payload.text ? (me === 'RJ' ? `Typing: ${p.payload.text}` : `${you} is typing...`) : "";
             })
-            // NEW: Signaling listener for calls
+            // Signaling listener for calls
             .on('broadcast', { event: 'call-signal' }, p => handleCallSignal(p.payload))
             
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
@@ -238,9 +254,8 @@
         setInterval(drawPiP, 250);
     }
 
-    // --- CALL SIGNALING & UI LOGIC ---
+    // --- CALL SIGNALING ---
 
-    // 1. Caller starts process
     function startCallRequest(isVideo) {
         document.getElementById('outgoing-call-ui').classList.remove('hidden');
         chatChannel.send({ 
@@ -250,46 +265,35 @@
         });
     }
 
-    // 2. Handle incoming signals
     function handleCallSignal(payload) {
-        if(payload.caller === me) return; // Ignore own signals
+        if(payload.caller === me) return;
 
         if(payload.type === 'offer') {
-            // Show incoming call UI
             incomingCallData = payload;
             document.getElementById('incoming-call-ui').classList.remove('hidden');
             document.getElementById('caller-id-disp').textContent = payload.caller;
             document.getElementById('call-type-disp').textContent = payload.mode + " Call";
-            // Play ringtone
             notifSound.play();
             ringInterval = setInterval(() => notifSound.play(), 2000);
         }
-        
         else if(payload.type === 'answer') {
-            // Receiver accepted, join room
             document.getElementById('outgoing-call-ui').classList.add('hidden');
             joinAgora(payload.mode === 'video');
         }
-
         else if(payload.type === 'reject') {
-            // Receiver rejected
             alert("Call declined");
             resetCallUI();
         }
-
         else if(payload.type === 'hangup') {
-            // Partner ended call
             leaveAgora();
         }
     }
 
-    // 3. Receiver Actions
     function answerCall() {
         clearInterval(ringInterval);
         document.getElementById('incoming-call-ui').classList.add('hidden');
         const isVideo = incomingCallData.mode === 'video';
         
-        // Send answer signal
         chatChannel.send({ 
             type: 'broadcast', 
             event: 'call-signal', 
@@ -311,19 +315,11 @@
 
     function cancelCall() {
         document.getElementById('outgoing-call-ui').classList.add('hidden');
-        chatChannel.send({ 
-            type: 'broadcast', 
-            event: 'call-signal', 
-            payload: { type: 'reject', caller: me } // Reuse reject for cancel
-        });
+        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'reject', caller: me } });
     }
 
     function hangUp() {
-        chatChannel.send({ 
-            type: 'broadcast', 
-            event: 'call-signal', 
-            payload: { type: 'hangup', caller: me } 
-        });
+        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'hangup', caller: me } });
         leaveAgora();
     }
 
@@ -332,42 +328,72 @@
         document.getElementById('outgoing-call-ui').classList.add('hidden');
         document.getElementById('video-grid').classList.add('hidden');
         clearInterval(ringInterval);
+        stopCallTimer();
+        
+        // Reset Status UI
+        const statusEl = document.getElementById('call-status');
+        statusEl.textContent = "Connecting...";
+        statusEl.className = "text-blue-400 text-xs font-bold tracking-widest uppercase animate-pulse mb-1";
+        
         incomingCallData = null;
     }
 
-    // --- AGORA IMPLEMENTATION ---
+    // --- CALL TIMER LOGIC ---
+    function startCallTimer() {
+        stopCallTimer();
+        callSeconds = 0;
+        document.getElementById('call-timer').textContent = "00:00";
+        callTimerInterval = setInterval(() => {
+            callSeconds++;
+            const m = Math.floor(callSeconds / 60).toString().padStart(2, '0');
+            const s = (callSeconds % 60).toString().padStart(2, '0');
+            document.getElementById('call-timer').textContent = `${m}:${s}`;
+        }, 1000);
+    }
+
+    function stopCallTimer() {
+        if(callTimerInterval) clearInterval(callTimerInterval);
+        callTimerInterval = null;
+    }
+
+    // --- AGORA LOGIC ---
     async function joinAgora(videoMode) {
         rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         document.getElementById('video-grid').classList.remove('hidden');
 
         try {
-            // Join a static channel for the couple
             await rtc.client.join(AGORA_APP_ID, "love-nest-v12", null, null);
 
-            // Create Audio Track
+            // Timer starts when we join
+            startCallTimer();
+
             rtc.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
             
-            // Create Video Track if requested
             if(videoMode) { 
                 rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
                 rtc.localVideoTrack.play("local-video"); 
                 await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack]); 
                 rtc.isCamOff = false;
             } else { 
-                // Voice only
                 await rtc.client.publish([rtc.localAudioTrack]); 
                 rtc.isCamOff = true; 
                 document.getElementById('local-video').innerHTML = '<div class="w-full h-full flex items-center justify-center text-3xl">🎙️</div>';
             }
             
-            // UI Updates
             document.getElementById('btn-cam').classList.toggle('active', rtc.isCamOff);
             document.getElementById('btn-cam').textContent = rtc.isCamOff ? '🚫' : '📷';
 
-            // Handle Remote Users
+            // EVENTS
             rtc.client.on("user-published", async (user, mediaType) => { 
                 await rtc.client.subscribe(user, mediaType); 
+                
+                // Update Connection Status UI
+                const statusEl = document.getElementById('call-status');
+                statusEl.textContent = "CONNECTED";
+                statusEl.className = "text-green-500 text-xs font-bold tracking-widest uppercase mb-1";
+
                 if(mediaType === "video") {
+                    // This handles BOTH camera and screenshare from partner
                     user.videoTrack.play("remote-video");
                 }
                 if(mediaType === "audio") {
@@ -376,7 +402,13 @@
             });
 
             rtc.client.on("user-unpublished", (user, mediaType) => {
-                if(mediaType === 'video') document.getElementById('remote-video').innerHTML = "Remote paused video";
+                if(mediaType === 'video') document.getElementById('remote-video').innerHTML = '<div class="absolute inset-0 flex items-center justify-center">Waiting for video...</div>';
+            });
+            
+            rtc.client.on("user-left", () => {
+                const statusEl = document.getElementById('call-status');
+                statusEl.textContent = "PARTNER LEFT";
+                statusEl.className = "text-red-500 text-xs font-bold tracking-widest uppercase mb-1";
             });
 
         } catch (e) { 
@@ -387,6 +419,7 @@
     }
 
     async function leaveAgora() {
+        stopCallTimer();
         if(rtc.localAudioTrack) { rtc.localAudioTrack.close(); rtc.localAudioTrack = null; }
         if(rtc.localVideoTrack) { rtc.localVideoTrack.close(); rtc.localVideoTrack = null; }
         if(rtc.screenTrack) { rtc.screenTrack.close(); rtc.screenTrack = null; }
@@ -403,12 +436,11 @@
     }
 
     async function toggleCam() { 
-        if(rtc.screenTrack) return; // Cannot toggle cam while sharing screen
+        if(rtc.screenTrack) return; 
         
         rtc.isCamOff = !rtc.isCamOff; 
         
         if(!rtc.localVideoTrack) {
-            // Initialize video if it wasn't started initially
             rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
             rtc.localVideoTrack.play("local-video");
             await rtc.client.publish([rtc.localVideoTrack]);
@@ -422,33 +454,32 @@
     async function toggleScreen() {
         try {
             if(!rtc.screenTrack) {
-                // START SHARING
-                // 1. Create screen track
+                // START SCREEN SHARE
                 rtc.screenTrack = await AgoraRTC.createScreenVideoTrack();
                 
-                // 2. Unpublish camera if it exists
+                // Unpublish camera if active
                 if(rtc.localVideoTrack) {
                     await rtc.client.unpublish(rtc.localVideoTrack);
-                    rtc.localVideoTrack.stop(); // Optional: stop cam feedback
                 }
 
-                // 3. Publish screen
+                // Publish screen
                 await rtc.client.publish(rtc.screenTrack);
-                rtc.screenTrack.play("local-video"); // Show preview in small box
+                
+                // Show screen in YOUR local view (so you know what you're sharing)
+                rtc.screenTrack.play("local-video");
                 
                 document.getElementById('btn-screen').classList.add('active');
                 
-                // Handle native "Stop Sharing" floating bar
+                // If browser "Stop Sharing" button is clicked
                 rtc.screenTrack.on("track-ended", () => toggleScreen()); 
 
             } else {
-                // STOP SHARING
-                // 1. Unpublish & Close screen
+                // STOP SCREEN SHARE
                 await rtc.client.unpublish(rtc.screenTrack);
                 rtc.screenTrack.close();
                 rtc.screenTrack = null;
                 
-                // 2. Republish Camera (if it wasn't explicitly turned off before)
+                // Switch back to Camera
                 if(!rtc.isCamOff) {
                      if(!rtc.localVideoTrack) rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
                      await rtc.client.publish([rtc.localVideoTrack]);
@@ -461,7 +492,6 @@
             }
         } catch(e) {
             console.error("Screen share error", e);
-            // If user cancelled selection
             if(rtc.screenTrack) {
                 rtc.screenTrack.close();
                 rtc.screenTrack = null;
@@ -469,7 +499,7 @@
         }
     }
 
-    // --- STANDARD APP LOGIC (UNCHANGED) ---
+    // --- STANDARD APP LOGIC ---
     function updateDaysCounter() {
         const anniversary = new Date('2025-11-24');
         const now = new Date();
