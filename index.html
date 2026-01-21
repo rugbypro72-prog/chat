@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Midnight v15</title>
+    <title>Midnight v12</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
@@ -11,8 +11,8 @@
         :root { --bg: #03050a; --me: #1e293b; --you: #0f172a; --accent: #3b82f6; }
         body { background: var(--bg); color: #f1f5f9; font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; margin: 0; }
         
-        /* LAYOUT & CHAT */
-        #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; position: relative; }
+        /* CHAT LAYOUT */
+        #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; position: relative; z-index: 10; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; }
         .msg-wrap { display: flex; flex-direction: column; width: 100%; position: relative; }
         .row-me { align-items: flex-end; } .row-you { align-items: flex-start; }
@@ -36,16 +36,24 @@
         #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 5000; align-items: center; justify-content: center; }
         #story-overlay { display: none; position: fixed; inset: 0; background: black; z-index: 6000; align-items: center; justify-content: center; flex-direction: column; }
         
-        /* CALL UI */
-        .call-btn { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; transition: 0.2s; }
+        /* CALL UI BUTTONS */
+        .call-btn { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; transition: 0.2s; }
         .call-btn:active { transform: scale(0.95); }
-        .call-btn.active { background: #ef4444; color: white; } /* Red background for "Stop/Mute" states */
-        .call-btn.screen-active { background: #3b82f6; color: white; } /* Blue for screen share active */
+        .call-btn.active { background: #ef4444; color: white; } 
+        .call-btn.screen-active { background: #3b82f6; color: white; }
+
+        /* RETURN TO CALL FLOATING BAR */
+        #return-to-call {
+            display: none; position: absolute; top: 85px; left: 50%; transform: translateX(-50%);
+            background: rgba(16, 185, 129, 0.9); color: white; padding: 8px 16px; border-radius: 20px;
+            font-size: 12px; font-weight: bold; cursor: pointer; z-index: 9000; 
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); animation: pulseGreen 2s infinite;
+        }
+        @keyframes pulseGreen { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
 
         .link-preview { display: block; margin-top: 8px; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); }
         .link-preview img, .link-preview iframe { width: 100%; display: block; }
         .read-receipt { font-size: 10px; margin-left: 3px; }
-        .read-active { color: #3b82f6; }
         .edited-tag { font-size: 9px; opacity: 0.6; font-style: italic; margin-right: 4px; }
         
         /* SEARCH & NAVIGATION */
@@ -57,15 +65,13 @@
         
         /* CALL ANIMATIONS */
         .ring-pulse { animation: ring 1.5s infinite; }
-        @keyframes ring { 
-            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); } 
-            70% { box-shadow: 0 0 0 20px rgba(59, 130, 246, 0); } 
-            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); } 
-        }
+        @keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(59, 130, 246, 0); } 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); } }
         
         /* VIDEO GRID STYLES */
-        #remote-video video { object-fit: contain !important; }
-        /* Helper classes for local video toggle */
+        #video-grid { transition: opacity 0.3s ease; }
+        /* Remote Video */
+        #remote-video video { object-fit: contain !important; } 
+        /* Local Video Helpers */
         .video-cover video { object-fit: cover !important; }
         .video-contain video { object-fit: contain !important; }
     </style>
@@ -116,10 +122,12 @@
     
     <div id="local-video" class="video-cover absolute top-20 right-6 w-32 h-48 border-2 border-white/20 rounded-2xl overflow-hidden z-[3001] bg-black shadow-2xl transition-all duration-300"></div>
     
-    <div class="absolute bottom-10 left-0 right-0 flex justify-center items-center gap-4 z-[3002]">
+    <div class="absolute bottom-10 left-0 right-0 flex justify-center items-center gap-4 z-[3002] px-4">
         <button id="btn-mute" onclick="toggleMute()" class="call-btn">🎤</button>
         <button id="btn-cam" onclick="toggleCam()" class="call-btn">📷</button>
-        <button id="btn-screen" onclick="toggleScreen()" class="call-btn hidden md:flex">📺</button> <button onclick="hangUp()" class="call-btn !bg-red-600 hover:!bg-red-700">📞</button>
+        <button id="btn-screen" onclick="toggleScreen()" class="call-btn">📺</button>
+        <button id="btn-chat" onclick="toggleCallView()" class="call-btn bg-white/10">💬</button>
+        <button onclick="hangUp()" class="call-btn !bg-red-600 hover:!bg-red-700">📞</button>
     </div>
 </div>
 
@@ -128,6 +136,8 @@
 
 <canvas id="pip-canvas" width="400" height="250" class="hidden"></canvas>
 <div id="overlay-bg" onclick="closeSidebar()" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-[900]"></div>
+
+<div id="return-to-call" onclick="toggleCallView()">🟢 Return to Call</div>
 
 <div id="search-bar" class="hidden flex gap-2">
     <input type="text" id="search-input" placeholder="Search history..." class="flex-1 bg-white/5 rounded-lg p-2 text-sm outline-none" onkeyup="handleSearch(this.value)">
@@ -242,11 +252,6 @@
     let callSeconds = 0;
 
     async function init() {
-        // MOBILE CHECK: Hide screen share on mobile
-        if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-            document.getElementById('btn-screen').classList.add('hidden');
-        }
-
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
         const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
         if(!data) return;
@@ -359,6 +364,7 @@
         document.getElementById('incoming-call-ui').classList.add('hidden');
         document.getElementById('outgoing-call-ui').classList.add('hidden');
         document.getElementById('video-grid').classList.add('hidden');
+        document.getElementById('return-to-call').style.display = 'none'; // Hide floating button
         
         stopRinging();
         stopCallTimer();
@@ -373,6 +379,21 @@
         document.getElementById('local-video').classList.add('video-cover');
         
         incomingCallData = null;
+    }
+    
+    function toggleCallView() {
+        const grid = document.getElementById('video-grid');
+        const floatBtn = document.getElementById('return-to-call');
+        
+        if (grid.classList.contains('hidden')) {
+            // SHOW CALL
+            grid.classList.remove('hidden');
+            floatBtn.style.display = 'none';
+        } else {
+            // HIDE CALL (Chat mode)
+            grid.classList.add('hidden');
+            floatBtn.style.display = 'block';
+        }
     }
 
     // --- AGORA LOGIC ---
@@ -408,7 +429,6 @@
             startCallTimer();
 
             // PARALLEL TRACK CREATION FOR SPEED
-            // Always get audio. Only get video if requested.
             const promises = [AgoraRTC.createMicrophoneAudioTrack()];
             if(videoMode) promises.push(AgoraRTC.createCameraVideoTrack());
             
@@ -482,12 +502,6 @@
     }
 
     async function toggleScreen() {
-        // PREVENT ON MOBILE
-        if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-            alert("Screen share not supported on mobile.");
-            return;
-        }
-
         try {
             if(!rtc.screenTrack) {
                 // --- START SCREEN SHARE ---
@@ -498,7 +512,6 @@
                 // 2. Unpublish Cam (if active) BUT DON'T CLOSE IT
                 if(rtc.localVideoTrack) {
                     await rtc.client.unpublish(rtc.localVideoTrack);
-                    // rtc.localVideoTrack.stop(); // Optional: stop playback to save resource
                 }
 
                 // 3. Publish Screen (Audio remains published!)
