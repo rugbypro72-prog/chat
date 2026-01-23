@@ -219,30 +219,32 @@
         });
     };
 
-   async function login() {
-    const key = document.getElementById('login-key').value;
-    console.log("Attempting login with key:", key);
-
-const { data, error } = await _db.from('chat_codes').select('*').eq('code', code).limit(1).maybeSingle();
+async function login() {
+    const key = document.getElementById('login-key').value; // This was 'key'
+    const { data, error } = await _db
+        .from('chat_codes')
+        .select('*')
+        .eq('code', key) // Now we use 'key' to match the variable above
+        .limit(1)
+        .maybeSingle();
     
     if (error) {
         console.error("Supabase Error:", error.message);
-        alert("Database Error: " + error.message);
         return;
     }
 
     if (data) {
-        console.log("Login success! Data:", data);
         me = data.username;
-        you = data.pair_with;
-        localStorage.setItem('chat_user', me);
+        you = (me === 'RJ' ? 'Allyvia' : 'RJ'); [cite: 85]
+        localStorage.setItem('chat_secret_code', key); [cite: 85]
+        // Apply saved theme immediately
+        if (data.theme) applyTheme(data.theme);
         document.getElementById('login-overlay').classList.add('hidden');
         init();
     } else {
-        alert('Invalid Key - No match found in database.');
+        alert('Invalid Key');
     }
 }
-
     async function init() {
         document.getElementById('me-name').innerText = me;
         
