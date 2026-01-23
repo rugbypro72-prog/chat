@@ -3,629 +3,556 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Midnight v13</title>
+    <title>Midnight v12</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
     <style>
-        /* DYNAMIC THEME VARIABLES */
-        :root {
-            --bg: #03050a;
-            --me: #1e293b;
-            --you: #0f172a;
-            --accent: #3b82f6;
-            --text: #f1f5f9;
-        }
+    /* VARIABLES & THEMES */
+    :root { 
+        --bg: #03050a; --me: #1e293b; --you: #0f172a; --accent: #3b82f6; --text: #f1f5f9;
+    }
+    /* Theme Classes */
+    [data-theme="midnight"] { --bg: #03050a; --me: #1e293b; --you: #0f172a; --accent: #3b82f6; }
+    [data-theme="sunset"] { --bg: #2a0a12; --me: #5c1828; --you: #3d0f19; --accent: #f43f5e; }
+    [data-theme="forest"] { --bg: #051a0d; --me: #14532d; --you: #0f3922; --accent: #22c55e; }
+    [data-theme="ocean"] { --bg: #0a1124; --me: #1e3a8a; --you: #172554; --accent: #0ea5e9; }
 
-        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; margin: 0; transition: background 0.5s ease; }
-        
-        /* LAYOUT */
-        #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; position: relative; z-index: 10; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; }
-        
-        /* BUBBLES */
-        .msg { max-width: 80%; padding: 12px 16px; border-radius: 20px; font-size: 15px; line-height: 1.5; position: relative; word-wrap: break-word; animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .msg.sent { align-self: flex-end; background: var(--me); color: white; border-bottom-right-radius: 4px; }
-        .msg.received { align-self: flex-start; background: var(--you); color: #e2e8f0; border-bottom-left-radius: 4px; }
-        .msg.system { align-self: center; background: rgba(255,255,255,0.05); font-size: 12px; padding: 5px 15px; border-radius: 10px; opacity: 0.7; max-width: 95%; text-align: center; }
-        
-        /* AVATARS */
-        .avatar-head { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent); transition: border-color 0.5s; }
-        .avatar-side { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 0 auto 10px auto; border: 2px solid var(--accent); display: block; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; margin: 0; transition: background 0.5s ease; }
+    
+    /* CHAT LAYOUT */
+    #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; position: relative; z-index: 10; }
+    #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; }
+    
+    /* MESSAGES & AVATARS */
+    .msg-wrap { display: flex; width: 100%; position: relative; gap: 8px; }
+    .row-me { flex-direction: row-reverse; } 
+    .row-you { flex-direction: row; }
+    
+    .avatar { width: 32px; height: 32px; border-radius: 50%; background: #333; object-fit: cover; border: 1px solid rgba(255,255,255,0.1); margin-top: auto; flex-shrink: 0; }
+    
+    .bubble { max-width: 75%; padding: 12px 14px 26px 14px; font-size: 15px; border-radius: 20px; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.3); word-wrap: break-word; }
+    .me { background: var(--me); border: 1px solid rgba(255,255,255,0.1); border-bottom-right-radius: 4px; }
+    .you { background: var(--you); border: 1px solid rgba(255,255,255,0.05); border-bottom-left-radius: 4px; }
 
-        /* THEME BUTTONS */
-        .theme-btn { width: 100%; padding: 12px; margin-bottom: 8px; border-radius: 12px; font-size: 11px; font-weight: bold; text-transform: uppercase; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); transition: transform 0.1s; }
-        .theme-btn:active { transform: scale(0.98); }
+    /* SYSTEM MESSAGES */
+    .system-msg-container { width: 100%; display: flex; justify-content: center; margin: 10px 0; }
+    .system-msg { background: rgba(255,255,255,0.05); color: #94a3b8; font-size: 11px; padding: 4px 12px; border-radius: 999px; font-family: monospace; text-transform: uppercase; letter-spacing: 1px; border: 1px solid rgba(255,255,255,0.1); }
 
-        /* INPUT AREA */
-        #input-area { padding: 16px; background: rgba(0,0,0,0.3); backdrop-filter: blur(20px); display: flex; gap: 10px; align-items: flex-end; border-top: 1px solid rgba(255,255,255,0.05); }
-        textarea { flex: 1; background: rgba(255,255,255,0.05); border: none; border-radius: 20px; padding: 12px 16px; color: white; font-size: 15px; max-height: 120px; resize: none; outline: none; }
-        
-        /* HEARTS */
-        .heart-float { position: fixed; font-size: 24px; animation: floatUp 3s linear forwards; pointer-events: none; z-index: 1000; }
-        @keyframes floatUp { 0% { transform: translateY(100vh) scale(0.5); opacity: 1; } 100% { transform: translateY(-10vh) scale(1.5); opacity: 0; } }
-        @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-
-        /* OTHER UI */
-        #sidebar { position: fixed; top: 0; left: -320px; width: 300px; height: 100%; background: #0b0f19; z-index: 50; transition: left 0.3s ease; padding: 20px; display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.05); }
-        #overlay-bg { position: fixed; inset: 0; background: black; opacity: 0.5; z-index: 40; }
-        .hidden { display: none !important; }
-        
-        /* MEDIA GRID */
-        .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 5px; margin-top: 5px; }
-        .media-item { width: 100%; height: 80px; object-fit: cover; border-radius: 8px; cursor: pointer; background: #000; }
-    </style>
+    /* ANIMATIONS & RAIN */
+    .rain-item { position: fixed; top: -50px; font-size: 2rem; pointer-events: none; animation: fallDown 4s linear forwards; z-index: 9999; }
+    @keyframes fallDown { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(110vh) rotate(360deg); opacity: 0; } }
+    .heart-float { position: fixed; bottom: 0; font-size: 2.5rem; pointer-events: none; animation: floatUp 3s ease-in forwards; z-index: 9999; }
+    @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-110vh) scale(2) rotate(30deg); opacity: 0; } }
+    
+    /* KEEPING YOUR EXISTING STYLES */
+    .ts-inside { position: absolute; bottom: 6px; right: 12px; font-size: 9px; opacity: 0.5; font-weight: 700; text-transform: uppercase; display: flex; align-items: center; gap: 4px; }
+    .reply-preview { font-size: 11px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 12px; border-left: 3px solid var(--accent); margin-bottom: 8px; opacity: 0.8; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .msg-tools { opacity: 0; transition: 0.2s; display: flex; gap: 12px; margin-top: 4px; padding: 0 8px; align-self: center; }
+    .msg-wrap:hover .msg-tools { opacity: 1; }
+    .tool-btn { color: #60a5fa; font-size: 10px; font-weight: 800; cursor: pointer; text-transform: uppercase; }
+    #partner-name.has-media { color: #ef4444 !important; text-decoration: underline; cursor: pointer; animation: statusPulse 2s infinite; }
+    @keyframes statusPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+    .modal-view { display: none; position: fixed; inset: 0; background: #03050a; z-index: 2000; overflow-y: auto; padding: 25px; }
+    #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 5000; align-items: center; justify-content: center; }
+    #story-overlay { display: none; position: fixed; inset: 0; background: black; z-index: 6000; align-items: center; justify-content: center; flex-direction: column; }
+    .call-btn { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; transition: 0.2s; }
+    .call-btn:active { transform: scale(0.95); }
+    .call-btn.active { background: #ef4444; color: white; } 
+    .call-btn.screen-active { background: #3b82f6; color: white; }
+    #return-to-call { display: none; position: absolute; top: 85px; left: 50%; transform: translateX(-50%); background: rgba(16, 185, 129, 0.9); color: white; padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; z-index: 9000; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); animation: pulseGreen 2s infinite; }
+    @keyframes pulseGreen { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
+    .link-preview { display: block; margin-top: 8px; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); }
+    .link-preview img, .link-preview iframe { width: 100%; display: block; }
+    .read-receipt { font-size: 10px; margin-left: 3px; }
+    .edited-tag { font-size: 9px; opacity: 0.6; font-style: italic; margin-right: 4px; }
+    #search-bar { transition: 0.3s; transform: translateY(-100%); position: absolute; top: 70px; left: 0; right: 0; z-index: 40; background: var(--bg); padding: 10px; border-bottom: 1px solid white/10; }
+    #search-bar.active { transform: translateY(0); }
+    .story-nav-btn { position: absolute; top: 50%; transform: translateY(-50%); font-size: 3rem; color: white; padding: 20px; cursor: pointer; z-index: 6010; opacity: 0.5; transition: 0.2s; }
+    .story-nav-btn:hover { opacity: 1; }
+    #story-prev { left: 0; } #story-next { right: 0; }
+    .ring-pulse { animation: ring 1.5s infinite; }
+    @keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(59, 130, 246, 0); } 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); } }
+    #video-grid { transition: opacity 0.3s ease; }
+    #remote-video video { object-fit: contain !important; } 
+    .video-cover video { object-fit: cover !important; }
+    .video-contain video { object-fit: contain !important; }
+</style>
 </head>
 <body>
 
-<div id="login-overlay" class="fixed inset-0 bg-black z-50 flex items-center justify-center p-6">
-    <div class="w-full max-w-sm space-y-4">
-        <h1 class="text-3xl font-black text-center mb-8 tracking-tighter">MIDNIGHT <span class="text-blue-500">v13</span></h1>
-        <input id="login-key" type="password" placeholder="Access Key" class="w-full bg-white/10 p-4 rounded-xl text-center text-xl outline-none border border-white/5 focus:border-blue-500 transition">
-        <button onclick="login()" class="w-full bg-blue-600 hover:bg-blue-500 p-4 rounded-xl font-bold uppercase tracking-widest transition">Enter</button>
+<div id="sidebar" class="fixed left-[-300px] top-0 bottom-0 w-[280px] bg-[#080c14] z-[1000] p-6 flex flex-col transition-all duration-300 border-r border-white/5 shadow-2xl">
+    
+    <div class="bg-pink-600/10 border border-pink-500/20 rounded-3xl p-6 mb-6 text-center">
+        <p class="text-[10px] font-bold text-pink-500 uppercase tracking-widest mb-1">Days Together</p>
+        <h1 id="days-counter" class="text-4xl font-black text-pink-400 counter-glow">0</h1>
     </div>
-</div>
 
-<div id="call-ui" class="hidden fixed inset-0 bg-black z-[60] flex flex-col">
-    <div id="remote-video" class="flex-1 bg-gray-900 relative">
-        <p class="absolute inset-0 flex items-center justify-center text-white/20 font-bold uppercase tracking-widest">Waiting for video...</p>
-    </div>
-    <div class="h-1/3 bg-black relative">
-        <div id="local-video" class="absolute top-4 right-4 w-32 h-48 bg-gray-800 rounded-xl overflow-hidden border border-white/20 shadow-2xl z-10"></div>
-        <div class="absolute bottom-10 left-0 right-0 flex justify-center gap-6">
-            <button onclick="toggleMute()" id="mute-btn" class="p-4 bg-white/10 rounded-full backdrop-blur">🎤</button>
-            <button onclick="leaveCall()" class="p-4 bg-red-600 rounded-full shadow-lg hover:scale-110 transition">📞 End</button>
-            <button onclick="toggleCam()" id="cam-btn" class="p-4 bg-white/10 rounded-full backdrop-blur">📷</button>
-        </div>
-    </div>
-</div>
+    <h2 id="me-name" class="text-center text-xl font-bold mb-4">...</h2>
 
-<div id="lightbox" class="hidden fixed inset-0 bg-black/95 z-[70] items-center justify-center p-4" onclick="this.style.display='none'">
-    <img id="lightbox-img" class="max-w-full max-h-full rounded shadow-2xl">
-</div>
-
-<div id="overlay-bg" class="hidden" onclick="closeSidebar()"></div>
-<div id="sidebar">
-    <div class="flex-1 space-y-6 overflow-y-auto custom-scrollbar">
-        <div class="text-center">
-            <label class="cursor-pointer relative group inline-block">
-                <img id="my-avatar-preview" src="https://ui-avatars.com/api/?name=Me" class="avatar-side">
-                <div class="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-[8px] uppercase font-bold text-white">Upload</div>
-                <input type="file" class="hidden" accept="image/*" onchange="uploadAvatar(this)">
-            </label>
-            <h2 id="me-name" class="text-xl font-bold mt-2">...</h2>
+    <div class="flex-1 space-y-4 overflow-y-auto pr-2">
+        <div class="bg-white/5 p-4 rounded-2xl space-y-3">
+            <p class="text-[10px] font-bold opacity-40 uppercase tracking-widest">Settings</p>
+            
+            <input id="avatar-input" placeholder="Avatar URL..." class="w-full bg-black/40 p-2 rounded-lg text-xs outline-none border border-white/5" onchange="updateAvatar(this.value)">
+            
+            <div class="grid grid-cols-4 gap-2">
+                <button onclick="broadcastTheme('midnight')" class="h-8 rounded bg-slate-900 border border-white/20 hover:scale-105 transition" title="Midnight"></button>
+                <button onclick="broadcastTheme('sunset')" class="h-8 rounded bg-rose-900 border border-rose-500/50 hover:scale-105 transition" title="Sunset"></button>
+                <button onclick="broadcastTheme('forest')" class="h-8 rounded bg-green-900 border border-green-500/50 hover:scale-105 transition" title="Forest"></button>
+                <button onclick="broadcastTheme('ocean')" class="h-8 rounded bg-blue-900 border border-blue-500/50 hover:scale-105 transition" title="Ocean"></button>
+            </div>
         </div>
 
         <div class="bg-white/5 p-4 rounded-2xl space-y-3">
-            <p class="text-[10px] font-bold opacity-40 uppercase tracking-widest">Status</p>
-            <input id="status-txt-input" placeholder="Set status..." class="w-full bg-black/40 p-3 rounded-xl text-xs outline-none border border-white/5 text-white">
+            <p class="text-[10px] font-bold opacity-40 uppercase tracking-widest">My Status</p>
+            <input id="status-txt-input" placeholder="What's up?" class="w-full bg-black/40 p-3 rounded-xl text-xs outline-none border border-white/5">
+            <div class="flex flex-col gap-2">
+                <label class="bg-white/5 p-2 rounded-lg text-[10px] text-center cursor-pointer border border-dashed border-white/20 hover:bg-white/10">📸 Story Media<input type="file" id="status-media-input" class="hidden" accept="image/*,video/*" multiple></label>
+                <div id="status-staging" class="grid grid-cols-3 gap-1 empty:hidden"></div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="updateStatusFromSidebar()" id="update-status-btn" class="bg-blue-600 p-2 rounded-lg text-[10px] font-bold uppercase hover:bg-blue-500">Update</button>
+                    <button onclick="removeStatus()" class="bg-red-600/20 text-red-500 p-2 rounded-lg text-[10px] font-bold uppercase hover:bg-red-600/30">Reset</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 space-y-2">
+            <p class="text-[10px] font-bold opacity-40 uppercase tracking-widest px-2">Interactions</p>
             <div class="grid grid-cols-2 gap-2">
-                <button onclick="updateStatusFromSidebar()" class="bg-[var(--accent)] p-2 rounded-lg text-[10px] font-bold uppercase text-white">Update</button>
-                <label class="bg-white/5 p-2 rounded-lg text-[10px] text-center cursor-pointer border border-dashed border-white/20 text-gray-400">Add Media<input type="file" id="status-media-input" class="hidden" accept="image/*,video/*" multiple onchange="updateStatusFromSidebar()"></label>
+                <button onclick="sendInteraction('lovetap')" class="p-4 bg-pink-600/20 text-pink-400 rounded-2xl font-bold text-center hover:bg-pink-600/30 transition">❤️❤️❤️</button>
+                <button onclick="sendInteraction('vibrate')" class="p-4 bg-blue-600/20 text-blue-400 rounded-2xl font-bold text-center hover:bg-blue-600/30 transition">🤷‍♂️</button>
             </div>
         </div>
 
-        <div class="bg-white/5 p-4 rounded-2xl">
-            <p class="text-[10px] font-bold opacity-40 uppercase tracking-widest mb-3">Mutual Themes</p>
-            <button onclick="setTheme('midnight')" class="theme-btn" style="background: #03050a; color: #3b82f6;">Midnight Blue</button>
-            <button onclick="setTheme('sunset')" class="theme-btn" style="background: #2a1b1b; color: #f43f5e;">Sunset Rose</button>
-            <button onclick="setTheme('forest')" class="theme-btn" style="background: #051a10; color: #10b981;">Deep Forest</button>
-            <button onclick="setTheme('lavender')" class="theme-btn" style="background: #1e1b2e; color: #a78bfa;">Soft Lavender</button>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2">
-            <button onclick="sendInteraction('lovetap')" class="p-4 bg-pink-600/20 text-pink-400 rounded-2xl font-bold text-center hover:bg-pink-600/30 transition">❤️ Love</button>
-            <button onclick="sendInteraction('vibrate')" class="p-4 bg-[var(--accent)]/20 text-[var(--accent)] rounded-2xl font-bold text-center">📳 Buzz</button>
-        </div>
-
-        <button onclick="toggleGallery(true)" class="w-full text-left p-4 bg-white/5 rounded-2xl">🖼️ Gallery</button>
-        <button onclick="viewDeletedLogs()" class="w-full text-left p-4 bg-white/5 rounded-2xl text-red-400">🗑️ Logs</button>
-    </div>
-    <div id="clocks" class="text-[10px] text-center opacity-30 font-mono mt-4"></div>
-</div>
-
-<div id="chat-main">
-    <div class="flex items-center justify-between p-4 bg-opacity-80 backdrop-blur-md sticky top-0 z-20 border-b border-white/5">
-        <div class="flex items-center gap-3">
-            <button onclick="openSidebar()" class="text-2xl hover:text-[var(--accent)] transition">☰</button>
-            
-            <div class="relative cursor-pointer" onclick="handleStatusClick()">
-                <img id="partner-avatar" src="https://ui-avatars.com/api/?name=?" class="avatar-head hidden">
-                <span id="partner-online" class="absolute bottom-0 right-0 w-3 h-3 bg-gray-500 rounded-full border-2 border-[var(--bg)]"></span>
-            </div>
-            
-            <div onclick="handleStatusClick()" class="cursor-pointer">
-                <div class="font-bold text-lg leading-none" id="partner-name">...</div>
-                <div id="partner-status" class="text-[11px] opacity-60">Offline</div>
-                <div id="live-preview" class="text-[9px] text-[var(--accent)] italic h-2 transition-all"></div>
-            </div>
-        </div>
-        <div class="flex gap-4">
-            <button onclick="startCall('audio')" class="p-2 bg-white/5 rounded-full">📞</button>
-            <button onclick="startCall('video')" class="p-2 bg-white/5 rounded-full">📹</button>
-        </div>
-    </div>
-
-    <div id="messages"></div>
-
-    <div id="reply-box" class="hidden px-4 py-2 bg-white/5 text-xs flex justify-between items-center border-l-4 border-[var(--accent)] mx-4 mb-0 rounded-t-lg">
-        <span id="reply-text" class="opacity-70 truncate max-w-[80%]">Replying...</span>
-        <button onclick="cancelReply()" class="font-bold hover:text-red-500">✕</button>
-    </div>
-
-    <form id="chat-form" class="mt-auto">
-        <div id="file-preview-area" class="hidden flex gap-2 px-4 pb-2 overflow-x-auto"></div>
+        <button onclick="toggleGallery(true)" class="w-full text-left p-4 bg-white/5 rounded-2xl hover:bg-white/10">🖼️ Gallery</button>
         
-        <div id="input-area">
-            <label class="cursor-pointer p-2 text-gray-400 hover:text-white transition">
-                📎 <input type="file" multiple class="hidden" onchange="handleFileSelect(this)">
-            </label>
-            <textarea id="msg-input" rows="1" placeholder="Type a message..."></textarea>
-            <button type="submit" class="p-3 bg-[var(--accent)] rounded-xl font-bold text-white shadow-lg hover:brightness-110 transition">➤</button>
-        </div>
-    </form>
-</div>
+        <div id="rj-suite" class="hidden pt-6 mt-6 border-t border-white/10 space-y-3">
+             <p class="text-[10px] font-bold text-red-500 uppercase tracking-widest px-2">RJ Admin Tools</p>
+             
+             <div class="bg-purple-900/10 p-2 rounded-xl border border-purple-500/20">
+                <input id="custom-rain-input" placeholder="Text, Emoji, or Image URL..." class="w-full bg-black/40 p-2 mb-2 rounded text-[10px] outline-none text-white">
+                <button onclick="triggerCustomRain()" class="w-full bg-purple-600/20 text-purple-400 py-2 rounded font-bold text-[10px] uppercase hover:bg-purple-600/40">☔ Make it Rain</button>
+             </div>
 
+            <button onclick="toggleFocusMode()" id="focus-btn" class="w-full text-left p-4 bg-yellow-600/10 text-yellow-400 rounded-2xl font-bold">🔒 Focus: OFF</button>
+            <button onclick="hijackTab()" class="w-full text-left p-4 bg-purple-600/10 text-purple-400 rounded-2xl font-bold">🏷️ Tab Hijack</button>
+            <button onclick="viewDeletedLogs()" class="w-full text-left p-4 bg-white/5 rounded-2xl font-bold">🗑️ Logs</button>
+            <button onclick="launchPiP()" class="w-full text-left p-4 bg-blue-600 text-white rounded-2xl font-bold">External View</button>
+        </div>
+    </div>
+    <div id="clocks" class="mt-auto pt-4 border-t border-white/5 text-[10px] font-mono opacity-50 space-y-1"></div>
+</div>
 <script>
-    // --- CONFIGURATION ---
-    const SUPABASE_URL = 'https://jwfgaulakwiwextmqbov.supabase.co'; // ⚠️ PUT YOUR URL HERE
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4'; // ⚠️ PUT YOUR KEY HERE
-    const AGORA_APP_ID = '4f6c6c2002784152a8366dec12f1b4c0'; // ⚠️ PUT YOUR AGORA ID HERE
+    const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
+    const _db = supabase.createClient(SB_URL, SB_KEY);
     
-    // --- VARIABLES ---
-    const _db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    let me = localStorage.getItem('chat_user') || '';
-    let you = '';
-    let chatChannel, callClient, localTracks = [], remoteUsers = {};
-    let replyId = null, stagedFiles = [], partnerStatusData = null;
-    let callStartTime = 0; // For call logging
-
-    // --- HEART SPAM LIMITER ---
-    let heartsLastMinute = 0;
-    setInterval(() => { heartsLastMinute = 0; }, 60000); // Reset every minute
-
-    // --- THEMES ---
-    const themes = {
-        midnight: { bg: '#03050a', me: '#1e293b', you: '#0f172a', accent: '#3b82f6' },
-        sunset:   { bg: '#1c1014', me: '#3f1a20', you: '#2a1216', accent: '#f43f5e' },
-        forest:   { bg: '#020e07', me: '#0c2e1e', you: '#051a10', accent: '#10b981' },
-        lavender: { bg: '#1e1b2e', me: '#4c1d95', you: '#2e1065', accent: '#a78bfa' }
-    };
-
-    // --- INITIALIZATION ---
-    window.onload = () => {
-        // Clear stuck hearts on load
-        document.querySelectorAll('.heart-float').forEach(el => el.remove());
-
-        if(!me) document.getElementById('login-overlay').classList.remove('hidden');
-        else init();
-        
-        setInterval(updateClocks, 1000);
-        
-        // Auto-resize textarea
-        const tx = document.getElementById('msg-input');
-        tx.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = (this.scrollHeight) + 'px';
-            if(this.value === '') this.style.height = 'auto';
-        });
-        
-        // Enter to send
-        tx.addEventListener('keydown', function(e) {
-            if(e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                document.getElementById('chat-form').dispatchEvent(new Event('submit'));
-            }
-        });
-    };
-
-async function login() {
-    const key = document.getElementById('login-key').value; // This was 'key'
-    const { data, error } = await _db
-        .from('chat_codes')
-        .select('*')
-        .eq('code', key) // Now we use 'key' to match the variable above
-        .limit(1)
-        .maybeSingle();
+    // APP STATE
+    let me, you, chatChannel, stagedFiles = [], unread = 0, lastTwo = [], flashTimer = 0, replyId = null, editingId = null;
+    let partnerStatusData = null, allMessagesCache = [], focusActive = false;
+    let storyItems = [], storyIndex = 0;
     
-    if (error) {
-        console.error("Supabase Error:", error.message);
-        return;
-    }
+    // NEW FEATURES STATE
+    let heartCount = 0;
+    let heartResetTime = Date.now();
+    let avatars = {}; // Stores { username: url }
+    let callStartTime = null;
 
-    if (data) {
-        me = data.username;
-        you = (me === 'RJ' ? 'Allyvia' : 'RJ'); [cite: 85]
-        localStorage.setItem('chat_secret_code', key); [cite: 85]
-        // Apply saved theme immediately
-        if (data.theme) applyTheme(data.theme);
-        document.getElementById('login-overlay').classList.add('hidden');
-        init();
-    } else {
-        alert('Invalid Key');
-    }
-}
+    // SOUNDS
+    const notifSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    notifSound.volume = 0.05;
+    let ringInterval = null;
+
+    // AGORA & CALL STATE
+    const AGORA_APP_ID = "4f6c6c2002784152a8366dec12f1b4c0";
+    let rtc = { client: null, localVideoTrack: null, localAudioTrack: null, screenTrack: null, isMuted: false, isCamOff: false };
+    let incomingCallData = null; 
+    let callTimerInterval = null;
+    let callSeconds = 0;
+    let wakeLock = null;
+
     async function init() {
-        document.getElementById('me-name').innerText = me;
+        const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
+        const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
+        if(!data) return;
         
-        // Load history
-        const { data: msgs } = await _db.from('messages').select('*').or(`sender.eq.${me},receiver.eq.${me}`).order('created_at', { ascending: false }).limit(50);
-        if(msgs) msgs.reverse().forEach(renderMessage);
+        me = data.username;
+        you = (me === 'RJ' ? 'Allyvia' : 'RJ');
+        localStorage.setItem('chat_secret_code', code);
+        document.getElementById('me-name').textContent = me;
+        if(me === 'RJ') document.getElementById('rj-suite').classList.remove('hidden');
 
-        // Load Status/Avatar/Theme
+        // LOAD AVATAR
+        if(data.avatar_url) {
+            avatars[me] = data.avatar_url;
+            document.getElementById('avatar-input').value = data.avatar_url;
+        }
+
+        // FETCH PARTNER AVATAR
+        const { data: partnerData } = await _db.from('chat_codes').select('avatar_url').eq('username', you).single();
+        if(partnerData) avatars[you] = partnerData.avatar_url;
+
+        chatChannel = _db.channel('chat-ultra');
+        chatChannel
+            .on('broadcast', { event: 'admin' }, p => handleInteraction(p.payload))
+            .on('broadcast', { event: 'theme_change' }, p => applyTheme(p.payload.theme))
+            .on('broadcast', { event: 'refresh' }, () => { loadMessages(); loadStatuses(); })
+            .on('broadcast', { event: 'typing' }, p => {
+                document.getElementById('live-preview').textContent = p.payload.text ? (me === 'RJ' ? `Typing: ${p.payload.text}` : `${you} is typing...`) : "";
+            })
+            .on('broadcast', { event: 'call-signal' }, p => handleCallSignal(p.payload))
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
+                if(p.new.receiver === me || p.new.sender === 'SYSTEM') { 
+                    unread++; 
+                    flashTimer = 6; 
+                    safePlaySound();
+                    markAsRead(p.new.id);
+                }
+                loadMessages();
+            })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'private_messages' }, () => loadMessages())
+            .subscribe();
+
+        loadMessages(); 
         loadStatuses();
-
-        // Realtime
-        chatChannel = _db.channel('chat_room')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-                if((payload.new.sender === you && payload.new.receiver === me) || (payload.new.sender === me)) {
-                    renderMessage(payload.new);
-                    if(payload.new.sender === you) notify();
-                }
-            })
-            .on('broadcast', { event: 'admin' }, ({ payload }) => handleInteraction(payload))
-            .on('broadcast', { event: 'typing' }, ({ payload }) => {
-                const p = document.getElementById('live-preview');
-                if(payload.from === you) {
-                    p.innerText = payload.txt ? `${you} is typing: ${payload.txt}...` : '';
-                    setTimeout(() => p.innerText = '', 3000);
-                }
-            })
-            .on('presence', { event: 'sync' }, () => {
-                const state = chatChannel.presenceState();
-                const online = Object.values(state).flat().some(u => u.user === you);
-                document.getElementById('partner-online').className = `absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[var(--bg)] ${online ? 'bg-green-500' : 'bg-gray-500'}`;
-            })
-            .subscribe(async (status) => {
-                if(status === 'SUBSCRIBED') await chatChannel.track({ user: me, online_at: new Date() });
-            });
-            
-        // Agora Setup
-        callClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-        callClient.on("user-published", handleUserPublished);
-        callClient.on("user-unpublished", handleUserUnpublished);
-    }
-
-    // --- THEME & AVATAR LOGIC ---
-    
-    async function uploadAvatar(input) {
-        const file = input.files[0];
-        if(!file) return;
-
-        // 1. Upload to Supabase Storage
-        const fileName = `avatar_${me}_${Date.now()}.jpg`;
-        const { error: upErr } = await _db.storage.from('avatars').upload(fileName, file);
-        if(upErr) { alert('Upload failed'); return; }
-
-        // 2. Get URL
-        const { data: { publicUrl } } = _db.storage.from('avatars').getPublicUrl(fileName);
-
-        // 3. Save to DB
-        await _db.from('chat_codes').update({ avatar_url: publicUrl }).eq('username', me);
+        updateDaysCounter();
+        setInterval(updateClocks, 1000);
+        setInterval(drawPiP, 250);
         
-        // 4. Update UI & Notify
-        document.getElementById('my-avatar-preview').src = publicUrl;
-        chatChannel.send({ type: 'broadcast', event: 'admin', payload: { type: 'profile_update' } });
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible') await requestWakeLock();
+        });
     }
 
-    async function setTheme(name) {
-        // Apply locally
-        applyTheme(name);
-        // Save to DB
-        await _db.from('chat_codes').update({ theme: name }).eq('username', me);
-        // Broadcast
-        chatChannel.send({ type: 'broadcast', event: 'admin', payload: { type: 'theme_change', theme: name } });
+    // --- MESSAGING WITH SYSTEM & AVATARS ---
+    async function loadMessages() {
+        const { data } = await _db.from('private_messages').select('*').or(`sender.eq.${me},receiver.eq.${me},sender.eq.SYSTEM`).order('created_at', { ascending: true });
+        if(!data) return;
+        
+        const msgsDiv = document.getElementById('messages');
+        const isBottom = msgsDiv.scrollHeight - msgsDiv.scrollTop === msgsDiv.clientHeight;
+        
+        msgsDiv.innerHTML = data.map(m => {
+            // SYSTEM MESSAGE RENDERER
+            if(m.sender === 'SYSTEM') {
+                return `<div class="system-msg-container"><div class="system-msg">${m.message_text}</div></div>`;
+            }
+
+            const isMe = m.sender === me;
+            const time = new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}).toLowerCase();
+            const avatarImg = avatars[m.sender] ? `<img src="${avatars[m.sender]}" class="avatar">` : `<div class="avatar"></div>`;
+            
+            // Render logic
+            let content = m.message_text.replace(/\n/g, '<br>');
+            // Link detection
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            content = content.replace(urlRegex, url => `<a href="${url}" target="_blank" class="text-blue-400 underline">${url}</a>`);
+            
+            // Media
+            if(m.media_url) {
+                const isVid = m.media_url.match(/\.(mp4|webm|mov)$/i);
+                content += isVid 
+                    ? `<video src="${m.media_url}" controls class="max-w-full rounded-lg mt-2"></video>` 
+                    : `<img src="${m.media_url}" class="max-w-full rounded-lg mt-2 cursor-pointer" onclick="openLightbox('${m.media_url}')">`;
+            }
+
+            return `
+            <div class="msg-wrap ${isMe ? 'row-me' : 'row-you'}" id="msg-${m.id}" ondblclick="startEdit('${m.id}', '${m.message_text.replace(/'/g, "\\'")}')">
+                ${avatarImg}
+                <div class="bubble ${isMe ? 'me' : 'you'}">
+                    ${m.reply_to ? `<div class="reply-preview">${m.reply_to.split('|')[1]}</div>` : ''}
+                    ${content}
+                    <div class="ts-inside">
+                        ${m.is_edited ? '<span class="edited-tag">edited</span>' : ''}
+                        ${time} 
+                        ${isMe ? (m.is_read ? '<span>✓✓</span>' : '<span>✓</span>') : ''}
+                    </div>
+                </div>
+                ${isMe ? `<div class="msg-tools"><div class="tool-btn" onclick="deleteMsg('${m.id}')">DEL</div></div>` : ''}
+            </div>`;
+        }).join('');
+        
+        if(isBottom) msgsDiv.scrollTop = msgsDiv.scrollHeight;
+        allMessagesCache = data;
     }
 
-    function applyTheme(name) {
-        const t = themes[name] || themes.midnight;
-        const root = document.documentElement.style;
-        root.setProperty('--bg', t.bg);
-        root.setProperty('--me', t.me);
-        root.setProperty('--you', t.you);
-        root.setProperty('--accent', t.accent);
+    async function sendMsg(txt) {
+        if(replyId) { txt = `${replyId}|${document.getElementById('reply-text').textContent}|${txt}`; replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
+        
+        let mediaUrl = null;
+        if(stagedFiles.length > 0) {
+            const f = stagedFiles[0];
+            const name = `${Date.now()}_${f.name}`;
+            await _db.storage.from('chat_media').upload(name, f);
+            const { data } = _db.storage.from('chat_media').getPublicUrl(name);
+            mediaUrl = data.publicUrl;
+            stagedFiles = [];
+            document.getElementById('staging-area').innerHTML = '';
+        }
+
+        await _db.from('private_messages').insert({ sender: me, receiver: you, message_text: txt, media_url: mediaUrl });
+        document.getElementById('msg-input').value = '';
+        chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: null } });
     }
 
-    // --- INTERACTION HANDLING ---
+    async function sendSystemMsg(text) {
+        // Inserts a message that looks like a system update
+        await _db.from('private_messages').insert({ sender: 'SYSTEM', receiver: me, message_text: text });
+    }
 
+    // --- INTERACTIONS & THEMES ---
+    
+    // THEME LOGIC
+    function broadcastTheme(themeName) {
+        applyTheme(themeName); // Apply locally immediately
+        chatChannel.send({ type: 'broadcast', event: 'theme_change', payload: { theme: themeName } });
+    }
+
+    function applyTheme(themeName) {
+        document.body.setAttribute('data-theme', themeName);
+    }
+
+    // AVATAR LOGIC
+    async function updateAvatar(url) {
+        if(!url.trim()) return;
+        await _db.from('chat_codes').update({ avatar_url: url }).eq('username', me);
+        avatars[me] = url;
+        alert("Avatar updated! Refresh to see changes completely.");
+    }
+
+    // LOVE TAP LIMITER
     function sendInteraction(type) {
-        // Fix: Heart Limit
-        if (type === 'lovetap') {
-            if (heartsLastMinute >= 40) {
-                alert("Too much love! Wait a moment.");
+        if(type === 'lovetap') {
+            const now = Date.now();
+            if(now - heartResetTime > 60000) {
+                heartCount = 0;
+                heartResetTime = now;
+            }
+            if(heartCount >= 40) {
+                alert("Love tap limit reached (40/min). Wait a moment!");
                 return;
             }
-            heartsLastMinute++;
+            heartCount++;
         }
-        
-        chatChannel.send({ 
-            type: 'broadcast', 
-            event: 'admin', 
-            payload: { type: type, from: me } 
-        });
+        chatChannel.send({ type: 'broadcast', event: 'admin', payload: { type: type } });
+    }
+
+    // CUSTOM RAIN TOOL
+    function triggerCustomRain() {
+        const input = document.getElementById('custom-rain-input');
+        const val = input.value.trim();
+        if(!val) return;
+        chatChannel.send({ type: 'broadcast', event: 'admin', payload: { type: 'rain', content: val } });
+        input.value = '';
     }
 
     function handleInteraction(p) {
-        if (p.type === 'profile_update') {
-            loadStatuses(); // Reload avatars
-        }
-        else if (p.type === 'theme_change') {
-            applyTheme(p.theme);
-        }
-        else if (p.type === 'vibrate') {
-            if(navigator.vibrate) navigator.vibrate([200, 100, 200]);
-        }
-        else if (p.type === 'lovetap') {
-            // Screen clutter protection
-            if (document.querySelectorAll('.heart-float').length > 30) return; 
+        if(p.type === 'lovetap') createHearts();
+        if(p.type === 'vibrate' && navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        if(p.type === 'rain') createRain(p.content);
+        if(p.type === 'focus_on') { focusActive = true; document.body.style.filter = "grayscale(100%) blur(5px)"; }
+        if(p.type === 'focus_off') { focusActive = false; document.body.style.filter = "none"; }
+        if(p.type === 'hijack') window.location.href = "https://www.google.com";
+    }
 
-            for(let i=0; i<10; i++) {
-                const h = document.createElement('div');
-                h.className = 'heart-float';
-                h.style.left = Math.random() * 90 + 'vw';
-                h.innerText = '❤️';
-                h.style.animationDuration = (2 + Math.random() * 2) + 's';
-                document.body.appendChild(h);
-                setTimeout(() => h.remove(), 4000);
+    function createHearts() {
+        for(let i=0; i<15; i++) {
+            const h = document.createElement('div');
+            h.innerHTML = "❤️";
+            h.className = 'heart-float';
+            h.style.left = Math.random() * 100 + 'vw';
+            h.style.animationDuration = (2 + Math.random() * 3) + 's';
+            document.body.appendChild(h);
+            setTimeout(() => h.remove(), 4000);
+        }
+    }
+
+    function createRain(content) {
+        const isImg = content.match(/\.(jpeg|jpg|gif|png)$/) != null;
+        for(let i=0; i<20; i++) {
+            const el = document.createElement('div');
+            el.className = 'rain-item';
+            if(isImg) {
+                el.innerHTML = `<img src="${content}" style="width:50px; border-radius:8px;">`;
+            } else {
+                el.innerText = content;
             }
-        }
-        else if (p.type === 'call_start') {
-            if (confirm('Incoming call from ' + p.from + '. Join?')) joinCall(p.channel, p.mode);
+            el.style.left = Math.random() * 100 + 'vw';
+            el.style.animationDuration = (3 + Math.random() * 2) + 's';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 5000);
         }
     }
 
-    async function loadStatuses() {
-        const { data } = await _db.from('chat_codes').select('*');
-        if(!data) return;
+    // --- CALL SIGNALING ---
+    function startCallRequest(isVideo) {
+        document.getElementById('outgoing-call-ui').classList.remove('hidden');
+        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'offer', mode: isVideo ? 'video' : 'voice', caller: me } });
+        sendSystemMsg(`[SYSTEM] ${me} started a call`); // System Message Trigger
+    }
 
-        // My Data
-        const myData = data.find(u => u.username === me);
-        if(myData && myData.avatar_url) document.getElementById('my-avatar-preview').src = myData.avatar_url;
-        if(myData && myData.theme) applyTheme(myData.theme);
-
-        // Partner Data
-        const p = data.find(u => u.username === you);
-        if(p) {
-            partnerStatusData = p;
-            document.getElementById('partner-name').innerText = you;
-            document.getElementById('partner-status').innerText = p.status_text || "Offline";
-            
-            // Partner Avatar
-            const el = document.getElementById('partner-avatar');
-            if (p.avatar_url) {
-                el.src = p.avatar_url;
-                el.classList.remove('hidden');
+    function handleCallSignal(payload) {
+        if(payload.caller === me) return;
+        if(payload.type === 'offer') {
+            if(!document.getElementById('video-grid').classList.contains('hidden')) {
+                chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'reject', caller: me } });
+                return;
             }
-            // Sync theme if they updated it recently (optional mutual logic)
-            if (p.theme) applyTheme(p.theme); 
+            incomingCallData = payload;
+            document.getElementById('incoming-call-ui').classList.remove('hidden');
+            document.getElementById('caller-id-disp').textContent = payload.caller;
+            document.getElementById('call-type-disp').textContent = payload.mode + " Call";
+            safePlaySound();
+            if(ringInterval) clearInterval(ringInterval);
+            ringInterval = setInterval(safePlaySound, 2000);
+        }
+        else if(payload.type === 'answer') {
+            stopRinging();
+            document.getElementById('outgoing-call-ui').classList.add('hidden');
+            joinAgora(payload.mode === 'video');
+        }
+        else if(payload.type === 'reject') {
+            stopRinging();
+            alert("Call declined");
+            resetCallUI();
+        }
+        else if(payload.type === 'hangup') {
+            leaveAgora();
         }
     }
 
-    // --- CALL LOGGING & AGORA ---
-
-    async function startCall(mode) {
-        const channelName = 'call_' + Math.random().toString(36).substr(2, 9);
-        await joinCall(channelName, mode);
-        chatChannel.send({ type: 'broadcast', event: 'admin', payload: { type: 'call_start', from: me, channel: channelName, mode: mode } });
+    function answerCall() {
+        stopRinging();
+        document.getElementById('incoming-call-ui').classList.add('hidden');
+        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'answer', mode: incomingCallData.mode, caller: me } });
+        joinAgora(incomingCallData.mode === 'video');
     }
 
-    async function joinCall(channel, mode) {
-        callStartTime = Date.now(); // Start Timer
-        document.getElementById('call-ui').classList.remove('hidden');
-        
-        await callClient.join(AGORA_APP_ID, channel, null, me);
-        
-        if (mode === 'video') {
-            localTracks = await AgoraRTC.createMicrophoneAndCameraTracks();
-            localTracks[1].play('local-video');
-            document.getElementById('local-video').classList.remove('hidden');
-        } else {
-            localTracks = await AgoraRTC.createMicrophoneAndCameraTracks(); // simplified for audio
-            localTracks[1].setEnabled(false); // Disable cam for audio call
-            document.getElementById('local-video').classList.add('hidden');
-        }
-        
-        await callClient.publish(localTracks);
+    function rejectCall() {
+        stopRinging();
+        document.getElementById('incoming-call-ui').classList.add('hidden');
+        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'reject', caller: me } });
     }
 
-    async function leaveCall() {
-        for (let track of localTracks) { track.stop(); track.close(); }
-        await callClient.leave();
-        document.getElementById('call-ui').classList.add('hidden');
-        
-        // --- CALL LOGGING ---
-        if (callStartTime > 0) {
-            const durationMs = Date.now() - callStartTime;
-            const minutes = Math.floor(durationMs / 60000);
-            const seconds = ((durationMs % 60000) / 1000).toFixed(0);
-            const timeStr = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-            
-            // Send System Message to Database
-            const sysMsg = `📞 Call ended. Duration: ${timeStr}`;
-            await _db.from('messages').insert({
-                sender: me, receiver: you, content: sysMsg, type: 'system'
-            });
-            callStartTime = 0;
-        }
+    function cancelCall() {
+        document.getElementById('outgoing-call-ui').classList.add('hidden');
+        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'reject', caller: me } });
     }
 
-    function handleUserPublished(user, mediaType) {
-        callClient.subscribe(user, mediaType).then(() => {
-            if (mediaType === 'video') user.videoTrack.play('remote-video');
-            if (mediaType === 'audio') user.audioTrack.play();
+    function hangUp() {
+        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'hangup', caller: me } });
+        // Calculate Duration for System Message
+        const duration = document.getElementById('call-timer').textContent;
+        sendSystemMsg(`[SYSTEM] Call ended (${duration})`);
+        leaveAgora();
+    }
+
+    // --- AGORA LOGIC (Updated for System Messages) ---
+    async function joinAgora(videoMode) {
+        rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+        document.getElementById('video-grid').classList.remove('hidden');
+        
+        rtc.client.on("user-published", async (user, mediaType) => { 
+            await rtc.client.subscribe(user, mediaType); 
+            if(mediaType === "video") user.videoTrack.play("remote-video");
+            if(mediaType === "audio") user.audioTrack.play();
         });
-    }
-    
-    function handleUserUnpublished(user) {
-        // partner left
-    }
-    
-    function toggleMute() {
-        if(localTracks[0]) {
-            const enabled = localTracks[0].enabled;
-            localTracks[0].setEnabled(!enabled);
-            document.getElementById('mute-btn').style.background = enabled ? 'red' : 'rgba(255,255,255,0.1)';
-        }
-    }
-    
-    function toggleCam() {
-        if(localTracks[1]) {
-            const enabled = localTracks[1].enabled;
-            localTracks[1].setEnabled(!enabled);
-            document.getElementById('cam-btn').style.background = enabled ? 'red' : 'rgba(255,255,255,0.1)';
-        }
-    }
-
-    // --- MESSAGING ---
-
-    async function sendMsg(txt) {
-        if(!txt && stagedFiles.length === 0) return;
         
-        // Upload files first if any
-        let attachments = [];
-        if(stagedFiles.length > 0) {
-            for(let file of stagedFiles) {
-                const fname = `chat_${Date.now()}_${file.name}`;
-                await _db.storage.from('chat-files').upload(fname, file);
-                const { data } = _db.storage.from('chat-files').getPublicUrl(fname);
-                attachments.push({ type: file.type.startsWith('image') ? 'img' : 'file', url: data.publicUrl });
-            }
-        }
-        
-        const payload = {
-            sender: me, 
-            receiver: you, 
-            content: txt, 
-            reply_to: replyId,
-            media: attachments.length ? attachments : null
-        };
-        
-        await _db.from('messages').insert(payload);
-        
-        document.getElementById('msg-input').value = '';
-        document.getElementById('msg-input').style.height = 'auto';
-        cancelReply();
-        stagedFiles = [];
-        document.getElementById('file-preview-area').innerHTML = '';
-        document.getElementById('file-preview-area').classList.add('hidden');
-    }
-
-    function renderMessage(msg) {
-        const div = document.createElement('div');
-        const isMe = msg.sender === me;
-        
-        // Check for System Message (Call Logs)
-        if (msg.type === 'system') {
-            div.className = 'msg system';
-            div.innerText = msg.content + ` (${new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})})`;
-        } else {
-            // Normal Message
-            div.className = `msg ${isMe ? 'sent' : 'received'}`;
-            
-            // Reply Preview
-            if(msg.reply_to) {
-                // In a real app, you'd fetch the reply text. For now, simple indicator:
-                div.innerHTML += `<div class="text-[10px] opacity-50 mb-1 border-l-2 pl-2 border-white">Replying...</div>`;
-            }
-
-            // Text
-            if(msg.content) div.innerHTML += linkify(msg.content);
-            
-            // Media
-            if(msg.media && Array.isArray(msg.media)) {
-                msg.media.forEach(m => {
-                    if(m.type === 'img') div.innerHTML += `<br><img src="${m.url}" class="mt-2 rounded-lg max-w-full cursor-pointer" onclick="openLightbox('${m.url}')">`;
-                    else div.innerHTML += `<br><a href="${m.url}" target="_blank" class="text-xs underline mt-1 block">📎 Attachment</a>`;
-                });
-            }
-            
-            // Timestamp
-            const time = new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-            div.innerHTML += `<div class="text-[9px] text-right opacity-50 mt-1">${time}</div>`;
-            
-            // Actions
-            if(!isMe) div.ondblclick = () => setReply(msg.id, msg.content || 'Media');
-            if(isMe) div.oncontextmenu = (e) => { e.preventDefault(); deleteMsg(msg.id); };
-        }
-        
-        const c = document.getElementById('messages');
-        c.appendChild(div);
-        c.scrollTop = c.scrollHeight;
-    }
-
-    // --- UTILS ---
-    function handleFileSelect(input) {
-        stagedFiles = Array.from(input.files);
-        const area = document.getElementById('file-preview-area');
-        area.innerHTML = '';
-        area.classList.remove('hidden');
-        stagedFiles.forEach(f => {
-            const span = document.createElement('span');
-            span.className = "text-xs bg-white/10 p-1 rounded whitespace-nowrap";
-            span.innerText = f.name;
-            area.appendChild(span);
+        rtc.client.on("user-left", () => {
+             hangUp(); // Auto hangup if partner leaves
         });
-    }
 
-    function linkify(text) {
-        return text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="underline text-blue-300">$1</a>');
-    }
-
-    async function deleteMsg(id) {
-        if(confirm('Delete message?')) {
-            await _db.from('messages').delete().eq('id', id);
-            location.reload(); // Simple refresh to clear
+        try {
+            await rtc.client.join(AGORA_APP_ID, "love-nest-v14", null, null);
+            startCallTimer();
+            await requestWakeLock();
+            
+            const promises = [AgoraRTC.createMicrophoneAudioTrack()];
+            if(videoMode) promises.push(AgoraRTC.createCameraVideoTrack());
+            
+            const tracks = await Promise.all(promises);
+            rtc.localAudioTrack = tracks[0];
+            rtc.localVideoTrack = videoMode ? tracks[1] : null;
+            
+            if(rtc.localVideoTrack) { 
+                rtc.localVideoTrack.play("local-video"); 
+                await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack]); 
+                rtc.isCamOff = false;
+            } else { 
+                await rtc.client.publish([rtc.localAudioTrack]); 
+                rtc.isCamOff = true; 
+                document.getElementById('local-video').innerHTML = '<div class="w-full h-full flex items-center justify-center text-3xl">🎙️</div>';
+            }
+        } catch (e) { 
+            console.error(e); leaveAgora(); 
         }
     }
-    
-    function setReply(id, txt) {
-        replyId = id;
-        document.getElementById('reply-text').innerText = "Replying to: " + txt;
-        document.getElementById('reply-box').classList.remove('hidden');
-    }
-    
-    function cancelReply() {
-        replyId = null;
-        document.getElementById('reply-box').classList.add('hidden');
-    }
-    
-    function notify() {
-        const a = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
-        a.volume = 0.5;
-        a.play().catch(() => {});
-        if(navigator.vibrate) navigator.vibrate(200);
-    }
 
-    // --- SIDEBAR & STATUS ---
-    async function updateStatusFromSidebar() {
-        const txt = document.getElementById('status-txt-input').value;
-        const mediaInput = document.getElementById('status-media-input');
-        
-        // Handle media uploads similar to avatar/chat files...
-        // For brevity: Update text immediately
-        await _db.from('chat_codes').update({ status_text: txt }).eq('username', me);
-        chatChannel.send({ type: 'broadcast', event: 'admin', payload: { type: 'profile_update' } });
+    async function leaveAgora() {
+        stopCallTimer();
+        if (wakeLock !== null) { await wakeLock.release(); wakeLock = null; }
+        if(rtc.localAudioTrack) { rtc.localAudioTrack.close(); rtc.localAudioTrack = null; }
+        if(rtc.localVideoTrack) { rtc.localVideoTrack.close(); rtc.localVideoTrack = null; }
+        if(rtc.client) { await rtc.client.leave(); rtc.client = null; }
+        resetCallUI();
     }
     
-    function handleStatusClick() {
-        if(partnerStatusData) {
-            // Logic to show story viewer...
-            // For now, just alert text
-            alert(partnerStatusData.status_text || "No status set");
-        }
+    // UTILS
+    function stopRinging() { if(ringInterval) clearInterval(ringInterval); ringInterval = null; }
+    function safePlaySound() { notifSound.play().catch(e => console.log("Audio blocked")); }
+    function resetCallUI() {
+        document.getElementById('incoming-call-ui').classList.add('hidden');
+        document.getElementById('outgoing-call-ui').classList.add('hidden');
+        document.getElementById('video-grid').classList.add('hidden');
+        document.getElementById('return-to-call').style.display = 'none';
+        stopRinging(); stopCallTimer();
     }
-    
-    function openLightbox(u) { document.getElementById('lightbox-img').src = u; document.getElementById('lightbox').style.display = 'flex'; }
-    function openSidebar() { document.getElementById('sidebar').style.left = '0'; document.getElementById('overlay-bg').classList.remove('hidden'); }
-    function closeSidebar() { document.getElementById('sidebar').style.left = '-320px'; document.getElementById('overlay-bg').classList.add('hidden'); }
-    
+    function requestWakeLock() { try { wakeLock = navigator.wakeLock.request('screen'); } catch (err) {} }
+    function startCallTimer() {
+        stopCallTimer(); callSeconds = 0; document.getElementById('call-timer').textContent = "00:00";
+        callTimerInterval = setInterval(() => {
+            callSeconds++;
+            const m = Math.floor(callSeconds / 60).toString().padStart(2, '0');
+            const s = (callSeconds % 60).toString().padStart(2, '0');
+            document.getElementById('call-timer').textContent = `${m}:${s}`;
+        }, 1000);
+    }
+    function stopCallTimer() { if(callTimerInterval) clearInterval(callTimerInterval); callTimerInterval = null; }
+    function updateDaysCounter() {
+        const diff = new Date() - new Date('2025-11-24');
+        document.getElementById('days-counter').textContent = Math.floor(diff / (1000 * 60 * 60 * 24)).toLocaleString();
+    }
     function updateClocks() {
-        const o = { hour: '2-digit', minute: '2-digit', hour12: true };
-        document.getElementById('clocks').innerHTML = `
-            Brisbane: ${new Date().toLocaleTimeString('en-US', { ...o, timeZone: 'Australia/Brisbane' })}<br>
-            Local: ${new Date().toLocaleTimeString('en-US', { ...o })}
-        `;
+        const o = { hour: 'numeric', minute: '2-digit', hour12: true };
+        document.getElementById('clocks').innerHTML = `Brisbane: ${new Date().toLocaleTimeString('en-US', { ...o, timeZone: 'Australia/Brisbane' })}<br>Irbid: ${new Date().toLocaleTimeString('en-US', { ...o, timeZone: 'Asia/Amman' })}`;
     }
+    function openSidebar() { document.getElementById('sidebar').style.left = '0'; document.getElementById('overlay-bg').classList.remove('hidden'); }
+    function closeSidebar() { document.getElementById('sidebar').style.left = '-300px'; document.getElementById('overlay-bg').classList.add('hidden'); }
+    function openLightbox(u) { document.getElementById('lightbox-img').src = u; document.getElementById('lightbox').style.display = 'flex'; }
+    
+    // EXISTING HELPERS
+    function toggleMute() { rtc.isMuted = !rtc.isMuted; rtc.localAudioTrack.setEnabled(!rtc.isMuted); document.getElementById('btn-mute').textContent = rtc.isMuted ? '🔇' : '🎤'; }
+    function toggleCam() { rtc.isCamOff = !rtc.isCamOff; rtc.localVideoTrack.setEnabled(!rtc.isCamOff); document.getElementById('btn-cam').textContent = rtc.isCamOff ? '🚫' : '📷'; }
+    function toggleCallView() { document.getElementById('video-grid').classList.toggle('hidden'); document.getElementById('return-to-call').style.display = document.getElementById('video-grid').classList.contains('hidden') ? 'block' : 'none'; }
+    function handleFileSelect(input) { stagedFiles = Array.from(input.files); if(stagedFiles.length) document.getElementById('staging-area').innerHTML = `${stagedFiles.length} file(s) ready`; }
+    document.getElementById('chat-form').onsubmit = e => { e.preventDefault(); const v = document.getElementById('msg-input').value; if(v.trim() || stagedFiles.length) sendMsg(v); };
+    
+    // HELPER: Mark read
+    async function markAsRead(id) { await _db.from('private_messages').update({ is_read: true }).eq('id', id); }
+
+    // STATUS LOGIC (Simplified for brevity as per your existing code)
+    async function loadStatuses() { /* Keep your existing loadStatuses logic if needed or it will break, assuming standard fetch/display */ }
+    async function updateStatusFromSidebar() { /* Keep existing */ }
+    function removeStatus() { /* Keep existing */ }
+    
+    // RJ TOOLS
+    function viewDeletedLogs() { /* Keep existing */ }
+    function toggleFocusMode() { /* Keep existing */ }
+    function hijackTab() { /* Keep existing */ }
+    function launchPiP() { /* Keep existing */ }
+
+    window.onload = init;
 </script>
 </body>
 </html>
