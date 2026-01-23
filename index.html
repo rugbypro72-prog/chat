@@ -223,11 +223,7 @@
     const key = document.getElementById('login-key').value;
     console.log("Attempting login with key:", key);
 
-    const { data, error } = await _db
-        .from('chat_codes')
-        .select('*')
-        .eq('access_code', key)
-        .single();
+const { data, error } = await _db.from('chat_codes').select('*').eq('code', code).limit(1).maybeSingle();
     
     if (error) {
         console.error("Supabase Error:", error.message);
