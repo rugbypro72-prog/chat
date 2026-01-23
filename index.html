@@ -219,20 +219,33 @@
         });
     };
 
-    async function login() {
-        const key = document.getElementById('login-key').value;
-        const { data } = await _db.from('chat_codes').select('username, pair_with').eq('access_code', key).single();
-        
-        if (data) {
-            me = data.username;
-            you = data.pair_with;
-            localStorage.setItem('chat_user', me);
-            document.getElementById('login-overlay').classList.add('hidden');
-            init();
-        } else {
-            alert('Invalid Key');
-        }
+   async function login() {
+    const key = document.getElementById('login-key').value;
+    console.log("Attempting login with key:", key);
+
+    const { data, error } = await _db
+        .from('chat_codes')
+        .select('*')
+        .eq('access_code', key)
+        .single();
+    
+    if (error) {
+        console.error("Supabase Error:", error.message);
+        alert("Database Error: " + error.message);
+        return;
     }
+
+    if (data) {
+        console.log("Login success! Data:", data);
+        me = data.username;
+        you = data.pair_with;
+        localStorage.setItem('chat_user', me);
+        document.getElementById('login-overlay').classList.add('hidden');
+        init();
+    } else {
+        alert('Invalid Key - No match found in database.');
+    }
+}
 
     async function init() {
         document.getElementById('me-name').innerText = me;
