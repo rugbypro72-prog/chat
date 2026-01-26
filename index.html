@@ -231,6 +231,7 @@
     // STATE
     let me, you, chatChannel, stagedFiles = [], unread = 0, replyId = null, editingId = null;
     let partnerStatusData = null, allMessagesCache = [];
+    let loadTimeout = null; // <--- ADD THIS
     let storyItems = [], storyIndex = 0;
     const notifSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'); notifSound.volume = 0.05;
     
@@ -476,15 +477,28 @@
         });
     }
 
-    async function sendMsg(txt) {
+async function sendMsg(txt) {
+        // 1. Clear typing status immediately
         chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: "" } });
-        if (editingId) { 
-            await _db.from('private_messages').update({ message: txt, edited: true }).eq('id', editingId); 
-            cancelEdit(); chatChannel.send({ type: 'broadcast', event: 'refresh' }); loadMessages(); return;
-        }
-        const currentStaged = [...stagedFiles]; stagedFiles = []; renderStaging(); const currentReplyId = replyId;
-        cancelReply(); document.getElementById('msg-input').value = "";
         
+        // 2. Handle Editing
+        if (editingId) { 
+            await _db.from('private_messages').update({ message: txt, edited: true }).eq('id', editingId);
+            cancelEdit(); 
+            // REMOVED: chatChannel.send(...) to prevent flicker
+            loadMessages(); 
+            return;
+        }
+
+        // 3. Handle New Message
+        const currentStaged = [...stagedFiles];
+        stagedFiles = []; 
+        renderStaging(); 
+        const currentReplyId = replyId;
+        cancelReply(); 
+        document.getElementById('msg-input').value = "";
+        
+        // 4. Upload Files (if any)
         let urls = [];
         if(currentStaged.length > 0) urls = await Promise.all(currentStaged.map(async f => { 
             const n = `msg_${Date.now()}_${Math.random().toString(36).substr(2,5)}`; 
@@ -492,10 +506,20 @@
             return _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl; 
         }));
         
-        await _db.from('private_messages').insert([{ sender: me, receiver: you, message: txt.trim(), file_url: urls.join(','), reply_to: currentReplyId, is_read: false }]);
-        chatChannel.send({ type: 'broadcast', event: 'refresh' }); loadMessages();
+        // 5. Insert into Database
+        await _db.from('private_messages').insert([{ 
+            sender: me, 
+            receiver: you, 
+            message: txt.trim(), 
+            file_url: urls.join(','), 
+            reply_to: currentReplyId, 
+            is_read: false 
+        }]);
+        
+        // REMOVED: chatChannel.send(...) to prevent flicker
+        loadMessages();
     }
-
+    
     // --- FIX FOR REPLY BUG ---
     // Instead of passing text inline, we pass ID and lookup in JS
     function setReply(id) { 
