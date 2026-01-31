@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Us v17 (Fast)</title>
+    <title>Us v18 (Pro)</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
@@ -17,6 +17,7 @@
             --text-color: #f1f5f9;
             --accent: #3b82f6;
             --glass: rgba(20, 20, 25, 0.6);
+            --border: rgba(255,255,255,0.05);
         }
 
         /* THEMES */
@@ -24,22 +25,30 @@
         [data-theme="love"] { --bg-color: #1a0508; --sidebar-bg: #29080c; --msg-me: #e11d48; --msg-you: #2d0e14; --accent: #fb7185; }
         [data-theme="forest"] { --bg-color: #051a08; --sidebar-bg: #09260e; --msg-me: #16a34a; --msg-you: #0e2e18; --accent: #4ade80; }
         [data-theme="lavender"] { --bg-color: #0f051a; --sidebar-bg: #1a092e; --msg-me: #7c3aed; --msg-you: #201036; --accent: #a78bfa; }
+        /* CUSTOM THEME: Glassy look */
+        [data-theme="custom"] { --bg-color: #000000; --sidebar-bg: rgba(0,0,0,0.8); --msg-me: rgba(59, 130, 246, 0.8); --msg-you: rgba(30, 41, 59, 0.7); --accent: #3b82f6; --glass: rgba(0, 0, 0, 0.4); }
 
-        body { background: var(--bg-color); color: var(--text-color); font-family: 'Outfit', sans-serif; height: 100vh; overflow: hidden; margin: 0; transition: background 0.5s ease; }
+        body { background: var(--bg-color); background-size: cover; background-position: center; background-attachment: fixed; color: var(--text-color); font-family: 'Outfit', sans-serif; height: 100vh; overflow: hidden; margin: 0; transition: background-color 0.5s ease; }
         
-        #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; position: relative; z-index: 10; background: radial-gradient(circle at top, rgba(255,255,255,0.03), transparent 70%); }
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; padding-bottom: 40px; }
+        #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; position: relative; z-index: 10; background: radial-gradient(circle at top, rgba(255,255,255,0.03), transparent 70%); backdrop-filter: blur(0px); }
+        [data-theme="custom"] #chat-main { backdrop-filter: blur(5px); }
+
+        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; padding-bottom: 40px; will-change: scroll-position; }
         
-        .msg-wrap { display: flex; flex-direction: column; width: 100%; position: relative; animation: slideIn 0.2s ease forwards; opacity: 0; transform: translateY(10px); }
+        .msg-wrap { display: flex; flex-direction: column; width: 100%; position: relative; animation: slideIn 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; opacity: 0; transform: translateY(10px); }
         @keyframes slideIn { to { opacity: 1; transform: translateY(0); } }
         
         .row-me { align-items: flex-end; } 
         .row-you { align-items: flex-start; }
         
-        .bubble { max-width: 85%; padding: 12px 16px 26px 16px; font-size: 15px; border-radius: 24px; position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.1); word-wrap: break-word; line-height: 1.5; backdrop-filter: blur(5px); }
+        .bubble { max-width: 85%; padding: 12px 16px 26px 16px; font-size: 15px; border-radius: 20px; position: relative; box-shadow: 0 2px 10px rgba(0,0,0,0.1); word-wrap: break-word; line-height: 1.5; backdrop-filter: blur(5px); transition: transform 0.1s; }
+        .bubble:active { transform: scale(0.98); }
         .me { background: var(--msg-me); color: white; border-bottom-right-radius: 4px; background: linear-gradient(135deg, var(--msg-me), var(--accent)); }
         .you { background: var(--msg-you); border: 1px solid rgba(255,255,255,0.05); border-bottom-left-radius: 4px; }
-        .sending { opacity: 0.7; }
+        .sending { opacity: 0.7; transform: scale(0.98); }
+        
+        /* MEDIA HANDLING */
+        .bubble img, .bubble video { border-radius: 12px; margin-bottom: 6px; width: 100%; max-height: 300px; object-fit: cover; background: rgba(0,0,0,0.2); }
         
         .ts-inside { position: absolute; bottom: 6px; right: 12px; font-size: 9px; opacity: 0.7; font-weight: 600; display: flex; align-items: center; gap: 4px; }
         
@@ -49,20 +58,20 @@
         .msg-wrap:hover .msg-tools { opacity: 1; transform: scale(1); }
         .tool-btn { color: var(--accent); font-size: 10px; font-weight: 800; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
 
-        /* ANIMATIONS */
+        /* ANIMATIONS & MODALS */
         #partner-name.has-media { color: var(--accent) !important; text-decoration: underline; text-decoration-style: wavy; cursor: pointer; animation: statusPulse 2s infinite; }
         @keyframes statusPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
         .modal-view { display: none; position: fixed; inset: 0; background: var(--bg-color); z-index: 2000; overflow-y: auto; padding: 25px; }
         
         /* UI ELEMENTS */
-        .glass-panel { background: var(--glass); backdrop-filter: blur(20px); border-top: 1px solid rgba(255,255,255,0.08); }
-        .input-pill { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; }
+        .glass-panel { background: var(--glass); backdrop-filter: blur(20px); border-top: 1px solid var(--border); }
+        .input-pill { background: rgba(255,255,255,0.05); border: 1px solid var(--border); transition: 0.3s; }
         .input-pill:focus-within { background: rgba(255,255,255,0.1); border-color: var(--accent); }
 
         /* SIDEBAR */
-        #sidebar { background: var(--sidebar-bg); border-right: 1px solid rgba(255,255,255,0.05); }
+        #sidebar { background: var(--sidebar-bg); border-right: 1px solid var(--border); }
 
-        /* CALL UI */
+        /* CALL UI - OPTIMIZED */
         .call-btn { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; transition: 0.2s; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
         .call-btn:active { transform: scale(0.95); }
         .call-btn.active { background: #ef4444; color: white; } 
@@ -71,11 +80,15 @@
         #video-grid { transition: opacity 0.3s ease; }
         #remote-video video { object-fit: contain !important; } 
         .video-cover video { object-fit: cover !important; }
-        .video-contain video { object-fit: contain !important; }
+
+        /* RECORDING UI */
+        .recording-pulse { animation: pulseRed 1s infinite; color: #ef4444 !important; }
+        @keyframes pulseRed { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
         /* THEME CIRCLES */
-        .theme-dot { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
+        .theme-dot { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: 0.2s; position: relative; }
         .theme-dot.selected { border-color: white; transform: scale(1.1); }
+        .theme-dot-custom { background: linear-gradient(45deg, #333, #999); display: flex; align-items: center; justify-content: center; font-size: 8px; color: white; font-weight: bold; }
     </style>
 </head>
 <body data-theme="midnight">
@@ -138,6 +151,8 @@
 
 <div id="logs-modal" class="modal-view"><div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-red-500">Deleted Logs</h2><button onclick="document.getElementById('logs-modal').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button></div><div id="logs-content" class="space-y-4 pb-20"></div></div>
 
+<div id="story-log-modal" class="modal-view"><div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-pink-400">Story Archives</h2><button onclick="document.getElementById('story-log-modal').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button></div><div id="story-log-content" class="space-y-4 pb-20"></div></div>
+
 <div id="return-to-call" onclick="toggleCallView()" style="display:none; position: absolute; top: 85px; left: 50%; transform: translateX(-50%); background: #10b981; color: white; padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; z-index: 9000; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); animation: pulseGreen 2s infinite;">🟢 Return to Call</div>
 
 <div id="chat-main">
@@ -170,15 +185,16 @@
             <button onclick="cancelEdit()">&times;</button>
         </div>
         
-        <form id="chat-form" class="flex items-center input-pill rounded-full p-1 pl-4 shadow-xl">
+        <form id="chat-form" class="flex items-center input-pill rounded-full p-1 pl-2 shadow-xl">
             <label class="cursor-pointer opacity-50 p-2 hover:opacity-100 transition">📎 <input type="file" id="file-input" class="hidden" accept="image/*" multiple onchange="handleFileSelect(this)"></label>
+            <button type="button" id="mic-btn" onclick="toggleRecording()" class="opacity-50 p-2 hover:opacity-100 transition text-lg">🎙️</button>
             <input id="msg-input" placeholder="Type a message..." autocomplete="off" class="flex-1 bg-transparent py-3 px-2 text-sm outline-none placeholder:text-white/30">
             <button type="submit" id="send-btn" class="bg-[var(--accent)] text-white font-bold px-6 py-3 rounded-full text-[11px] uppercase tracking-wide shadow-lg hover:brightness-110 transition">Send</button>
         </form>
     </footer>
 </div>
 
-<div id="sidebar" class="fixed left-[-300px] top-0 bottom-0 w-[280px] z-[1000] p-6 flex flex-col transition-all duration-300">
+<div id="sidebar" class="fixed left-[-300px] top-0 bottom-0 w-[280px] z-[1000] p-6 flex flex-col transition-all duration-300 backdrop-blur-md">
     <div class="bg-gradient-to-br from-pink-500/20 to-purple-500/20 border border-white/5 rounded-3xl p-6 mb-6 text-center shadow-lg">
         <p class="text-[10px] font-bold text-pink-400 uppercase tracking-widest mb-1">Days Together</p>
         <h1 id="days-counter" class="text-4xl font-black text-pink-300 drop-shadow-md">0</h1>
@@ -201,11 +217,12 @@
 
         <div class="bg-white/5 p-4 rounded-2xl space-y-3 border border-white/5">
             <p class="text-[10px] font-bold opacity-40 uppercase tracking-widest">Mutual Theme</p>
-            <div class="flex justify-between px-2">
+            <div class="flex justify-between px-2 items-center">
                 <div onclick="setTheme('midnight')" class="theme-dot bg-blue-900" title="Midnight"></div>
                 <div onclick="setTheme('love')" class="theme-dot bg-red-900" title="Love"></div>
                 <div onclick="setTheme('forest')" class="theme-dot bg-green-900" title="Forest"></div>
                 <div onclick="setTheme('lavender')" class="theme-dot bg-purple-900" title="Lavender"></div>
+                <div onclick="setCustomTheme()" class="theme-dot theme-dot-custom" title="Custom Image">IMG</div>
             </div>
         </div>
 
@@ -218,6 +235,7 @@
                 <button onclick="sendInteraction('vibrate')" class="p-3 bg-blue-500/20 text-blue-400 rounded-xl font-bold text-center text-xs">📳 Buzz</button>
             </div>
             <button onclick="viewDeletedLogs()" class="w-full text-left p-4 bg-red-500/10 text-red-400 rounded-2xl font-bold text-sm border border-red-500/20">🗑️ View Deleted Logs</button>
+            <button onclick="viewStoryLogs()" class="w-full text-left p-4 bg-pink-500/10 text-pink-400 rounded-2xl font-bold text-sm border border-pink-500/20">📜 Story Archives</button>
         </div>
     </div>
 </div>
@@ -230,11 +248,11 @@
     const _db = supabase.createClient(SB_URL, SB_KEY);
     
     // STATE
-    let me, you, chatChannel, stagedFiles = [], unread = 0, replyId = null, editingId = null;
+    let me, you, chatChannel, stagedFiles = [], replyId = null, editingId = null;
     let partnerStatusData = null, allMessagesCache = [];
     let storyItems = [], storyIndex = 0;
-    // DEBOUNCE TIMER (Lowered to 75ms for speed)
     let loadTimeout = null;
+    let mediaRecorder = null, audioChunks = [];
 
     const notifSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
     notifSound.volume = 0.05;
@@ -254,7 +272,15 @@
         localStorage.setItem('chat_secret_code', code);
         document.getElementById('me-name').textContent = me;
         if(me === 'RJ') document.getElementById('rj-suite').classList.remove('hidden');
-        if(data.current_theme) applyTheme(data.current_theme);
+        
+        // Load custom background if exists
+        const savedBg = localStorage.getItem('custom_bg');
+        if(savedBg) {
+             document.body.style.backgroundImage = `url('${savedBg}')`;
+             applyTheme('custom');
+        } else if(data.current_theme) {
+             applyTheme(data.current_theme);
+        }
 
         chatChannel = _db.channel('chat-ultra');
         chatChannel
@@ -282,8 +308,45 @@
         });
     }
 
+    // --- VOICE MESSAGES ---
+    async function toggleRecording() {
+        const btn = document.getElementById('mic-btn');
+        if(!mediaRecorder || mediaRecorder.state === 'inactive') {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = async () => {
+                    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                    sendMsg("Voice Message", blob); // Send Blob
+                    btn.classList.remove('recording-pulse');
+                    btn.textContent = '🎙️';
+                };
+                mediaRecorder.start();
+                btn.classList.add('recording-pulse');
+                btn.textContent = '🟥';
+            } catch(e) { alert("Mic error"); }
+        } else {
+            mediaRecorder.stop();
+        }
+    }
+
     // --- THEMES ---
+    function setCustomTheme() {
+        const url = prompt("Enter URL for background image:");
+        if(url) {
+            localStorage.setItem('custom_bg', url);
+            document.body.style.backgroundImage = `url('${url}')`;
+            setTheme('custom');
+        }
+    }
+
     async function setTheme(themeName) {
+        if(themeName !== 'custom') {
+            localStorage.removeItem('custom_bg');
+            document.body.style.backgroundImage = '';
+        }
         applyTheme(themeName);
         await _db.from('chat_codes').update({ current_theme: themeName }).eq('username', me);
         chatChannel.send({ type: 'broadcast', event: 'theme_change', payload: { theme: themeName } });
@@ -294,9 +357,10 @@
         document.querySelectorAll('.theme-dot').forEach(d => d.classList.remove('selected'));
         const activeDot = document.querySelector(`.theme-dot[onclick*="${themeName}"]`);
         if(activeDot) activeDot.classList.add('selected');
+        if(themeName === 'custom') document.querySelector('.theme-dot-custom').classList.add('selected');
     }
 
-    // --- CALL SIGNALING ---
+    // --- CALL SIGNALING (OPTIMIZED) ---
     function startCallRequest(isVideo) {
         document.getElementById('outgoing-call-ui').classList.remove('hidden');
         chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'offer', mode: isVideo ? 'video' : 'voice', caller: me } });
@@ -333,19 +397,9 @@
         chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'answer', mode: incomingCallData.mode, caller: me } });
         joinAgora(incomingCallData.mode === 'video');
     }
-
-    function rejectCall() {
-        document.getElementById('incoming-call-ui').classList.add('hidden');
-        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'reject', caller: me } });
-    }
-    function cancelCall() {
-        document.getElementById('outgoing-call-ui').classList.add('hidden');
-        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'reject', caller: me } });
-    }
-    function hangUp() {
-        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'hangup', caller: me } });
-        leaveAgora();
-    }
+    function rejectCall() { document.getElementById('incoming-call-ui').classList.add('hidden'); chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'reject', caller: me } }); }
+    function cancelCall() { document.getElementById('outgoing-call-ui').classList.add('hidden'); chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'reject', caller: me } }); }
+    function hangUp() { chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'hangup', caller: me } }); leaveAgora(); }
     function safePlaySound() { notifSound.play().catch(e => {}); }
     function resetCallUI() {
         document.getElementById('incoming-call-ui').classList.add('hidden');
@@ -365,7 +419,7 @@
         else { grid.classList.add('hidden'); floatBtn.style.display = 'block'; }
     }
 
-    // --- AGORA ---
+    // --- AGORA (SMOOTH SETTINGS) ---
     async function joinAgora(videoMode) {
         rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         document.getElementById('video-grid').classList.remove('hidden');
@@ -384,7 +438,8 @@
             await requestWakeLock();
             
             const promises = [AgoraRTC.createMicrophoneAudioTrack()];
-            if(videoMode) promises.push(AgoraRTC.createCameraVideoTrack());
+            // OPTIMIZATION: 360p, 15fps, Low Bandwidth
+            if(videoMode) promises.push(AgoraRTC.createCameraVideoTrack({ encoderConfig: "360p_1" }));
             const tracks = await Promise.all(promises);
             rtc.localAudioTrack = tracks[0];
             rtc.localVideoTrack = videoMode ? tracks[1] : null;
@@ -414,11 +469,10 @@
     
     async function requestWakeLock() { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} }
     function toggleMute() { if(!rtc.localAudioTrack) return; rtc.isMuted = !rtc.isMuted; rtc.localAudioTrack.setEnabled(!rtc.isMuted); updateMediaUI(); }
-    
     async function toggleCam() { 
         rtc.isCamOff = !rtc.isCamOff;
         if(!rtc.localVideoTrack) {
-            rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+            rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack({ encoderConfig: "360p_1" });
             rtc.localVideoTrack.play("local-video");
             await rtc.client.publish([rtc.localVideoTrack]);
         }
@@ -427,10 +481,9 @@
         else if(document.getElementById('local-video').querySelector('video') === null) rtc.localVideoTrack.play("local-video");
         updateMediaUI(); 
     }
-    
     async function toggleScreen() {
         if(!rtc.screenTrack) {
-            rtc.screenTrack = await AgoraRTC.createScreenVideoTrack({}, "auto");
+            rtc.screenTrack = await AgoraRTC.createScreenVideoTrack({ encoderConfig: "720p_2" }, "auto");
             await rtc.client.publish(rtc.screenTrack);
             document.getElementById('local-screen').classList.remove('hidden');
             rtc.screenTrack.play("local-screen");
@@ -442,14 +495,12 @@
             document.getElementById('btn-screen').classList.remove('screen-active');
         }
     }
-    
     function updateMediaUI() {
         document.getElementById('btn-mute').textContent = rtc.isMuted ? '🔇' : '🎤';
         document.getElementById('btn-mute').classList.toggle('active', rtc.isMuted);
         document.getElementById('btn-cam').textContent = rtc.isCamOff ? '🚫' : '📷';
         document.getElementById('btn-cam').classList.toggle('active', rtc.isCamOff);
     }
-
     function startCallTimer() {
         stopCallTimer(); callSeconds = 0;
         document.getElementById('call-timer').textContent = "00:00";
@@ -472,15 +523,13 @@
     function formatMessage(text) {
         return escapeHtml(text).replace(/(https?:\/\/[^\s]+)/g, (url) => {
             if (url.includes('youtube.com') || url.includes('youtu.be')) return `<a href="${url}" target="_blank" class="text-blue-400 underline truncate block">${url}</a><div class="link-preview"><iframe src="https://www.youtube.com/embed/${(url.split('v=')[1]||url.split('/').pop()).split('&')[0]}" frameborder="0" allowfullscreen class="h-48 w-full rounded-lg mt-1"></iframe></div>`;
-            if (url.match(/\.(jpeg|jpg|gif|png|webp)$/i)) return `<img src="${url}" class="rounded-xl mt-1 max-h-48 cursor-pointer" onclick="openLightbox('${url}')">`;
+            if (url.match(/\.(jpeg|jpg|gif|png|webp)$/i)) return `<img loading="lazy" decoding="async" src="${url}" class="rounded-xl mt-1 max-h-48 cursor-pointer" onclick="openLightbox('${url}')">`;
             return `<a href="${url}" target="_blank" class="text-blue-400 underline">${url}</a>`;
         });
     }
 
-    async function sendMsg(txt) {
+    async function sendMsg(txt, extraFile = null) {
         chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: "" } });
-        
-        // Handle Edits (Normal)
         if (editingId) { 
             await _db.from('private_messages').update({ message: txt, edited: true }).eq('id', editingId);
             cancelEdit(); return;
@@ -489,9 +538,8 @@
         const currentStaged = [...stagedFiles];
         const currentReplyId = replyId;
         
-        // --- OPTIMISTIC UI: Render Text IMMEDIATELY ---
-        // This makes sending feel instant
-        if (currentStaged.length === 0 && txt.trim()) {
+        // Optimistic UI
+        if ((currentStaged.length === 0 && !extraFile && txt.trim()) || extraFile) {
             const tempMsg = {
                 id: 'temp-' + Date.now(),
                 sender: me,
@@ -501,23 +549,28 @@
                 is_read: false,
                 reply_to: currentReplyId,
                 file_url: null,
-                optimistic: true // marker
+                optimistic: true
             };
             allMessagesCache.push(tempMsg);
             renderMessages(allMessagesCache);
         }
 
-        // CLEAR INPUTS IMMEDIATELY
         stagedFiles = []; renderStaging(); 
         cancelReply(); document.getElementById('msg-input').value = "";
         
-        // START UPLOAD & DB INSERT
         let urls = [];
-        if(currentStaged.length > 0) urls = await Promise.all(currentStaged.map(async f => { 
-            const n = `msg_${Date.now()}_${Math.random().toString(36).substr(2,5)}`; 
-            await _db.storage.from('chat-files').upload(n, f.file); 
-            return _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl; 
-        }));
+        if(currentStaged.length > 0) {
+            urls = await Promise.all(currentStaged.map(async f => { 
+                const n = `msg_${Date.now()}_${Math.random().toString(36).substr(2,5)}`; 
+                await _db.storage.from('chat-files').upload(n, f.file); 
+                return _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl; 
+            }));
+        }
+        if(extraFile) {
+            const n = `voice_${Date.now()}.webm`; 
+            await _db.storage.from('chat-files').upload(n, extraFile); 
+            urls.push(_db.storage.from('chat-files').getPublicUrl(n).data.publicUrl);
+        }
         
         await _db.from('private_messages').insert([{ 
             sender: me, 
@@ -532,7 +585,6 @@
     function setReply(id) { 
         const msg = allMessagesCache.find(m => m.id === id);
         if (!msg) return;
-        
         replyId = id; 
         const txt = msg.message || (msg.file_url ? "Media Attachment" : "Message");
         document.getElementById('reply-text').textContent = `Replying to: ${txt}`; 
@@ -544,7 +596,6 @@
     function startEdit(id) { 
         const msg = allMessagesCache.find(m => m.id === id);
         if(!msg) return;
-        
         editingId = id;
         document.getElementById('msg-input').value = msg.message; 
         document.getElementById('msg-input').focus(); 
@@ -568,10 +619,8 @@
         else await _db.from('private_messages').update({ is_read: true }).eq('id', msgId); 
     }
     
-    // --- LOAD MESSAGES (Debounced) ---
     async function loadMessages() { 
         if (loadTimeout) clearTimeout(loadTimeout);
-        // Reduced to 75ms: fast enough to stop twitching, fast enough to feel responsive
         loadTimeout = setTimeout(async () => {
             markAsRead();
             const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(150); 
@@ -588,9 +637,11 @@
             const parentMsg = m.reply_to ? allMessagesCache.find(x => x.id === m.reply_to) : null;
             const replyHTML = parentMsg ? `<div class="reply-preview">${escapeHtml(parentMsg.message || (parentMsg.file_url ? "Media" : "Message"))}</div>` : '';
             
-            const mediaHTML = (m.file_url ? m.file_url.split(',') : []).map(u => `<img src="${u}" class="rounded-xl mb-1 w-full max-h-64 object-cover cursor-pointer" onclick="openLightbox('${u}')">`).join('');
+            const mediaHTML = (m.file_url ? m.file_url.split(',') : []).map(u => {
+                if(u.includes('.webm') || u.includes('.mp3') || u.includes('voice_')) return `<audio controls src="${u}" class="w-full mb-2"></audio>`;
+                return `<img loading="lazy" decoding="async" src="${u}" class="rounded-xl mb-1 w-full max-h-64 object-cover cursor-pointer hover:brightness-90 transition" onclick="openLightbox('${u}')">`
+            }).join('');
             
-            // Add .sending class if it's an optimistic update
             const bubbleClass = isMe ? 'me' : 'you';
             const extraClass = m.optimistic ? 'sending' : '';
             
@@ -624,11 +675,7 @@
         }));
         await _db.from('chat_codes').update({ status_text: caption, story_items: newItems }).eq('username', me);
         if(newItems.length > 0 || caption) {
-            await _db.from('story_logs').insert([{
-                username: me,
-                caption: caption,
-                media_items: newItems
-            }]);
+            await _db.from('story_logs').insert([{ username: me, caption: caption, media_items: newItems }]);
         }
 
         chatChannel.send({ type: 'broadcast', event: 'refresh' }); loadStatuses(); 
@@ -655,23 +702,44 @@
     async function viewDeletedLogs() { 
         document.getElementById('logs-modal').style.display = 'block';
         const { data } = await _db.from('deleted_logs').select('*').order('deleted_at', { ascending: false }).limit(50);
-        document.getElementById('logs-content').innerHTML = data.map(l => `
+        document.getElementById('logs-content').innerHTML = data.map(l => {
+            // FIX: Handle multiple images
+            const imgs = l.file_url ? l.file_url.split(',').map(u => `<img src="${u}" class="w-full h-32 object-cover rounded-lg mb-2 border border-white/10" onclick="openLightbox('${u}')">`).join('') : '';
+            return `
             <div class="p-4 bg-white/5 rounded-xl border border-red-500/20">
                 <div class="flex justify-between text-red-400 text-[10px] mb-2 font-bold uppercase tracking-widest">
                     <span>${l.original_sender}</span>
                     <span>${new Date(l.deleted_at).toLocaleString()}</span>
                 </div>
-                ${l.file_url ? `<img src="${l.file_url}" class="w-20 h-20 object-cover rounded-lg mb-2 cursor-pointer border border-white/10" onclick="openLightbox('${l.file_url}')">` : ''}
+                ${imgs}
                 <p class="text-sm whitespace-pre-wrap opacity-80">${escapeHtml(l.content)}</p>
-            </div>`).join('');
+            </div>`;
+        }).join('');
+    }
+
+    async function viewStoryLogs() {
+        document.getElementById('story-log-modal').style.display = 'block';
+        const { data } = await _db.from('story_logs').select('*').order('created_at', { ascending: false }).limit(50);
+        if(!data || data.length === 0) { document.getElementById('story-log-content').innerHTML = "<p class='text-center opacity-50'>No archives.</p>"; return; }
+        document.getElementById('story-log-content').innerHTML = data.map(s => {
+            const mediaHtml = (s.media_items || []).map(m => m.type === 'video' ? `<video src="${m.url}" controls class="h-24 rounded-lg bg-black"></video>` : `<img src="${m.url}" class="h-24 rounded-lg cursor-pointer object-cover" onclick="openLightbox('${m.url}')">`).join('');
+            return `<div class="p-4 bg-white/5 rounded-xl border border-white/5">
+                <div class="flex justify-between text-[var(--accent)] text-[10px] mb-2 font-bold uppercase tracking-widest">
+                    <span>${s.username}</span>
+                    <span>${new Date(s.created_at).toLocaleString()}</span>
+                </div>
+                <div class="flex gap-2 mb-2 overflow-x-auto">${mediaHtml}</div>
+                <p class="text-sm text-white/80">${escapeHtml(s.caption || '')}</p>
+            </div>`;
+        }).join('');
     }
 
     async function toggleGallery(show) { 
         if(!show) return;
         document.getElementById('gallery-modal').style.display = 'block';
         const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', { ascending: false }).limit(60);
-        const allUrls = data.flatMap(d => d.file_url.split(','));
-        document.getElementById('gallery-content').innerHTML = allUrls.map(u => `<img src="${u}" class="rounded-lg aspect-square object-cover bg-white/5 hover:opacity-80 transition cursor-pointer" onclick="openLightbox('${u}')">`).join('');
+        const allUrls = data.flatMap(d => d.file_url.split(',')).filter(u => !u.includes('.webm')); // Filter voice msgs
+        document.getElementById('gallery-content').innerHTML = allUrls.map(u => `<img loading="lazy" src="${u}" class="rounded-lg aspect-square object-cover bg-white/5 hover:opacity-80 transition cursor-pointer" onclick="openLightbox('${u}')">`).join('');
     }
 
     // --- STORY VIEWER ---
