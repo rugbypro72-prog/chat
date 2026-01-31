@@ -525,7 +525,7 @@
         if(isSleepMode) return; 
         safePlaySound();
         if(document.hidden && Notification.permission === "granted") {
-            new Notification(`${msg.sender} sent a message`, { body: msg.message || "Sent an attachment", icon: "https://cdn-icons-png.flaticon.com/512/1041/1041916.png" });
+            new Notification(`${msg.sender} sent a message`);
         }
     }
 
