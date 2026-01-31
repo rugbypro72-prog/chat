@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Us v19 (Pro)</title>
+    <title>Us v20 (Ultimate)</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
@@ -25,13 +25,9 @@
         [data-theme="love"] { --bg-color: #1a0508; --sidebar-bg: #29080c; --msg-me: #e11d48; --msg-you: #2d0e14; --accent: #fb7185; }
         [data-theme="forest"] { --bg-color: #051a08; --sidebar-bg: #09260e; --msg-me: #16a34a; --msg-you: #0e2e18; --accent: #4ade80; }
         [data-theme="lavender"] { --bg-color: #0f051a; --sidebar-bg: #1a092e; --msg-me: #7c3aed; --msg-you: #201036; --accent: #a78bfa; }
-        
-        /* NEW THEMES */
         [data-theme="sunset"] { --bg-color: #1a0b0b; --sidebar-bg: #2d1215; --msg-me: #ea580c; --msg-you: #291515; --accent: #fb923c; }
         [data-theme="ocean"] { --bg-color: #081b26; --sidebar-bg: #0c2b3b; --msg-me: #0891b2; --msg-you: #0e3745; --accent: #22d3ee; }
         [data-theme="retro"] { --bg-color: #1c1917; --sidebar-bg: #292524; --msg-me: #d97706; --msg-you: #292524; --accent: #fcd34d; }
-
-        /* CUSTOM THEME: Glassy look */
         [data-theme="custom"] { --bg-color: #000000; --sidebar-bg: rgba(0,0,0,0.8); --msg-me: rgba(59, 130, 246, 0.8); --msg-you: rgba(30, 41, 59, 0.7); --accent: #3b82f6; --glass: rgba(0, 0, 0, 0.4); }
 
         body { background: var(--bg-color); background-size: cover; background-position: center; background-attachment: fixed; color: var(--text-color);
@@ -57,9 +53,7 @@
         
         /* MEDIA HANDLING */
         .bubble img, .bubble video { border-radius: 12px; margin-bottom: 6px; width: 100%; max-height: 300px; object-fit: cover; background: rgba(0,0,0,0.2); }
-        
         .ts-inside { position: absolute; bottom: 6px; right: 12px; font-size: 9px; opacity: 0.7; font-weight: 600; display: flex; align-items: center; gap: 4px; }
-        
         .reply-preview { font-size: 11px; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 12px; border-left: 3px solid rgba(255,255,255,0.5); margin-bottom: 6px; opacity: 0.9; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
         .msg-tools { opacity: 0; transition: 0.2s; display: flex; gap: 12px; margin-top: 4px; padding: 0 8px; transform: scale(0.9); }
@@ -71,15 +65,23 @@
         @keyframes statusPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
         .modal-view { display: none; position: fixed; inset: 0; background: var(--bg-color); z-index: 2000; overflow-y: auto; padding: 25px; }
         
+        /* PIN LOCK & CANVAS */
+        #pin-overlay { display: none; position: fixed; inset: 0; background: var(--bg-color); z-index: 9999; align-items: center; justify-content: center; flex-direction: column; }
+        .pin-dot { width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--accent); margin: 0 5px; transition: 0.2s; }
+        .pin-dot.filled { background: var(--accent); }
+        .pin-key { width: 70px; height: 70px; border-radius: 50%; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; margin: 10px; cursor: pointer; transition: 0.2s; }
+        .pin-key:active { background: var(--accent); color: white; }
+        
+        #whiteboard-modal { display: none; position: fixed; inset: 0; background: #000; z-index: 4000; flex-direction: column; }
+        #canvas-container { flex: 1; position: relative; overflow: hidden; touch-action: none; background: #fff; }
+
         /* UI ELEMENTS */
         .glass-panel { background: var(--glass); backdrop-filter: blur(20px); border-top: 1px solid var(--border); }
         .input-pill { background: rgba(255,255,255,0.05); border: 1px solid var(--border); transition: 0.3s; }
         .input-pill:focus-within { background: rgba(255,255,255,0.1); border-color: var(--accent); }
-
-        /* SIDEBAR */
         #sidebar { background: var(--sidebar-bg); border-right: 1px solid var(--border); }
 
-        /* CALL UI - OPTIMIZED */
+        /* CALL UI */
         .call-btn { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; transition: 0.2s; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
         .call-btn:active { transform: scale(0.95); }
         .call-btn.active { background: #ef4444; color: white; } 
@@ -88,18 +90,49 @@
         #video-grid { transition: opacity 0.3s ease; }
         #remote-video video { object-fit: contain !important; } 
         .video-cover video { object-fit: cover !important; }
-
-        /* RECORDING UI */
         .recording-pulse { animation: pulseRed 1s infinite; color: #ef4444 !important; }
         @keyframes pulseRed { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
-        /* THEME CIRCLES */
+        /* TOGGLE SWITCH */
+        .switch { position: relative; display: inline-block; width: 40px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(16px); }
+
         .theme-dot { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: 0.2s; position: relative; }
         .theme-dot.selected { border-color: white; transform: scale(1.1); }
         .theme-dot-custom { background: linear-gradient(45deg, #333, #999); display: flex; align-items: center; justify-content: center; font-size: 8px; color: white; font-weight: bold; }
     </style>
 </head>
 <body data-theme="midnight">
+
+<div id="pin-overlay">
+    <div class="mb-8 text-center">
+        <h2 class="text-2xl font-bold mb-2">Enter PIN</h2>
+        <div class="flex justify-center mt-4" id="pin-dots">
+            <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+        </div>
+    </div>
+    <div class="grid grid-cols-3 gap-4" id="numpad">
+        </div>
+</div>
+
+<div id="whiteboard-modal">
+    <div class="p-2 flex justify-between items-center bg-gray-900">
+        <div class="flex gap-2">
+            <button onclick="setBrushColor('#000000')" class="w-8 h-8 rounded-full bg-black border border-white/20"></button>
+            <button onclick="setBrushColor('#ef4444')" class="w-8 h-8 rounded-full bg-red-500"></button>
+            <button onclick="setBrushColor('#3b82f6')" class="w-8 h-8 rounded-full bg-blue-500"></button>
+            <button onclick="clearCanvas()" class="text-xs uppercase font-bold text-red-500 ml-2">Clear</button>
+        </div>
+        <button onclick="closeWhiteboard()" class="text-white font-bold px-4">Done</button>
+    </div>
+    <div id="canvas-container">
+        <canvas id="drawing-canvas"></canvas>
+    </div>
+</div>
 
 <div id="story-overlay" style="display:none; position: fixed; inset: 0; background: black; z-index: 6000; align-items: center; justify-content: center; flex-direction: column;">
     <div id="story-prev" class="story-nav-btn absolute left-0 top-1/2 -translate-y-1/2 p-6 text-4xl opacity-50 hover:opacity-100 cursor-pointer z-[6010]" onclick="navStory(-1)">‹</div>
@@ -149,7 +182,7 @@
     <div class="absolute bottom-10 left-0 right-0 flex justify-center items-center gap-4 z-[3002] px-4">
         <button id="btn-mute" onclick="toggleMute()" class="call-btn">🎤</button>
         <button id="btn-cam" onclick="toggleCam()" class="call-btn">📷</button>
-        <button id="btn-screen" onclick="toggleScreen()" class="call-btn">📺</button>
+        <button id="btn-draw" onclick="openWhiteboard()" class="call-btn bg-purple-500/20 text-purple-400">✏️</button>
         <button id="btn-chat" onclick="toggleCallView()" class="call-btn bg-white/10">💬</button>
         <button onclick="hangUp()" class="call-btn !bg-red-600 hover:!bg-red-700">📞</button>
     </div>
@@ -169,7 +202,10 @@
             <button onclick="openSidebar()" class="text-2xl opacity-80 hover:opacity-100 transition">☰</button>
             <div onclick="handleStatusClick()" class="cursor-pointer">
                 <div class="font-bold text-lg leading-none tracking-tight" id="partner-name">...</div>
-                <div id="partner-status" class="text-[11px] opacity-60 mt-0.5 font-medium">No status</div>
+                <div class="flex items-center gap-2">
+                    <div id="partner-status" class="text-[11px] opacity-60 mt-0.5 font-medium">No status</div>
+                    <div id="time-display" class="text-[10px] bg-white/10 px-2 rounded text-blue-300">--:--</div>
+                </div>
                 <div id="live-preview" class="text-[10px] text-[var(--accent)] italic h-3 transition-all"></div>
             </div>
         </div>
@@ -202,15 +238,32 @@
     </footer>
 </div>
 
-<div id="sidebar" class="fixed left-[-300px] top-0 bottom-0 w-[280px] z-[1000] p-6 flex flex-col transition-all duration-300 backdrop-blur-md">
+<div id="sidebar" class="fixed left-[-300px] top-0 bottom-0 w-[280px] z-[1000] p-6 flex flex-col transition-all duration-300 backdrop-blur-md overflow-y-auto">
     <div class="bg-gradient-to-br from-pink-500/20 to-purple-500/20 border border-white/5 rounded-3xl p-6 mb-6 text-center shadow-lg">
         <p class="text-[10px] font-bold text-pink-400 uppercase tracking-widest mb-1">Days Together</p>
         <h1 id="days-counter" class="text-4xl font-black text-pink-300 drop-shadow-md">0</h1>
     </div>
 
+    <div class="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-white/5 rounded-3xl p-4 mb-6 text-center shadow-lg">
+        <p class="text-[9px] font-bold text-cyan-300 uppercase tracking-widest mb-1">Daily Question</p>
+        <p id="daily-prompt" class="text-sm italic opacity-90">...</p>
+    </div>
+
     <h2 id="me-name" class="text-center text-xl font-bold mb-6 opacity-90">...</h2>
     
-    <div class="flex-1 space-y-4 overflow-y-auto no-scrollbar">
+    <div class="flex-1 space-y-4">
+        <div class="bg-white/5 p-4 rounded-2xl space-y-3 border border-white/5">
+             <p class="text-[10px] font-bold opacity-40 uppercase tracking-widest">Settings</p>
+             <div class="flex items-center justify-between">
+                 <span class="text-xs">Sleep Mode</span>
+                 <label class="switch"><input type="checkbox" id="sleep-toggle" onchange="toggleSleepMode()"><span class="slider"></span></label>
+             </div>
+             <div class="flex items-center justify-between">
+                 <span class="text-xs">Pin Lock</span>
+                 <label class="switch"><input type="checkbox" id="pin-toggle" onchange="togglePinSetting()"><span class="slider"></span></label>
+             </div>
+        </div>
+
         <div class="bg-white/5 p-4 rounded-2xl space-y-3 border border-white/5">
             <p class="text-[10px] font-bold opacity-40 uppercase tracking-widest">My Status</p>
             <input id="status-txt-input" placeholder="What's up?" class="w-full bg-black/40 p-3 rounded-xl text-xs outline-none border border-white/5 focus:border-[var(--accent)] transition">
@@ -230,12 +283,10 @@
                 <div onclick="setTheme('love')" class="theme-dot bg-red-900" title="Love"></div>
                 <div onclick="setTheme('forest')" class="theme-dot bg-green-900" title="Forest"></div>
                 <div onclick="setTheme('lavender')" class="theme-dot bg-purple-900" title="Lavender"></div>
-                
                 <div onclick="setTheme('sunset')" class="theme-dot bg-orange-700" title="Sunset"></div>
                 <div onclick="setTheme('ocean')" class="theme-dot bg-cyan-900" title="Ocean"></div>
                 <div onclick="setTheme('retro')" class="theme-dot bg-amber-900" title="Retro"></div>
-                
-                <label class="theme-dot theme-dot-custom cursor-pointer" title="Custom Image from Gallery">
+                <label class="theme-dot theme-dot-custom cursor-pointer" title="Custom Image">
                     IMG <input type="file" id="theme-file-input" class="hidden" accept="image/*" onchange="uploadCustomTheme(this)">
                 </label>
             </div>
@@ -268,15 +319,27 @@
     let storyItems = [], storyIndex = 0;
     let loadTimeout = null;
     let mediaRecorder = null, audioChunks = [];
+    let isSleepMode = false;
+    let pinCode = "", enteredPin = "";
+    
+    // DRAWING
+    let canvas, ctx, isDrawing = false, lastX = 0, lastY = 0;
+    let drawingThrottle = null;
 
     const notifSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
     notifSound.volume = 0.05;
-    // AGORA
     const AGORA_APP_ID = "4f6c6c2002784152a8366dec12f1b4c0";
     let rtc = { client: null, localVideoTrack: null, localAudioTrack: null, screenTrack: null, isMuted: false, isCamOff: false };
     let incomingCallData = null, callTimerInterval = null, callSeconds = 0, wakeLock = null;
 
     async function init() {
+        // PIN LOCK CHECK
+        if(localStorage.getItem('pin_enabled') === 'true') {
+            document.getElementById('pin-overlay').style.display = 'flex';
+            generateNumpad();
+            document.getElementById('pin-toggle').checked = true;
+        }
+
         const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
         const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
         if(!data) return;
@@ -287,7 +350,6 @@
         document.getElementById('me-name').textContent = me;
         if(me === 'RJ') document.getElementById('rj-suite').classList.remove('hidden');
         
-        // Load custom background if exists
         const savedBg = localStorage.getItem('custom_bg');
         if(savedBg) {
              document.body.style.backgroundImage = `url('${savedBg}')`;
@@ -296,19 +358,32 @@
              applyTheme(data.current_theme);
         }
 
+        // DAILY PROMPT
+        const prompts = ["Favorite memory together?", "Dream vacation spot?", "One thing you love about me?", "Song that reminds you of us?", "Ideal date night?", "Funniest moment we had?", "First impression of me?"];
+        const dayIndex = new Date().getDay(); // 0-6
+        document.getElementById('daily-prompt').textContent = prompts[dayIndex];
+
         chatChannel = _db.channel('chat-ultra');
         chatChannel
             .on('broadcast', { event: 'admin' }, p => handleInteraction(p.payload))
             .on('broadcast', { event: 'refresh' }, () => { loadMessages(); loadStatuses(); })
             .on('broadcast', { event: 'theme_change' }, p => applyTheme(p.payload.theme))
+            .on('broadcast', { event: 'draw_event' }, p => drawOnCanvas(p.payload, false))
             .on('broadcast', { event: 'typing' }, p => {
                 const el = document.getElementById('live-preview');
                 el.textContent = p.payload.text ? (me === 'RJ' ? `Typing: ${p.payload.text}` : `${you} is typing...`) : "";
                 el.style.opacity = p.payload.text ? 1 : 0;
+                // SYNC TIME
+                if(p.payload.localTime) {
+                    document.getElementById('time-display').textContent = p.payload.localTime;
+                }
             })
             .on('broadcast', { event: 'call-signal' }, p => handleCallSignal(p.payload))
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
-                if(p.new.receiver === me) { safePlaySound(); markAsRead(p.new.id); }
+                if(p.new.receiver === me) { 
+                    handleIncomingMessage(p.new);
+                    markAsRead(p.new.id); 
+                }
                 loadMessages();
             })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'private_messages' }, () => loadMessages())
@@ -316,9 +391,112 @@
         loadMessages(); loadStatuses();
         updateDaysCounter();
         
-        document.addEventListener('visibilitychange', async () => {
-            if (wakeLock !== null && document.visibilityState === 'visible') await requestWakeLock();
+        // REQUEST NOTIFICATION PERM
+        if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+            document.body.addEventListener('click', () => Notification.requestPermission(), { once: true });
+        }
+
+        // HEARTBEAT FOR TIME SYNC
+        setInterval(() => {
+             chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: document.getElementById('msg-input').value, localTime: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) } });
+        }, 30000);
+    }
+
+    // --- PIN LOCK ---
+    function generateNumpad() {
+        const p = document.getElementById('numpad'); p.innerHTML = '';
+        [1,2,3,4,5,6,7,8,9,0].forEach(n => {
+            const b = document.createElement('div'); b.className = 'pin-key'; b.innerText = n;
+            b.onclick = () => handlePinInput(n); p.appendChild(b);
         });
+    }
+    function handlePinInput(n) {
+        enteredPin += n;
+        const dots = document.querySelectorAll('.pin-dot');
+        if(enteredPin.length <= 4) dots[enteredPin.length-1].classList.add('filled');
+        if(enteredPin.length === 4) {
+            if(enteredPin === "1124") { // DEFAULT PIN
+                document.getElementById('pin-overlay').style.display = 'none';
+                enteredPin = ""; dots.forEach(d => d.classList.remove('filled'));
+            } else {
+                alert("Wrong PIN"); enteredPin = ""; dots.forEach(d => d.classList.remove('filled'));
+            }
+        }
+    }
+    function togglePinSetting() {
+        const isOn = document.getElementById('pin-toggle').checked;
+        localStorage.setItem('pin_enabled', isOn);
+    }
+
+    // --- SLEEP MODE ---
+    function toggleSleepMode() {
+        isSleepMode = document.getElementById('sleep-toggle').checked;
+    }
+    function handleIncomingMessage(msg) {
+        if(isSleepMode) return; // Silent
+        safePlaySound();
+        // PUSH NOTIFICATION
+        if(document.hidden && Notification.permission === "granted") {
+            new Notification(`${msg.sender} sent a message`, { body: msg.message || "Sent an attachment", icon: "https://cdn-icons-png.flaticon.com/512/1041/1041916.png" });
+        }
+    }
+
+    // --- WHITEBOARD (REAL TIME) ---
+    function openWhiteboard() {
+        document.getElementById('whiteboard-modal').style.display = 'flex';
+        canvas = document.getElementById('drawing-canvas');
+        ctx = canvas.getContext('2d');
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('touchstart', (e) => startDrawing(e.touches[0]));
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e.touches[0]); });
+        canvas.addEventListener('touchend', stopDrawing);
+    }
+    function closeWhiteboard() { document.getElementById('whiteboard-modal').style.display = 'none'; }
+    function resizeCanvas() { canvas.width = canvas.parentElement.clientWidth; canvas.height = canvas.parentElement.clientHeight; }
+    function startDrawing(e) { isDrawing = true; [lastX, lastY] = [e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop]; }
+    function draw(e) {
+        if(!isDrawing) return;
+        const x = e.clientX - canvas.offsetLeft;
+        const y = e.clientY - canvas.offsetTop;
+        drawOnCanvas({ x0: lastX, y0: lastY, x1: x, y1: y, color: ctx.strokeStyle }, true);
+        [lastX, lastY] = [x, y];
+    }
+    function stopDrawing() { isDrawing = false; }
+    function setBrushColor(c) { ctx.strokeStyle = c; ctx.lineWidth = 3; ctx.lineCap = 'round'; }
+    function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+    
+    function drawOnCanvas(d, emit) {
+        if(!ctx) return;
+        ctx.beginPath(); ctx.moveTo(d.x0, d.y0); ctx.lineTo(d.x1, d.y1); ctx.strokeStyle = d.color; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke();
+        if(emit) {
+            if(!drawingThrottle) {
+                chatChannel.send({ type: 'broadcast', event: 'draw_event', payload: d });
+                drawingThrottle = setTimeout(() => drawingThrottle = null, 20); // Throttle 20ms
+            }
+        }
+    }
+
+    // --- CORE CHAT (FASTER DELETE) ---
+    async function deleteMsg(id) { 
+        if(!confirm("Delete for everyone?")) return;
+        
+        // 1. INSTANT UI UPDATE (The "Faster" part)
+        // Find element by onclick attribute containing the ID
+        const btn = document.querySelector(`span[onclick="deleteMsg('${id}')"]`);
+        if(btn) {
+            const row = btn.closest('.msg-wrap');
+            if(row) row.style.display = 'none'; // Poof! Gone instantly.
+        }
+
+        // 2. BACKGROUND PROCESS
+        const msg = allMessagesCache.find(m => m.id === id); 
+        if(msg) await _db.from('deleted_logs').insert([{ original_sender: msg.sender, content: msg.message, file_url: msg.file_url, deleted_at: new Date() }]);
+        await _db.from('private_messages').delete().eq('id', id); 
     }
 
     // --- VOICE MESSAGES ---
@@ -332,7 +510,7 @@
                 mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
                 mediaRecorder.onstop = async () => {
                     const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                    sendMsg("Voice Message", blob); // Send Blob
+                    sendMsg("Voice Message", blob); 
                     btn.classList.remove('recording-pulse');
                     btn.textContent = '🎙️';
                 };
@@ -350,17 +528,13 @@
         if(input.files && input.files[0]) {
             const file = input.files[0];
             const fileName = `bg_${Date.now()}_${Math.random().toString(36).substr(2,5)}`;
-            // Upload to Chat Files (using existing bucket)
             const { data, error } = await _db.storage.from('chat-files').upload(fileName, file);
-            
             if(error) { alert("Upload failed"); return; }
-            
             const url = _db.storage.from('chat-files').getPublicUrl(fileName).data.publicUrl;
-            
             localStorage.setItem('custom_bg', url);
             document.body.style.backgroundImage = `url('${url}')`;
             setTheme('custom');
-            input.value = ""; // reset
+            input.value = ""; 
         }
     }
 
@@ -382,7 +556,7 @@
         if(themeName === 'custom') document.querySelector('.theme-dot-custom').classList.add('selected');
     }
 
-    // --- CALL SIGNALING (OPTIMIZED) ---
+    // --- CALL SIGNALING ---
     function startCallRequest(isVideo) {
         document.getElementById('outgoing-call-ui').classList.remove('hidden');
         chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'offer', mode: isVideo ? 'video' : 'voice', caller: me } });
@@ -399,7 +573,7 @@
             document.getElementById('incoming-call-ui').classList.remove('hidden');
             document.getElementById('caller-id-disp').textContent = payload.caller;
             document.getElementById('call-type-disp').textContent = payload.mode + " Call";
-            safePlaySound();
+            if(!isSleepMode) safePlaySound();
         }
         else if(payload.type === 'answer') {
             document.getElementById('outgoing-call-ui').classList.add('hidden');
@@ -441,7 +615,7 @@
         else { grid.classList.add('hidden'); floatBtn.style.display = 'block'; }
     }
 
-    // --- AGORA (SMOOTH SETTINGS) ---
+    // --- AGORA ---
     async function joinAgora(videoMode) {
         rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
         document.getElementById('video-grid').classList.remove('hidden');
@@ -500,20 +674,6 @@
         if (rtc.isCamOff) document.getElementById('local-video').innerHTML = '<div class="w-full h-full flex items-center justify-center text-3xl">🎙️</div>';
         else if(document.getElementById('local-video').querySelector('video') === null) rtc.localVideoTrack.play("local-video");
         updateMediaUI();
-    }
-    async function toggleScreen() {
-        if(!rtc.screenTrack) {
-            rtc.screenTrack = await AgoraRTC.createScreenVideoTrack({ encoderConfig: "720p_2" }, "auto");
-            await rtc.client.publish(rtc.screenTrack);
-            document.getElementById('local-screen').classList.remove('hidden');
-            rtc.screenTrack.play("local-screen");
-            document.getElementById('btn-screen').classList.add('screen-active');
-        } else {
-            await rtc.client.unpublish(rtc.screenTrack);
-            rtc.screenTrack.close(); rtc.screenTrack = null;
-            document.getElementById('local-screen').classList.add('hidden');
-            document.getElementById('btn-screen').classList.remove('screen-active');
-        }
     }
     function updateMediaUI() {
         document.getElementById('btn-mute').textContent = rtc.isMuted ? '🔇' : '🎤';
@@ -627,13 +787,6 @@
     function cancelEdit() { editingId = null; document.getElementById('msg-input').value = ""; document.getElementById('edit-box').classList.add('hidden');
         document.getElementById('send-btn').textContent = "Send"; }
     function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
-    
-    async function deleteMsg(id) { 
-        if(!confirm("Delete?")) return;
-        const msg = allMessagesCache.find(m => m.id === id); 
-        if(msg) await _db.from('deleted_logs').insert([{ original_sender: msg.sender, content: msg.message, file_url: msg.file_url, deleted_at: new Date() }]);
-        await _db.from('private_messages').delete().eq('id', id); 
-    }
     
     async function markAsRead(msgId) { 
         if(!msgId) await _db.from('private_messages').update({ is_read: true }).eq('receiver', me).eq('is_read', false);
