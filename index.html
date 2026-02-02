@@ -30,9 +30,7 @@
         [data-theme="retro"] { --bg-color: #1c1917; --sidebar-bg: #292524; --msg-me: #d97706; --msg-you: #292524; --accent: #fcd34d; }
         [data-theme="custom"] { --bg-color: #000000; --sidebar-bg: rgba(0,0,0,0.8); --msg-me: rgba(59, 130, 246, 0.8); --msg-you: rgba(30, 41, 59, 0.7); --accent: #3b82f6; --glass: rgba(0, 0, 0, 0.4); }
 
-        body { background: var(--bg-color); background-size: cover; background-position: center; background-attachment: fixed; color: var(--text-color);
-            font-family: 'Outfit', sans-serif; height: 100vh; overflow: hidden; margin: 0; transition: background-color 0.5s ease;
-        }
+        body { background: var(--bg-color); background-size: cover; background-position: center; background-attachment: fixed; color: var(--text-color); font-family: 'Outfit', sans-serif; height: 100vh; overflow: hidden; margin: 0; transition: background-color 0.5s ease; }
         
         #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; position: relative; z-index: 10; background: radial-gradient(circle at top, rgba(255,255,255,0.03), transparent 70%); backdrop-filter: blur(0px); }
         [data-theme="custom"] #chat-main { backdrop-filter: blur(5px); }
@@ -116,8 +114,7 @@
             <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
         </div>
     </div>
-    <div class="grid grid-cols-3 gap-4" id="numpad">
-        </div>
+    <div class="grid grid-cols-3 gap-4" id="numpad"></div>
     <button id="cancel-pin-setup" onclick="cancelPinSetup()" class="hidden mt-8 text-sm text-red-400 font-bold">CANCEL</button>
 </div>
 
@@ -333,7 +330,6 @@
     let isSleepMode = false;
     // PIN STATES: 'unlock' (normal), 'setup' (creating new), 'admin' (rj changing allyvia)
     let pinCode = null, enteredPin = "", pinMode = "unlock";
-    
     // DRAWING
     let canvas, ctx, isDrawing = false, lastX = 0, lastY = 0;
     let drawingThrottle = null;
@@ -352,8 +348,6 @@
         me = data.username;
         you = (me === 'RJ' ? 'Allyvia' : 'RJ');
         
-        // --- NEW PIN LOGIC ---
-        // We now trust the DB. If pin_code is in DB, we lock the screen.
         if(data.pin_code) {
             pinCode = data.pin_code;
             showPinScreen("unlock");
@@ -365,7 +359,7 @@
         localStorage.setItem('chat_secret_code', code);
         document.getElementById('me-name').textContent = me;
         if(me === 'RJ') document.getElementById('rj-suite').classList.remove('hidden');
-        
+
         const savedBg = localStorage.getItem('custom_bg');
         if(savedBg) {
              document.body.style.backgroundImage = `url('${savedBg}')`;
@@ -397,6 +391,7 @@
             })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'private_messages' }, () => loadMessages())
             .subscribe();
+            
         loadMessages(); loadStatuses();
         updateDaysCounter();
         
@@ -407,6 +402,15 @@
         setInterval(() => {
              chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: document.getElementById('msg-input').value, localTime: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) } });
         }, 30000);
+
+        // --- MOBILE AWAKE FIX ---
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === 'visible') {
+                loadMessages();
+                loadStatuses();
+                chatChannel.subscribe();
+            }
+        });
     }
 
     // --- PIN SYSTEM ---
@@ -438,7 +442,8 @@
     }
 
     function generateNumpad() {
-        const p = document.getElementById('numpad'); p.innerHTML = '';
+        const p = document.getElementById('numpad');
+        p.innerHTML = '';
         [1,2,3,4,5,6,7,8,9,0].forEach(n => {
             const b = document.createElement('div'); b.className = 'pin-key'; b.innerText = n;
             b.onclick = () => handlePinInput(n); p.appendChild(b);
@@ -469,7 +474,7 @@
                     alert("PIN Setup Complete!");
                 }
                 else if (pinMode === 'admin') {
-                    // RJ changing Allyvia's PIN
+                     // RJ changing Allyvia's PIN
                     await _db.from('chat_codes').update({ pin_code: enteredPin }).eq('username', 'Allyvia');
                     document.getElementById('pin-overlay').style.display = 'none';
                     alert("Allyvia's PIN has been updated.");
@@ -489,16 +494,14 @@
     function togglePinSetting() {
         const isOn = document.getElementById('pin-toggle').checked;
         if(isOn) {
-            // Turning ON -> Setup Mode
             showPinScreen('setup');
         } else {
-            // Turning OFF -> Disable in DB
             if(confirm("Disable PIN lock?")) {
                 _db.from('chat_codes').update({ pin_code: null }).eq('username', me).then(() => {
                      pinCode = null;
                 });
             } else {
-                document.getElementById('pin-toggle').checked = true; // Revert switch
+                document.getElementById('pin-toggle').checked = true;
             }
         }
     }
@@ -574,9 +577,9 @@
         if(!confirm("Delete for everyone?")) return;
         const btn = document.querySelector(`span[onclick="deleteMsg('${id}')"]`);
         if(btn) { const row = btn.closest('.msg-wrap'); if(row) row.style.display = 'none'; }
-        const msg = allMessagesCache.find(m => m.id === id); 
+        const msg = allMessagesCache.find(m => m.id === id);
         if(msg) await _db.from('deleted_logs').insert([{ original_sender: msg.sender, content: msg.message, file_url: msg.file_url, deleted_at: new Date() }]);
-        await _db.from('private_messages').delete().eq('id', id); 
+        await _db.from('private_messages').delete().eq('id', id);
     }
 
     // --- VOICE MESSAGES ---
@@ -840,6 +843,9 @@
             reply_to: currentReplyId, 
             is_read: false 
         }]);
+        
+        // --- FORCE REFRESH FIX ---
+        loadMessages();
     }
 
     function setReply(id) { 
@@ -864,8 +870,7 @@
         cancelReply();
     }
     
-    function cancelEdit() { editingId = null; document.getElementById('msg-input').value = ""; document.getElementById('edit-box').classList.add('hidden');
-        document.getElementById('send-btn').textContent = "Send"; }
+    function cancelEdit() { editingId = null; document.getElementById('msg-input').value = ""; document.getElementById('edit-box').classList.add('hidden'); document.getElementById('send-btn').textContent = "Send"; }
     function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
     
     async function markAsRead(msgId) { 
@@ -911,7 +916,10 @@
                 </div>
             </div>`;
         }).join('');
-        const c = document.getElementById('messages'); c.scrollTop = c.scrollHeight;
+        
+        const c = document.getElementById('messages'); 
+        // --- MOBILE SCROLL FIX ---
+        setTimeout(() => { c.scrollTop = c.scrollHeight; }, 100);
     }
 
     // --- STATUS & STORY LOGS ---
@@ -996,8 +1004,7 @@
     }
 
     // --- STORY VIEWER ---
-    function handleStatusClick() { if(!partnerStatusData?.story_items?.length) return; storyItems = partnerStatusData.story_items;
-        storyIndex = 0; renderStoryItem(); document.getElementById('story-overlay').style.display = 'flex'; }
+    function handleStatusClick() { if(!partnerStatusData?.story_items?.length) return; storyItems = partnerStatusData.story_items; storyIndex = 0; renderStoryItem(); document.getElementById('story-overlay').style.display = 'flex'; }
     function renderStoryItem() { 
         const c = document.getElementById('story-media-container');
         const i = storyItems[storyIndex]; if(!i) return; 
@@ -1039,8 +1046,7 @@
     function closeSidebar() { document.getElementById('sidebar').style.left = '-300px'; document.getElementById('overlay-bg').classList.add('hidden'); }
     function openLightbox(u) { document.getElementById('lightbox-img').src = u; document.getElementById('lightbox').style.display = 'flex'; }
     
-    document.getElementById('chat-form').onsubmit = e => { e.preventDefault(); const v = document.getElementById('msg-input').value;
-        if(v.trim() || stagedFiles.length) sendMsg(v); };
+    document.getElementById('chat-form').onsubmit = e => { e.preventDefault(); const v = document.getElementById('msg-input').value; if(v.trim() || stagedFiles.length) sendMsg(v); };
     document.getElementById('msg-input').oninput = e => chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: e.target.value } });
     const style = document.createElement('style');
     style.innerHTML = `@keyframes floatUp { to { transform: translateY(-110vh) rotate(20deg); opacity: 0; } }`;
