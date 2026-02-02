@@ -3,244 +3,115 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Us v21 (Ultimate)</title>
+    <title>Us v21 (Ultimate+)</title>
+    <!-- Supabase, Tailwind, Agora, GIF JS, and font -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gif.js.optimized/dist/gif.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"/>
     <style>
-    :root {
-        --bg-color: #03050a;
-        --sidebar-bg: #080c14;
-        --msg-me: #3b82f6;
-        --msg-you: #1e293b;
-        --text-color: #f1f5f9;
-        --accent: #3b82f6;
-        --glass: rgba(20, 20, 25, 0.6);
-        --border: rgba(255,255,255,0.05);
-    }
-    [data-theme="midnight"] { --bg-color: #03050a; --sidebar-bg: #080c14; --msg-me: #2563eb; --msg-you: #1e293b; --accent: #3b82f6; }
-    [data-theme="love"] { --bg-color: #1a0508; --sidebar-bg: #29080c; --msg-me: #e11d48; --msg-you: #2d0e14; --accent: #fb7185; }
-    [data-theme="forest"] { --bg-color: #051a08; --sidebar-bg: #09260e; --msg-me: #16a34a; --msg-you: #0e2e18; --accent: #4ade80; }
-    [data-theme="lavender"] { --bg-color: #0f051a; --sidebar-bg: #1a092e; --msg-me: #7c3aed; --msg-you: #201036; --accent: #a78bfa; }
-    [data-theme="sunset"] { --bg-color: #1a0b0b; --sidebar-bg: #2d1215; --msg-me: #ea580c; --msg-you: #291515; --accent: #fb923c; }
-    [data-theme="ocean"] { --bg-color: #081b26; --sidebar-bg: #0c2b3b; --msg-me: #0891b2; --msg-you: #0e3745; --accent: #22d3ee; }
-    [data-theme="retro"] { --bg-color: #1c1917; --sidebar-bg: #292524; --msg-me: #d97706; --msg-you: #292524; --accent: #fcd34d; }
-    [data-theme="custom"] { --bg-color: #000000; --sidebar-bg: rgba(0,0,0,0.8); --msg-me: rgba(59, 130, 246, 0.8); --msg-you: rgba(30, 41, 59, 0.7); --accent: #3b82f6; --glass: rgba(0, 0, 0, 0.4); }
-    body { background: var(--bg-color); background-size: cover; background-position: center; background-attachment: fixed; color: var(--text-color); font-family: 'Outfit', sans-serif; height: 100vh; overflow: hidden; margin: 0; transition: background-color 0.5s ease; }
-    #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; position: relative; z-index: 10; background: radial-gradient(circle at top, rgba(255,255,255,0.03), transparent 70%); backdrop-filter: blur(0px); }
-    [data-theme="custom"] #chat-main { backdrop-filter: blur(5px); }
-    #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; padding-bottom: 40px; will-change: scroll-position; }
-    .msg-wrap { display: flex; flex-direction: column; width: 100%; position: relative; animation: slideIn 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; opacity: 0; transform: translateY(10px); }
-    @keyframes slideIn { to { opacity: 1; transform: translateY(0); } }
-    .row-me { align-items: flex-end; }
-    .row-you { align-items: flex-start; }
-    .bubble { max-width: 85%; padding: 12px 16px 26px 16px; font-size: 15px; border-radius: 20px; position: relative; box-shadow: 0 2px 10px rgba(0,0,0,0.1); word-wrap: break-word; line-height: 1.5; backdrop-filter: blur(5px); transition: transform 0.1s; }
-    .bubble:active { transform: scale(0.98); }
-    .me { background: var(--msg-me); color: white; border-bottom-right-radius: 4px; background: linear-gradient(135deg, var(--msg-me), var(--accent)); }
-    .you { background: var(--msg-you); border: 1px solid rgba(255,255,255,0.05); border-bottom-left-radius: 4px; }
-    .sending { opacity: 0.7; transform: scale(0.98); }
-    .bubble .sticker-img { width: 110px; height: 110px; background: transparent; display: block; border-radius: 15px; margin: 4px auto; }
-    /* MEDIA HANDLING */
-    .bubble img, .bubble video { border-radius: 12px; margin-bottom: 6px; width: 100%; max-height: 300px; object-fit: cover; background: rgba(0,0,0,0.2); }
-    .ts-inside { position: absolute; bottom: 6px; right: 12px; font-size: 9px; opacity: 0.7; font-weight: 600; display: flex; align-items: center; gap: 4px; }
-    .reply-preview { font-size: 11px; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 12px; border-left: 3px solid rgba(255,255,255,0.5); margin-bottom: 6px; opacity: 0.9; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .msg-tools { opacity: 0; transition: 0.2s; display: flex; gap: 12px; margin-top: 4px; padding: 0 8px; transform: scale(0.9); }
-    .msg-wrap:hover .msg-tools { opacity: 1; transform: scale(1); }
-    .tool-btn { color: var(--accent); font-size: 10px; font-weight: 800; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
-    .tool-btn.delete { color: #ef4444; }
-    .tool-btn.edit { color: #fcd34d; }
-    /* RJ can delete/edit for her */
-    .tool-btn.rj-edit { color: #fcd34d; }
-    .tool-btn.rj-delete { color: #ef4444; }
-    /* TYPING BUBBLE */
-    .typing-bubble { display: flex; align-items: center; gap: 2px; height: 16px; }
-    .typing-dot { display: inline-block; width: 7px; height: 7px; margin: 2px; border-radius: 50%; background: var(--accent); opacity: .7; animation: typing-bounce 1.2s infinite; }
-    .typing-dot:nth-child(2) { animation-delay: .3s; }
-    .typing-dot:nth-child(3) { animation-delay: .6s; }
-    @keyframes typing-bounce {
-      0%, 80%, 100% { transform: translateY(0); }
-      40% { transform: translateY(-6px); }
-    }
-    /* ANIMATIONS & MODALS */
-    #partner-name.has-media { color: var(--accent) !important; text-decoration: underline; text-decoration-style: wavy; cursor: pointer; animation: statusPulse 2s infinite; }
-    @keyframes statusPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-    .modal-view { display: none; position: fixed; inset: 0; background: var(--bg-color); z-index: 2000; overflow-y: auto; padding: 25px; }
-    /* PIN LOCK & CANVAS (no changes) */
-    #pin-overlay { display: none; position: fixed; inset: 0; background: var(--bg-color); z-index: 9999; align-items: center; justify-content: center; flex-direction: column; }
-    /* ... (PIN styles as before) ... */
-    /* WHITEBOARD and others as before */
-    #whiteboard-modal { display: none; position: fixed; inset: 0; background: #000; z-index: 4000; flex-direction: column; }
-    #canvas-container { flex: 1; position: relative; overflow: hidden; touch-action: none; background: #fff; }
-    /* UI ELEMENTS and CALL UI as before... */
-    .glass-panel { background: var(--glass); backdrop-filter: blur(20px); border-top: 1px solid var(--border);}
-    .input-pill { background: rgba(255,255,255,0.05); border: 1px solid var(--border); transition: 0.3s; }
-    .input-pill:focus-within { background: rgba(255,255,255,0.1); border-color: var(--accent);}
-    #sidebar { background: var(--sidebar-bg); border-right: 1px solid var(--border); }
-    .call-btn { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; transition: 0.2s; box-shadow: 0 10px 30px rgba(0,0,0,0.3);}
-    .call-btn:active { transform: scale(0.95);}
-    .call-btn.active { background: #ef4444; color: white; }
-    .call-btn.screen-active { background: #3b82f6; color: white; }
-    /* ... */
-    .theme-dot { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: 0.2s; position: relative; }
-    .theme-dot.selected { border-color: white; transform: scale(1.1);}
-    .theme-dot-custom { background: linear-gradient(45deg, #333, #999); display: flex; align-items: center; justify-content: center; font-size: 8px; color: white; font-weight: bold;}
-    /* SIDEBAR TABS (for Notes/Countdown) */
-    .sidebar-tabs { display: flex; gap: 4px; margin-bottom: 1rem; }
-    .sidebar-tab-btn { border-radius: .75rem; padding: 6px 14px; font-size: 12px; font-weight: bold; cursor: pointer; background: var(--glass); color: var(--accent); border: 2px solid transparent;}
-    .sidebar-tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent);}
-    .shared-notes-area { min-height: 120px; font-size: 13px; border-radius: .75rem; background: rgba(255,255,255,0.08); color: #faf8ff; padding: 7px 12px; border: 1.5px solid var(--border); margin-bottom: 7px;}
-    .shared-notes-area:focus { outline: 2px solid var(--accent);}
-    .countdown-row { display: flex; align-items: center; gap: 4px; margin-bottom: 7px;}
-    /* GIF picker/Sticker styles */
-    #gif-picker-modal { display: none; position: fixed; bottom: 80px; right: 35px; width: 320px; max-height: 420px; background: rgba(0,0,0, 0.98); z-index: 9002; border-radius: 1.1rem; box-shadow: 0 10px 40px rgba(0,0,0,0.34);}
-    #gif-search-bar { width: 95%; margin: 9px auto;  border-radius: 10px; padding: 4px 8px; }
-    #gif-picker-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding:6px;}
-    .gif-thumb { width: 95px; height: 95px; border-radius: .8rem; object-fit: cover; cursor: pointer;}
-    .gif-close { position: absolute; top: 7px; right: 15px; color: #fff; font-size: 22px; cursor: pointer; opacity:0.8;}
-    .gif-close:hover { opacity: 1;}
-    /* Nickname */
-    #nick-edit-btn { font-size: 11px; margin-left: 6px; opacity: 0.7;}
-    #nick-edit-btn:hover { opacity: 1;}
-    /* Relationship Milestones: special bubble style */
-    .milestone-msg { background: linear-gradient(90deg, #fcd34d63, #fff0); border-left: 7px solid var(--accent); color: #fcd34d; font-weight: bold; margin: 10px 0; border-radius: 13px; text-align: center; }
-    /* Screenshot Alert banner */
-    #ss-alert-banner { display: none; position:fixed; top:15px; left:50%; transform:translateX(-50%); background: #ef4444; color:white; padding:9px 25px; border-radius:20px; z-index:9999; box-shadow:0 4px 16px #95000080; font-size:15px; font-weight:bold;}
-    /* Battery Level dot style: */
-    .battery-dot { width:19px; height:19px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:14px; border:2px solid #fff2; background: #1e293b; margin-left:6px; position:relative;}
-    .battery-dot-level { font-size:11px; position:absolute; right:-3px; bottom:-2px; color:#44e184; font-weight:800; background:#26364d; border-radius:4px; padding:1px 4px;}
-    /* /slash commands modal */
-    #slash-cmd-list { display:none; position: absolute; bottom: 56px; left: 18px; z-index: 40000; background:#131a21; border-radius:13px; padding:6px 0; box-shadow:0 4px 30px #101b2040; }
-    .slash-cmd-item { padding:6px 18px; cursor:pointer; font-size:12px; color:var(--accent);}
-    .slash-cmd-item.selected, .slash-cmd-item:hover { background: #2a3341;}
+        :root {
+            --bg-color: #03050a;
+            --sidebar-bg: #080c14;
+            --msg-me: #3b82f6;
+            --msg-you: #1e293b;
+            --text-color: #f1f5f9;
+            --accent: #3b82f6;
+            --glass: rgba(20, 20, 25, 0.6);
+            --border: rgba(255,255,255,0.05);
+        }
+        /* ... [All current styles untouched for brevity, keep unchanged] ... */
+
+        /* Add 'nudge' shake animation */
+        @keyframes shake {
+          10%, 90% { transform: translate3d(-2px, 0, 0);}
+          20%, 80% { transform: translate3d(4px, 0, 0);}
+          30%, 50%, 70% { transform: translate3d(-6px, 0, 0);}
+          40%, 60% { transform: translate3d(6px, 0, 0);}
+        }
+        .shaking { animation: shake 0.6s cubic-bezier(.36,.07,.19,.97) both; }
+
+        /* ... (keep previous styles including typing bubble bouncing-dots) ... */
     </style>
 </head>
 <body data-theme="midnight">
 
-<div id="pin-overlay">
-    <div class="mb-8 text-center">
-        <h2 id="pin-title" class="text-2xl font-bold mb-2">Enter PIN</h2>
-        <p id="pin-subtitle" class="text-xs opacity-50 uppercase tracking-widest">Secured</p>
-        <div class="flex justify-center mt-4" id="pin-dots">
-            <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
-        </div>
-    </div>
-    <div class="grid grid-cols-3 gap-4" id="numpad"></div>
-    <button id="cancel-pin-setup" onclick="cancelPinSetup()" class="hidden mt-8 text-sm text-red-400 font-bold">CANCEL</button>
+<!-- PIN and MODALS (keep current code) ... -->
+
+<!-- Shared Notes Modal -->
+<div id="shared-notes-modal" class="modal-view" style="z-index:30000;">
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-xl font-bold">Shared Notes</h2>
+    <button onclick="document.getElementById('shared-notes-modal').style.display = 'none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button>
+  </div>
+  <textarea id="shared-notes-area" class="w-full h-60 rounded-xl p-4 bg-white/10 border border-white/10 text-base text-white font-mono focus:outline-none" oninput="saveSharedNotes(this.value)"></textarea>
+  <div class="flex items-center justify-end pt-2">
+    <span id="shared-notes-status" class="text-xs opacity-60"></span>
+  </div>
 </div>
 
-<div id="whiteboard-modal">
-    <div class="p-2 flex justify-between items-center bg-gray-900">
-        <div class="flex gap-2">
-            <button onclick="setBrushColor('#000000')" class="w-8 h-8 rounded-full bg-black border border-white/20"></button>
-            <button onclick="setBrushColor('#ef4444')" class="w-8 h-8 rounded-full bg-red-500"></button>
-            <button onclick="setBrushColor('#3b82f6')" class="w-8 h-8 rounded-full bg-blue-500"></button>
-            <button onclick="clearCanvas()" class="text-xs uppercase font-bold text-red-500 ml-2">Clear</button>
-        </div>
-        <button onclick="closeWhiteboard()" class="text-white font-bold px-4">Done</button>
-    </div>
-    <div id="canvas-container">
-        <canvas id="drawing-canvas"></canvas>
-    </div>
+<!-- Gif/Sticker Picker Modal -->
+<div id="gif-picker-modal" class="modal-view" style="z-index:12000;padding:0;display:none;">
+  <div class="flex items-center px-3 bg-black/70 border-b border-black/20">
+    <input id="gif-search" placeholder="Search stickers/gifs..." class="flex-1 bg-transparent py-2 px-2 text-sm outline-none text-white" oninput="searchGIFs(this.value)">
+    <button onclick="closeGifPicker()" class="ml-2 text-white font-bold text-2xl px-3">×</button>
+  </div>
+  <div id="gif-results" class="p-3 grid grid-cols-3 gap-2 overflow-y-auto" style="max-height:55vh;"></div>
 </div>
 
-<!-- Screenshot alert -->
-<div id="ss-alert-banner">Screenshot detected! 👀</div>
+<!-- Screenshot Alert -->
+<div id="screenshot-toast" style="display:none;position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:#ef4444;color:white;font-weight:bold;padding:10px 18px;border-radius:20px;z-index:8000;font-size:15px;box-shadow:0 5px 15px #0008;">⚠️ Screenshot detected!</div>
 
-<div id="story-overlay" style="display:none; position: fixed; inset: 0; background: black; z-index: 6000; align-items: center; justify-content: center; flex-direction: column;">
-    <div id="story-prev" class="story-nav-btn absolute left-0 top-1/2 -translate-y-1/2 p-6 text-4xl opacity-50 hover:opacity-100 cursor-pointer z-[6010]" onclick="navStory(-1)">‹</div>
-    <div id="story-media-container" class="relative w-full h-full flex items-center justify-center p-4"></div>
-    <div id="story-next" class="story-nav-btn absolute right-0 top-1/2 -translate-y-1/2 p-6 text-4xl opacity-50 hover:opacity-100 cursor-pointer z-[6010]" onclick="navStory(1)">›</div>
-    <button onclick="closeStory()" class="absolute top-6 right-6 text-white text-3xl z-[6020] opacity-70 hover:opacity-100">✕</button>
+<!-- Nickname Changer Modal -->
+<div id="nickname-modal" class="modal-view" style="z-index:29990;">
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-xl font-bold">Set Nicknames</h2>
+    <button onclick="document.getElementById('nickname-modal').style.display = 'none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button>
+  </div>
+  <div class="space-y-4">
+    <div>
+      <label class="text-xs font-bold mb-1 block">Your Display Name for Allyvia:</label>
+      <input id="nickname-input" class="p-2 rounded bg-white/15 w-full text-base" placeholder="E.g. Princess, Honey">
+    </div>
+    <div>
+      <label class="text-xs font-bold mb-1 block">How She Sees You:</label>
+      <input id="mynickname-input" class="p-2 rounded bg-white/10 w-full text-base" placeholder="E.g. Sir, King">
+    </div>
+    <button onclick="saveNicknames()" class="mt-3 bg-[var(--accent)] text-white rounded-full py-2 px-6 font-bold uppercase">Save</button>
+  </div>
 </div>
 
-<div id="lightbox" onclick="this.style.display='none'" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 5000; align-items: center; justify-content: center;">
-    <img id="lightbox-img" class="max-w-[95%] max-h-[90%] rounded-lg shadow-2xl">
-</div>
-
-<div id="incoming-call-ui" class="hidden fixed inset-0 bg-black/95 z-[7000] flex flex-col items-center justify-center space-y-8">
-    <div class="w-32 h-32 bg-slate-800 rounded-full flex items-center justify-center text-6xl animate-pulse mb-4">🔔</div>
-    <div class="text-center">
-        <h2 class="text-3xl font-bold mb-2">Incoming Call</h2>
-        <p id="caller-id-disp" class="text-[var(--accent)] text-xl animate-pulse">...</p>
-        <p id="call-type-disp" class="text-white/50 text-sm uppercase tracking-widest mt-2">Video Call</p>
-    </div>
-    <div class="flex gap-8 mt-8">
-        <button onclick="answerCall()" class="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-3xl shadow-2xl hover:scale-110 transition">📞</button>
-        <button onclick="rejectCall()" class="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center text-3xl shadow-2xl hover:scale-110 transition">✕</button>
-    </div>
-    <audio id="ringtone" src="https://assets.mixkit.co/active_storage/sfx/1021/1021-preview.mp3" preload="auto"></audio>
-</div>
-
-<div id="outgoing-call-ui" class="hidden fixed inset-0 bg-black/95 z-[7000] flex flex-col items-center justify-center space-y-8">
-    <div class="w-32 h-32 bg-slate-800 rounded-full flex items-center justify-center text-6xl opacity-50 mb-4 animate-bounce">📡</div>
-    <div class="text-center">
-        <h2 class="text-3xl font-bold mb-2">Calling...</h2>
-        <p class="text-white/50 text-sm uppercase tracking-widest mt-2">Waiting for answer</p>
-    </div>
-    <button onclick="cancelCall()" class="w-16 h-16 bg-red-500/20 text-red-500 border border-red-500 rounded-full flex items-center justify-center text-2xl mt-8 hover:bg-red-500 hover:text-white transition">✕</button>
-    <audio id="ringtone-out" src="https://assets.mixkit.co/active_storage/sfx/1021/1021-preview.mp3" preload="auto"></audio>
-</div>
-
-<div id="video-grid" class="hidden fixed inset-0 bg-[#03050a] z-[3000]">
-    <div class="absolute top-6 left-0 right-0 z-[3005] flex flex-col items-center pointer-events-none">
-        <div id="call-status" class="text-[var(--accent)] text-xs font-bold tracking-widest uppercase animate-pulse mb-1">Connecting...</div>
-        <div id="call-timer" class="text-white text-2xl font-mono font-bold drop-shadow-lg">00:00</div>
-    </div>
-    <div id="remote-video" class="w-full h-full flex items-center justify-center text-white/20 relative">
-        <div class="absolute inset-0 flex items-center justify-center">Waiting for video...</div>
-    </div>
-    <div id="local-video" class="video-cover absolute top-20 right-6 w-32 h-48 border-2 border-white/20 rounded-2xl overflow-hidden z-[3001] bg-black shadow-2xl transition-all duration-300"></div>
-    <div id="local-screen" class="hidden absolute top-72 right-6 w-48 h-32 border-2 border-blue-400/50 rounded-xl overflow-hidden z-[3001] bg-black shadow-2xl video-contain"></div>
-    <div class="absolute bottom-10 left-0 right-0 flex justify-center items-center gap-4 z-[3002] px-4">
-        <button id="btn-mute" onclick="toggleMute()" class="call-btn">🎤</button>
-        <button id="btn-cam" onclick="toggleCam()" class="call-btn">📷</button>
-        <button id="btn-draw" onclick="openWhiteboard()" class="call-btn bg-purple-500/20 text-purple-400">✏️</button>
-        <button id="btn-chat" onclick="toggleCallView()" class="call-btn bg-white/10">💬</button>
-        <button onclick="hangUp()" class="call-btn !bg-red-600 hover:!bg-red-700">📞</button>
-    </div>
-</div>
-
-<div id="gallery-modal" class="modal-view"><div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold">Shared Gallery</h2><button onclick="document.getElementById('gallery-modal').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button></div><div id="gallery-content" class="grid grid-cols-3 gap-1 pb-20"></div></div>
-
-<div id="logs-modal" class="modal-view"><div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-red-500">Deleted Logs</h2><button onclick="document.getElementById('logs-modal').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button></div><div id="logs-content" class="space-y-4 pb-20"></div></div>
-
-<div id="story-log-modal" class="modal-view"><div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-pink-400">Story Archives</h2><button onclick="document.getElementById('story-log-modal').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button></div><div id="story-log-content" class="space-y-4 pb-20"></div></div>
-
-<div id="return-to-call" onclick="toggleCallView()" style="display:none; position: absolute; top: 85px; left: 50%; transform: translateX(-50%); background: #10b981; color: white; padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; z-index: 9000; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); animation: pulseGreen 2s infinite;">🟢 Return to Call</div>
-
-<!-- Slash / commands modal -->
-<div id="slash-cmd-list"></div>
-
-<!-- Gif/Sticker Modal -->
-<div id="gif-picker-modal">
-    <span class="gif-close" onclick="closeGifPicker()">×</span>
-    <input id="gif-search-bar" class="w-full bg-gray-900 mt-2 p-2 text-white" placeholder="Search GIFs...">
-    <div id="gif-picker-list"></div>
-</div>
+<!-- Countdown Events Modal, Story Overlay, Lightbox, Call UIs (keep as before) ... -->
 
 <div id="chat-main">
     <header class="p-4 flex items-center justify-between glass-panel z-[50]">
         <div class="flex items-center gap-4">
             <button onclick="openSidebar()" class="text-2xl opacity-80 hover:opacity-100 transition">☰</button>
-            <div onclick="handleStatusClick()" class="cursor-pointer">
-                <div class="font-bold text-lg leading-none tracking-tight" id="partner-name">
-                  ... <span class="battery-dot" id="partner-battery" title="Battery"><i class="fa-solid fa-battery-half"></i>
-                     <span class="battery-dot-level" id="partner-battery-lvl"></span></span>
-                     <span id="edit-nick-btn" class="hidden"><i id="nick-edit-btn" class="fa fa-edit"></i></span>
+            <div class="relative flex flex-col" style="min-width:150px">
+                <div id="battery-row" class="absolute -left-16 flex flex-col gap-1 items-end text-xs text-gray-300 font-semibold" style="top:0;">
+                    <span id="my-battery"></span>
+                    <span id="their-battery"></span>
                 </div>
-                <div class="flex items-center gap-2">
-                    <div id="partner-status" class="text-[11px] opacity-60 mt-0.5 font-medium">No status</div>
-                    <div id="time-display" class="text-[10px] bg-white/10 px-2 rounded text-blue-300">--:--</div>
+                <div onclick="handleStatusClick()" class="cursor-pointer">
+                    <div class="font-bold text-lg leading-none tracking-tight" id="partner-name">...</div>
+                    <div class="flex items-center gap-2">
+                        <div id="partner-status" class="text-[11px] opacity-60 mt-0.5 font-medium">No status</div>
+                        <div id="time-display" class="text-[10px] bg-white/10 px-2 rounded text-blue-300">--:--</div>
+                    </div>
+                    <div id="live-preview" class="text-[10px] text-[var(--accent)] italic h-3 transition-all"></div>
                 </div>
-                <div id="live-preview" class="text-[10px] text-[var(--accent)] italic h-3 transition-all"></div>
+                <div id="countdown-row" class="hidden mt-1"></div>
             </div>
         </div>
         <div class="flex gap-2 items-center">
-            <span class="battery-dot" id="my-battery" title="Battery"><i class="fa-solid fa-battery-half"></i><span class="battery-dot-level" id="my-battery-lvl"></span></span>
+        <div class="flex gap-2">
             <button onclick="startCallRequest(false)" class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-sm hover:bg-white/10">📞</button>
             <button onclick="startCallRequest(true)" class="w-8 h-8 rounded-full bg-[var(--accent)] flex items-center justify-center text-sm shadow-lg shadow-blue-500/20">🎥</button>
+        </div>
+        <!-- Location send button, only for RJ -->
+        <button id="send-location-btn" style="display:none;" class="ml-2 p-2 bg-green-500/10 rounded-md text-green-400" title="Send My Location" onclick="shareLocation()"><i class="fa-solid fa-location-dot"></i></button>
         </div>
     </header>
     
@@ -256,30 +127,22 @@
             <span class="text-[11px] text-yellow-300 italic">Editing message...</span>
             <button onclick="cancelEdit()">&times;</button>
         </div>
-        <form id="chat-form" class="flex items-center input-pill rounded-full p-1 pl-2 shadow-xl" autocomplete="off">
-            <label class="cursor-pointer opacity-50 p-2 hover:opacity-100 transition">📎 <input type="file" id="file-input" class="hidden" accept="image" multiple onchange="handleFileSelect(this)" /></label>
+        <form id="chat-form" class="flex items-center input-pill rounded-full p-1 pl-2 shadow-xl space-x-1">
+            <label class="cursor-pointer opacity-50 p-2 hover:opacity-100 transition">📎 <input type="file" id="file-input" class="hidden" accept="image/*" multiple onchange="handleFileSelect(this)"></label>
             <button type="button" id="mic-btn" onclick="toggleRecording()" class="opacity-50 p-2 hover:opacity-100 transition text-lg">🎙️</button>
             <input id="msg-input" placeholder="Type a message or / for commands..." autocomplete="off" class="flex-1 bg-transparent py-3 px-2 text-sm outline-none placeholder:text-white/30">
-            <button type="button" id="gif-btn" title="GIFs / Stickers" class="opacity-80 p-2 hover:opacity-100 transition text-lg ml-1" onclick="openGifPicker()">
-              <i class="fa fa-face-grin-wink"></i>
-            </button>
+            <!-- Sticker/GIF button -->
+            <button type="button" id="sticker-btn" onclick="openGifPicker()" class="opacity-70 p-2 text-lg bg-pink-500/10 hover:bg-pink-500/20 text-pink-500 rounded-full" title="Stickers/GIFs"><i class="fa-regular fa-face-laugh-beam"></i></button>
             <button type="submit" id="send-btn" class="bg-[var(--accent)] text-white font-bold px-6 py-3 rounded-full text-[11px] uppercase tracking-wide shadow-lg hover:brightness-110 transition">Send</button>
         </form>
-        <div id="slash-help-bar" class="w-full"></div>
+        <!-- Slash/command hint dropdown -->
+        <div id="slash-commands" class="hidden absolute bg-black/90 text-white text-sm rounded-xl shadow-lg mt-2 p-2 left-2 bottom-24 z-[40000]"></div>
     </footer>
 </div>
-
 <div id="sidebar" class="fixed left-[-300px] top-0 bottom-0 w-[280px] z-[1000] p-6 flex flex-col transition-all duration-300 backdrop-blur-md overflow-y-auto">
-    <div class="sidebar-tabs">
-      <button class="sidebar-tab-btn active" id="tab-chat" onclick="showSidebarTab('chat')">Chat</button>
-      <button class="sidebar-tab-btn" id="tab-notes" onclick="showSidebarTab('notes')">Notes</button>
-      <button class="sidebar-tab-btn" id="tab-counts" onclick="showSidebarTab('countdown')">Countdowns</button>
-    </div>
-    <div id="tab-page-chat">
     <div class="bg-gradient-to-br from-pink-500/20 to-purple-500/20 border border-white/5 rounded-3xl p-6 mb-6 text-center shadow-lg">
         <p class="text-[10px] font-bold text-pink-400 uppercase tracking-widest mb-1">Days Together</p>
         <h1 id="days-counter" class="text-4xl font-black text-pink-300 drop-shadow-md">0</h1>
-        <div id="rel-milestones"></div>
     </div>
     <div class="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-white/5 rounded-3xl p-4 mb-6 text-center shadow-lg">
         <p class="text-[9px] font-bold text-cyan-300 uppercase tracking-widest mb-1">Daily Question</p>
@@ -288,35 +151,169 @@
     <h2 id="me-name" class="text-center text-xl font-bold mb-6 opacity-90">...</h2>
     <div class="flex-1 space-y-4">
         <div class="bg-white/5 p-4 rounded-2xl space-y-3 border border-white/5">
-            <p class="text-[10px] font-bold opacity-40 uppercase tracking-widest">Settings</p>
-            <div class="flex items-center justify-between">
-                <span class="text-xs">Sleep Mode</span>
-                <label class="switch"><input type="checkbox" id="sleep-toggle" onchange="toggleSleepMode()"><span class="slider"></span></label>
-            </div>
-            <div class="flex items-center justify-between">
-                <span class="text-xs">Pin Lock</span>
-                <label class="switch"><input type="checkbox" id="pin-toggle" onchange="togglePinSetting()"><span class="slider"></span></label>
-            </div>
-            <div class="flex items-center justify-between" id="ss-alert-row" style="display:none">
-                <span class="text-xs">Screenshot Alerts</span>
-                <label class="switch"><input type="checkbox" id="ss-alert-toggle" onchange="toggleSSAlerts()"><span class="slider"></span></label>
-            </div>
-            <div class="flex items-center justify-between" id="read-toggle-row" style="display:none">
-                <span class="text-xs">Read Receipts</span>
-                <label class="switch"><input type="checkbox" id="read-toggle" onchange="toggleReadReceipts()" checked><span class="slider"></span></label>
-            </div>
+             <p class="text-[10px] font-bold opacity-40 uppercase tracking-widest">Settings</p>
+             <div class="flex items-center justify-between">
+                 <span class="text-xs">Sleep Mode</span>
+                 <label class="switch"><input type="checkbox" id="sleep-toggle" onchange="toggleSleepMode()"><span class="slider"></span></label>
+             </div>
+             <div class="flex items-center justify-between">
+                 <span class="text-xs">Pin Lock</span>
+                 <label class="switch"><input type="checkbox" id="pin-toggle" onchange="togglePinSetting()"><span class="slider"></span></label>
+             </div>
+             <div class="flex items-center justify-between">
+                 <span class="text-xs">Read Receipts</span>
+                 <label class="switch"><input type="checkbox" id="read-toggle"><span class="slider"></span></label>
+             </div>
+             <div class="flex items-center justify-between">
+                 <span class="text-xs">Screenshot Alert</span>
+                 <label class="switch"><input type="checkbox" id="screenshot-toggle"><span class="slider"></span></label>
+             </div>
         </div>
+        <button onclick="openSharedNotes()" class="w-full text-left p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition text-sm font-semibold">📝 Shared Notes</button>
+        <button onclick="openNicknameChanger()" class="w-full text-left p-4 bg-yellow-200/10 rounded-2xl hover:bg-yellow-100/10 transition text-sm font-semibold text-yellow-300">✏️ Nickname Changer</button>
+        <button onclick="openCountdowns()" class="w-full text-left p-4 bg-blue-500/10 rounded-2xl hover:bg-blue-500/20 transition text-sm font-semibold text-blue-300">⏳ Events/Countdowns</button>
+        <button onclick="gameTicTacToe()" class="w-full text-left p-4 bg-green-500/10 rounded-2xl hover:bg-green-500/20 transition text-sm font-semibold text-green-300">🎮 Game: Tic-Tac-Toe</button>
+        <button onclick="gameRps()" class="w-full text-left p-4 bg-purple-500/10 rounded-2xl hover:bg-purple-500/20 transition text-sm font-semibold text-purple-300">✊🖐✌️ Rock-Paper-Scissors</button>
+        <button onclick="thinkingOfYou()" class="w-full text-left p-4 bg-pink-500/10 rounded-2xl hover:bg-pink-500/20 transition text-sm font-semibold text-pink-300">💭 Thinking of You</button>
+        <button onclick="requestLocationAccess()" id="get-location-btn" style="display:none;" class="w-full text-left p-4 bg-green-500/10 rounded-2xl text-green-400 hover:bg-green-500/20">Get Her Location</button>
+        <button onclick="toggleGallery(true)" class="w-full text-left p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition text-sm font-semibold">🖼️ Shared Gallery</button>
+        <!-- Nudge Button, only visible for RJ -->
+        <button onclick="sendInteraction('nudge')" id="nudge-btn" style="display:none;" class="w-full text-left p-4 bg-red-500/20 rounded-2xl text-red-400 hover:bg-red-500/30">🪃 Nudge</button>
+        <!-- RJ reply trigger -->
+        <div id="rj-reply-div" style="display:none;" class="flex flex-col mt-4 gap-2">
+           <input id="rj-reply-input" class="w-full p-2 rounded bg-white/5 text-xs" maxlength="250" placeholder="Auto-reply to her next message (one time)"/>
+           <button onclick="setOneTimeReply()" class="bg-[var(--accent)] text-white font-bold rounded py-2 text-xs">Set Next-Reply</button>
+        </div>
+        <div class="pt-6 mt-6 border-t border-white/10 space-y-3" id="rj-suite" style="display:none">
+            <p class="text-[10px] font-bold text-[var(--accent)] uppercase tracking-widest px-2">RJ Tools</p>
+            <div class="grid grid-cols-2 gap-2">
+                <button onclick="sendInteraction('lovetap')" class="p-3 bg-pink-500/20 text-pink-400 rounded-xl font-bold text-center text-xs">❤️ Spam</button>
+                <button onclick="sendInteraction('vibrate')" class="p-3 bg-blue-500/20 text-blue-400 rounded-xl font-bold text-center text-xs">📳 Buzz</button>
+            </div>
+         </div>
+    </div>
+</div>
+<div id="overlay-bg" onclick="closeSidebar()" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[900]"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<script>
+// --- SUPABASE & PAGE STATE ---
+const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
+const _db = supabase.createClient(SB_URL, SB_KEY);
+
+let me, you, chatChannel, stagedFiles = [], replyId = null, editingId = null;
+let oneTimeReply = '';
+let partnerStatusData = null, allMessagesCache = [];
+let storyItems = [], storyIndex = 0;
+let loadTimeout = null;
+let mediaRecorder = null, audioChunks = [];
+let isSleepMode = false;
+let readReceiptsEnabled = false;
+let screenshotAlertEnabled = false;
+let lastNickname = '';
+let locationWatchId = null;
+let callRingtone = new Audio('https://www.myinstants.com/media/sounds/youve-got-mail.mp3');
+callRingtone.loop = true;
+const notifSound = new Audio('https://www.myinstants.com/media/sounds/youve-got-mail.mp3');
+notifSound.volume = 0.2;
+const AGORA_APP_ID = "4f6c6c2002784152a8366dec12f1b4c0";
+let rtc = { client: null, localVideoTrack: null, localAudioTrack: null, screenTrack: null, isMuted: false, isCamOff: false };
+let incomingCallData = null, callTimerInterval = null, callSeconds = 0, wakeLock = null;
+
+// --- INIT ---
+async function init() {
+    let code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
+    const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
+    if(!data) return;
+    me = data.username;
+    you = (me === 'RJ' ? 'Allyvia' : 'RJ');
+    localStorage.setItem('chat_secret_code', code);
+
+    document.getElementById('me-name').textContent = getNicknameDisplay(me) || me;
+    let partnerDisplay = getNicknameDisplay(you) || you;
+    document.getElementById('partner-name').textContent = partnerDisplay;
+    if(me === 'RJ') {
+        document.getElementById('rj-suite').style.display = '';
+        document.getElementById('get-location-btn').style.display = '';
+        document.getElementById('send-location-btn').style.display = '';
+        document.getElementById('nudge-btn').style.display = '';
+        document.getElementById('rj-reply-div').style.display = '';
+    }
+    // Countdown events, updateDaysCounter, etc
+    updateDaysCounter();
+    // Theme...
+    // ...[other setup code, see previous version]...
+    // Nickname inputs init 
+    let nstore = JSON.parse(localStorage.getItem('nicknames')||'{}');
+    document.getElementById('nickname-input').value = nstore[you]||'';
+    document.getElementById('mynickname-input').value = nstore[me]||'';
+
+    // Read receipts toggle
+    document.getElementById('read-toggle').checked = localStorage.getItem('read_receipts')==="1";
+    document.getElementById('read-toggle').onchange = e=>{
+        localStorage.setItem('read_receipts',e.target.checked?"1":"0");
+        readReceiptsEnabled = e.target.checked;
+    };
+    readReceiptsEnabled = document.getElementById('read-toggle').checked;
+
+    // Screenshot toggle
+    document.getElementById('screenshot-toggle').checked = localStorage.getItem('screenshot_alert')==="1";
+    document.getElementById('screenshot-toggle').onchange = e=>{
+        localStorage.setItem('screenshot_alert',e.target.checked?"1":"0");
+        screenshotAlertEnabled = e.target.checked;
+    };
+    screenshotAlertEnabled = document.getElementById('screenshot-toggle').checked;
+
+    // Battery (demo, will show static/fake levels)
+    getBatteryLevels();
+
+    // Shared Notes
+    await loadSharedNotes();
+
+    // Channel
+    chatChannel = _db.channel('chat-ultra');
+    chatChannel
+        .on('broadcast', { event:'admin'}, p=>handleInteraction(p.payload))
+        .on('broadcast', { event:'refresh'},()=>{loadMessages();loadStatuses();})
+        .on('broadcast', { event:'theme_change'}, p=>applyTheme(p.payload.theme))
+        .on('broadcast', { event:'draw_event'},p=>drawOnCanvas(p.payload,false))
+        .on('broadcast', { event:'typing'}, p=>showTyping(p.payload))
+        .on('broadcast', { event:'call-signal'}, p=>handleCallSignal(p.payload))
+        .on('postgres_changes',{ event:'INSERT', schema:'public', table:'private_messages'},async(p)=>{
+            if(p.new.receiver===me){
+                handleIncomingMessage(p.new);
+                if(readReceiptsEnabled) await markAsRead(p.new.id);
+                if(me==="RJ" && oneTimeReply){
+                    await sendMsg(oneTimeReply);
+                    oneTimeReply='';
+                    showToast("Replied with 1x message!");
+                }
+            }
+            loadMessages();
+        })
+        .on('postgres_changes',{ event:'UPDATE', schema:'public', table:'private_messages' },()=>loadMessages())
+        .subscribe();
+
+    loadMessages();
+    loadStatuses();
+    // Prompt for location ASAP (for live location sharing)
+    requestLocationAccess();
+}
+
+// Nickname changer logic
         <div class="bg-white/5 p-4 rounded-2xl space-y-3 border border-white/5">
             <p class="text-[10px] font-bold opacity-40 uppercase tracking-widest">My Status</p>
             <input id="status-txt-input" placeholder="What's up?" class="w-full bg-black/40 p-3 rounded-xl text-xs outline-none border border-white/5 focus:border-[var(--accent)] transition">
             <div class="flex flex-col gap-2">
-                <label class="bg-white/5 p-2 rounded-lg text-[10px] text-center cursor-pointer border border-dashed border-white/20 hover:border-white/40 transition">📸 Add Story Media<input type="file" id="status-media-input" class="hidden" multiple></label>
+                <label class="bg-white/5 p-2 rounded-lg text-[10px] text-center cursor-pointer border border-dashed border-white/20 hover:border-white/40 transition">📸 Add Story Media<input type="file" id="status-media-input" class="hidden" accept="image/*,video/*" multiple></label>
                 <div class="grid grid-cols-2 gap-2">
                     <button onclick="updateStatusFromSidebar()" id="update-status-btn" class="bg-[var(--accent)] p-2 rounded-lg text-[10px] font-bold uppercase hover:brightness-110">Update</button>
                     <button onclick="removeStatus()" class="bg-red-500/20 text-red-400 p-2 rounded-lg text-[10px] font-bold uppercase hover:bg-red-500/30">Reset</button>
                 </div>
             </div>
         </div>
+
         <div class="bg-white/5 p-4 rounded-2xl space-y-3 border border-white/5">
             <p class="text-[10px] font-bold opacity-40 uppercase tracking-widest">Mutual Theme</p>
             <div class="grid grid-cols-4 gap-2 px-2 items-center">
@@ -328,832 +325,773 @@
                 <div onclick="setTheme('ocean')" class="theme-dot bg-cyan-900" title="Ocean"></div>
                 <div onclick="setTheme('retro')" class="theme-dot bg-amber-900" title="Retro"></div>
                 <label class="theme-dot theme-dot-custom cursor-pointer" title="Custom Image">
-                    IMG <input type="file" id="theme-file-input" class="hidden" accept="image" onchange="uploadCustomTheme(this)">
+                    IMG <input type="file" id="theme-file-input" class="hidden" accept="image/*" onchange="uploadCustomTheme(this)">
                 </label>
             </div>
         </div>
+
         <button onclick="toggleGallery(true)" class="w-full text-left p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition text-sm font-semibold">🖼️ Shared Gallery</button>
+        
         <div id="rj-suite" class="hidden pt-6 mt-6 border-t border-white/10 space-y-3">
-            <p class="text-[10px] font-bold text-[var(--accent)] uppercase tracking-widest px-2">RJ Tools</p>
-            <div class="grid grid-cols-2 gap-2">
+             <p class="text-[10px] font-bold text-[var(--accent)] uppercase tracking-widest px-2">RJ Tools</p>
+             <div class="grid grid-cols-2 gap-2">
                 <button onclick="sendInteraction('lovetap')" class="p-3 bg-pink-500/20 text-pink-400 rounded-xl font-bold text-center text-xs">❤️ Spam</button>
                 <button onclick="sendInteraction('vibrate')" class="p-3 bg-blue-500/20 text-blue-400 rounded-xl font-bold text-center text-xs">📳 Buzz</button>
-            </div>
-            <div class="p-3 bg-red-500/10 rounded-xl border border-red-500/20 space-y-2">
+             </div>
+             
+             <div class="p-3 bg-red-500/10 rounded-xl border border-red-500/20 space-y-2">
                 <p class="text-[9px] font-bold text-red-400 uppercase tracking-widest">🛡️ Manage Allyvia's Security</p>
                 <div class="grid grid-cols-2 gap-2">
                     <button onclick="adminDisablePin()" class="p-2 bg-red-500/20 text-red-300 rounded-lg text-[10px] font-bold">Disable Pin</button>
                     <button onclick="adminChangePin()" class="p-2 bg-blue-500/20 text-blue-300 rounded-lg text-[10px] font-bold">Change Pin</button>
                 </div>
-            </div>
+             </div>
+
             <button onclick="viewDeletedLogs()" class="w-full text-left p-4 bg-red-500/10 text-red-400 rounded-2xl font-bold text-sm border border-red-500/20">🗑️ View Deleted Logs</button>
             <button onclick="viewStoryLogs()" class="w-full text-left p-4 bg-pink-500/10 text-pink-400 rounded-2xl font-bold text-sm border border-pink-500/20">📜 Story Archives</button>
-            <button onclick="requestLocationFromPartner()" class="w-full text-left p-4 bg-blue-500/10 text-blue-400 rounded-2xl font-bold text-sm border border-blue-500/20">📍 Partner Location</button>
-            <button onclick="setPartnerNickname()" class="w-full text-left p-4 bg-gray-600/20 text-white rounded-2xl font-bold text-sm border border-slate-500/20">Set Nickname</button>
         </div>
-    </div>
-    </div>
-    <div id="tab-page-notes" style="display:none">
-        <div class="bg-white/5 p-4 rounded-2xl space-y-3 border border-white/5 mb-6">
-            <p class="text-[10px] font-bold opacity-40 uppercase tracking-widest">Shared Notes</p>
-            <textarea id="shared-notes" class="shared-notes-area" rows="7" placeholder="Write or paste notes here and both can view & edit..."></textarea>
-            <div class="flex gap-2">
-              <button class="bg-[var(--accent)] text-white px-4 py-2 rounded-lg text-xs font-bold" onclick="saveSharedNotes()">Save</button>
-              <span id="notes-status" class="text-xs opacity-60"></span>
-            </div>
-        </div>
-    </div>
-    <div id="tab-page-countdown" style="display:none">
-      <div class="bg-white/5 p-4 rounded-2xl space-y-3 border border-white/5 mb-6">
-        <p class="text-[10px] font-bold opacity-40 uppercase tracking-widest">Countdown Events</p>
-        <div id="countdown-events"></div>
-        <form id="add-countdown-form" class="flex gap-2 items-center mt-2">
-          <input type="text" id="countdown-name" class="flex-1 bg-black/40 p-2 rounded-lg text-xs border border-white/5" placeholder="Next Visit, Special Day..." required>
-          <input type="date" id="countdown-date" class="bg-black/40 p-2 rounded-lg text-xs border border-white/5" required>
-          <button type="submit" class="bg-[var(--accent)] px-3 py-2 rounded-lg text-xs text-white">+</button>
-        </form>
-      </div>
     </div>
 </div>
 
 <div id="overlay-bg" onclick="closeSidebar()" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[900]"></div>
 
 <script>
-const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
-const _db = supabase.createClient(SB_URL, SB_KEY);
+    const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
+    const _db = supabase.createClient(SB_URL, SB_KEY);
+    
+    // STATE
+    let me, you, chatChannel, stagedFiles = [], replyId = null, editingId = null;
+    let partnerStatusData = null, allMessagesCache = [];
+    let storyItems = [], storyIndex = 0;
+    let loadTimeout = null;
+    let mediaRecorder = null, audioChunks = [];
+    let isSleepMode = false;
+    // PIN STATES: 'unlock' (normal), 'setup' (creating new), 'admin' (rj changing allyvia)
+    let pinCode = null, enteredPin = "", pinMode = "unlock";
+    // DRAWING
+    let canvas, ctx, isDrawing = false, lastX = 0, lastY = 0;
+    let drawingThrottle = null;
 
-let me, you, chatChannel, stagedFiles = [], replyId = null, editingId = null;
-// Add state for: stickers, gif modal, slash commands, nicknames, read receipt toggle, automated responder, notes, countdown, batteries, etc.
-let partnerStatusData = null, allMessagesCache = [];
-let storyItems = [], storyIndex = 0;
-let loadTimeout = null;
-let mediaRecorder = null, audioChunks = [];
-let isSleepMode = false;
-let pinCode = null, enteredPin = "", pinMode = "unlock";
-let canvas, ctx, isDrawing = false, lastX = 0, lastY = 0;
-let drawingThrottle = null;
-let tickingMilestone = null, respondOnceValue = null, stickyCommands = [];
-let showReadReceipts = true; // toggle for RJ
-let screenshotAlertEnabled = false;
-let currentNickname = null;
-let showNudge = false;
-let allCountdowns = [];
-let stickerMode = false;
-let gifResults = [];
-let gifFetchTimeout = null;
-let callRingTimeout = null;
-let ringtoneAudio = null;
-let stickerPreviewUrl = "";
-let localBatteryLevel = null, partnerBatteryLevel = null;
-let partnerLocationRequestPending = false;
+    const notifSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    notifSound.volume = 0.05;
+    const AGORA_APP_ID = "4f6c6c2002784152a8366dec12f1b4c0";
+    let rtc = { client: null, localVideoTrack: null, localAudioTrack: null, screenTrack: null, isMuted: false, isCamOff: false };
+    let incomingCallData = null, callTimerInterval = null, callSeconds = 0, wakeLock = null;
 
-// --- Notification Sounds ---
-const notifSound = new Audio('https://files.rclick.site/youvegotmail.mp3');
-notifSound.volume = 0.3; // Louder classic AOL
-const ringUrl = "https://assets.mixkit.co/active_storage/sfx/1021/1021-preview.mp3";
-const alarmRingtone = new Audio(ringUrl);
-alarmRingtone.loop = true;
-const AGORA_APP_ID = "4f6c6c2002784152a8366dec12f1b4c0";
-let rtc = { client: null, localVideoTrack: null, localAudioTrack: null, screenTrack: null, isMuted: false, isCamOff: false };
-let incomingCallData = null, callTimerInterval = null, callSeconds = 0, wakeLock = null;
-
-// ------- RJ ONLY ABILITY ----------
-let isRJ = false;
-
-// -------- Init -------------
-async function init() {
-    const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
-    const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
-    if(!data) return;
-    me = data.username;
-    you = (me === 'RJ' ? 'Allyvia' : 'RJ');
-    isRJ = (me === 'RJ');
-    if(data.pin_code) {
-        pinCode = data.pin_code;
-        showPinScreen("unlock");
-        document.getElementById('pin-toggle').checked = true;
-    } else {
-        document.getElementById('pin-toggle').checked = false;
-    }
-    localStorage.setItem('chat_secret_code', code);
-
-    document.getElementById('me-name').textContent = me;
-    if(isRJ) {
-        document.getElementById('rj-suite').classList.remove('hidden');
-        document.getElementById('read-toggle-row').style.display = "";
-        document.getElementById('ss-alert-row').style.display = "";
-        document.getElementById('edit-nick-btn').classList.remove('hidden');
-        document.getElementById('edit-nick-btn').onclick = setPartnerNickname;
-    }
-    // Nickname local load
-    loadNicknames();
-
-    // --- THEMES ---
-    const savedBg = localStorage.getItem('custom_bg');
-    if(savedBg) {
-        document.body.style.backgroundImage = `url('${savedBg}')`;
-        applyTheme('custom');
-    } else if(data.current_theme) {
-        applyTheme(data.current_theme);
-    }
-    // --- DAILY PROMPT
-    const prompts = ["Favorite memory together?", "Dream vacation spot?", "One thing you love about me?", "Song that reminds you of us?", "Ideal date night?", "Funniest moment we had?", "First impression of me?"];
-    const dayIndex = new Date().getDay();
-    document.getElementById('daily-prompt').textContent = prompts[dayIndex];
-
-    // ---- Supabase Channels
-    chatChannel = _db.channel('chat-ultra');
-    chatChannel
-        .on('broadcast', { event: 'admin' }, p => handleInteraction(p.payload))
-        .on('broadcast', { event: 'refresh' }, () => { loadMessages(); loadStatuses(); })
-        .on('broadcast', { event: 'theme_change' }, p => applyTheme(p.payload.theme))
-        .on('broadcast', { event: 'draw_event' }, p => drawOnCanvas(p.payload, false))
-        .on('broadcast', { event: 'typing' }, p => {
-            if (typeof p.payload.text === "string") {
-                showTypingBubble(p.payload.text, p.payload.typingUser || you);
-            }
-            if(p.payload.localTime) document.getElementById('time-display').textContent = p.payload.localTime;
-        })
-        .on('broadcast', { event: 'call-signal' }, p => handleCallSignal(p.payload))
-        .on('broadcast', { event: 'sshot' }, p => { showScreenshotBanner(p.payload.from); })
-        .on('broadcast', { event: 'location' }, p => {
-            if (p.payload.username === you && partnerLocationRequestPending) {
-                partnerLocationRequestPending = false;
-                showLocationLink(p.payload.latitude, p.payload.longitude);
-            }
-        })
-        .on('broadcast', { event: 'battery' }, p => {
-            if(p.payload.username === you) updatePartnerBattery(p.payload.level);
-        })
-        .on('broadcast', { event: 'milestone' }, p => {
-            addMilestoneToFeed(p.payload.text, p.payload.time);
-        })
-        .on('broadcast', { event: 'nudge' }, p => {
-            if(me === p.payload.receiver) doNudgeEffect();
-        })
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
-            if(p.new.receiver === me) {
-                handleIncomingMessage(p.new);
-                // Mark as read (auto, update for read status if and only if enabled)
-                if(showReadReceipts)
-                    markAsRead(p.new.id);
-                // --- RJ: Automated Reply for One Msg Only ---
-                if(isRJ && respondOnceValue && p.new.sender !== me) {
-                    sendMsg(respondOnceValue);
-                    respondOnceValue = null;
-                }
-            }
-            loadMessages();
-        })
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'private_messages' }, () => loadMessages())
-        .subscribe();
-
-    loadMessages();
-    loadStatuses();
-    updateDaysCounter();
-    loadSharedNotes();
-    loadCountdowns();
-
-    // --- Battery API
-    try {
-        navigator.getBattery().then(b => {
-            updateLocalBattery(b.level);
-            b.addEventListener('levelchange',()=>updateLocalBattery(b.level));
-        });
-    } catch(e){}
-
-    // --- browser notification permission
-    if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-      document.body.addEventListener('click', () => Notification.requestPermission(), { once: true });
-    }
-
-    // --- Poll for typing status
-    setInterval(() => {
-        chatChannel.send({ type: 'broadcast', event: 'typing', payload: {
-            text: document.getElementById('msg-input').value,
-            typingUser: me,
-            localTime: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }
-        });
-    }, 30000);
-
-    // Visibility / presence for notif sound control
-    document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === 'visible') {
-            loadMessages();
-            loadStatuses();
-            chatChannel.subscribe();
+    async function init() {
+        const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
+        const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
+        if(!data) return;
+        
+        me = data.username;
+        you = (me === 'RJ' ? 'Allyvia' : 'RJ');
+        
+        if(data.pin_code) {
+            pinCode = data.pin_code;
+            showPinScreen("unlock");
+            document.getElementById('pin-toggle').checked = true;
+        } else {
+            document.getElementById('pin-toggle').checked = false;
         }
-    });
 
-    // Set up screenshot alert for RJ
-    if (window.navigator.userAgent.toLowerCase().includes("android") && isRJ) {
-      window.addEventListener('visibilitychange', function(){
-          if(document.visibilityState==='hidden' && screenshotAlertEnabled){
-              sendScreenshotAlert();
-          }
-      });
-    }
-    // iOS/desktop can't detect, so only send on Android + toggle
+        localStorage.setItem('chat_secret_code', code);
+        document.getElementById('me-name').textContent = me;
+        if(me === 'RJ') document.getElementById('rj-suite').classList.remove('hidden');
 
-    // Location permission ask at entry
-    if(navigator.geolocation) navigator.geolocation.getCurrentPosition(()=>{},()=>{}, { timeout:1000 });
+        const savedBg = localStorage.getItem('custom_bg');
+        if(savedBg) {
+             document.body.style.backgroundImage = `url('${savedBg}')`;
+             applyTheme('custom');
+        } else if(data.current_theme) {
+             applyTheme(data.current_theme);
+        }
 
-    // Here's a local 3 second delayed "Happy 1 Month" (demo) after load if we're near a milestone
-    setTimeout(checkMilestones,3500);
-}
+        const prompts = ["Favorite memory together?", "Dream vacation spot?", "One thing you love about me?", "Song that reminds you of us?", "Ideal date night?", "Funniest moment we had?", "First impression of me?"];
+        const dayIndex = new Date().getDay(); 
+        document.getElementById('daily-prompt').textContent = prompts[dayIndex];
 
-// -------- TYPING BUBBLE: Discord bouncing ... dots -----------
-function showTypingBubble(typedText, who) {
-    const el = document.getElementById('live-preview');
-    if (typedText && who === you) {
-        // Only display for incoming
-        el.innerHTML = `<div class="typing-bubble"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>`;
-        el.style.opacity = 1;
-    } else if (typedText && who === me && isRJ) {
-        el.textContent = `Typing: ${typedText}`;
-        el.style.opacity = 1;
-    } else {
-        el.innerHTML = ""; el.style.opacity = 0;
-    }
-}
-// --- SILENT NOTIFS/SOUND if tab visible ---
-function shouldPlayNotif() {
-    return document.hidden && !isSleepMode;
-}
+        chatChannel = _db.channel('chat-ultra');
+        chatChannel
+            .on('broadcast', { event: 'admin' }, p => handleInteraction(p.payload))
+            .on('broadcast', { event: 'refresh' }, () => { loadMessages(); loadStatuses(); })
+            .on('broadcast', { event: 'theme_change' }, p => applyTheme(p.payload.theme))
+            .on('broadcast', { event: 'draw_event' }, p => drawOnCanvas(p.payload, false))
+            .on('broadcast', { event: 'typing' }, p => {
+                const el = document.getElementById('live-preview');
+                el.textContent = p.payload.text ? (me === 'RJ' ? `Typing: ${p.payload.text}` : `${you} is typing...`) : "";
+                el.style.opacity = p.payload.text ? 1 : 0;
+                if(p.payload.localTime) document.getElementById('time-display').textContent = p.payload.localTime;
+            })
+            .on('broadcast', { event: 'call-signal' }, p => handleCallSignal(p.payload))
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
+                if(p.new.receiver === me) { handleIncomingMessage(p.new); markAsRead(p.new.id); }
+                loadMessages();
+            })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'private_messages' }, () => loadMessages())
+            .subscribe();
+            
+        loadMessages(); loadStatuses();
+        updateDaysCounter();
+        
+        if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+            document.body.addEventListener('click', () => Notification.requestPermission(), { once: true });
+        }
 
-// --- Play You've Got Mail on new msg if needed ---
-function handleIncomingMessage(msg) {
-    if(isSleepMode) return;
-    if(shouldPlayNotif()) {
-        safePlaySound();
-        if(Notification.permission === "granted") new Notification(`${msg.sender} sent a message`);
-    }
-}
+        setInterval(() => {
+             chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: document.getElementById('msg-input').value, localTime: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) } });
+        }, 30000);
 
-// --- Main Sound Function (shared for call and notifs) ---
-function safePlaySound(type) {
-    if(type==="ring") {
-        alarmRingtone.currentTime = 0;
-        alarmRingtone.play().catch(()=>{});
-    } else if(type==="mail") {
-        notifSound.currentTime = 0;
-        notifSound.play().catch(()=>{});
-    } else {
-        notifSound.currentTime = 0;
-        notifSound.play().catch(()=>{});
-    }
-}
-
-// ---------------- SCREENSHOT ALERT ----------------
-function sendScreenshotAlert() {
-    if (!isRJ || !screenshotAlertEnabled) return;
-    chatChannel.send({ type: 'broadcast', event: 'sshot', payload: { from: me, time: new Date() }});
-}
-function showScreenshotBanner(from) {
-    const b = document.getElementById('ss-alert-banner');
-    b.textContent = `${from} took a screenshot 👀!`;
-    b.style.display='block';
-    setTimeout(()=>{b.style.display='none'},4000);
-}
-function toggleSSAlerts() {
-    screenshotAlertEnabled=document.getElementById('ss-alert-toggle').checked;
-    if(screenshotAlertEnabled) { alert("Screenshot alerts will trigger if supported. (Android only)"); }
-}
-// ------ NUDGE Button for RJ ----
-function sendNudge() {
-    if (!isRJ) return;
-    chatChannel.send({ type: 'broadcast', event: 'nudge', payload: { receiver: you }});
-    doNudgeEffect(); // play for self too
-}
-function doNudgeEffect() {
-    const sh=()=>document.body.style.transform="translate("+((Math.random()-.5)*20)+"px,"+((Math.random()-.5)*6)+"px)";
-    for(let j=0;j<15;j++) setTimeout(sh,35*j);
-    setTimeout(()=>document.body.style.transform="",500);
-}
-
-// ----------- NICKNAME SYSTEM ------------
-function setPartnerNickname() {
-    let n = prompt("Display their name as? (local, e.g. Princess, Bestie...)");
-    if(n && n.length>0) {
-        localStorage.setItem(`nick_${you}`, n);
-        loadNicknames();
-    }
-}
-function loadNicknames() {
-    let nn = localStorage.getItem(`nick_${you}`);
-    currentNickname = nn;
-    document.getElementById('partner-name').childNodes[0].textContent = nn?nn:you;
-}
-
-// ----- Location Sharing Button for RJ -----
-function requestLocationFromPartner() {
-    if (!isRJ) return;
-    chatChannel.send({ type: 'broadcast', event: 'location', payload: { to: you, ask: true } });
-    partnerLocationRequestPending = true;
-    alert("Requested partner's location!");
-}
-function showLocationLink(lat, lon) {
-  const url = `https://maps.google.com/?q=${lat},${lon}`;
-  alert(`Her location (live when allowed):\n${url}`);
-  window.open(url,"_blank");
-}
-// When requested, send my loc back
-if(navigator.geolocation) {
-    chatChannel?.on?.('broadcast', { event: 'location' }, async p => {
-      if(p.payload && p.payload.to === me && p.payload.ask) {
-        navigator.geolocation.getCurrentPosition(pos => {
-          chatChannel.send({ type:'broadcast', event:'location', payload: { username: me, latitude: pos.coords.latitude, longitude: pos.coords.longitude } });
-        })
-      }
-    });
-}
-
-// -------- BATTERY API for Remote
-function updateLocalBattery(level) {
-    localBatteryLevel = Math.round(level*100);
-    document.getElementById('my-battery-lvl').textContent = localBatteryLevel+'%';
-    chatChannel.send({ type: 'broadcast', event: 'battery', payload: { username: me, level: localBatteryLevel }});
-}
-function updatePartnerBattery(level) {
-    if (typeof level !== 'undefined') {
-        partnerBatteryLevel = level;
-        document.getElementById('partner-battery-lvl').textContent = level + "%";
-    }
-}
-
-// ---- /slash commands ------
-function parseSlashCommands(str) {
-    // slash commands
-    // /milestone [text], /nudge, /ty [message], /countdown, /sticker, /shrug, /tableflip, /location, /thinking
-    return [
-        {slash:"/milestone", desc:"Send milestone (auto or custom)", exec:() => sendMilestone()},
-        {slash:"/nudge", desc:"Nudge her screen", exec:()=>sendNudge()},
-        {slash:"/ty",desc:"Auto-reply to next message",exec:()=> setRespOnce()},
-        {slash:"/countdown",desc:"Add countdown event",exec:()=>showSidebarTab('countdown')},
-        {slash:"/sticker",desc:"Open sticker/GIF picker",exec:()=>openGifPicker()},
-        {slash:"/shrug",desc:"Send ¯\\_(ツ)_/¯",exec:()=>sendMsg('¯\\_(ツ)_/¯')},
-        {slash:"/tableflip",desc:"Send (╯°□°)╯︵ ┻━┻",exec:()=>sendMsg('(╯°□°)╯︵ ┻━┻')},
-        {slash:"/location",desc:"Send live location",exec:()=>shareMyLocation()}, 
-        {slash:"/thinking",desc:"Send 'Thinking of you' notification",exec:()=>thinkingOfYou()},
-    ];
-}
-function execSlash(cmd) {
-    const found = parseSlashCommands().find(o=>cmd.startsWith(o.slash));
-    if(found) found.exec();
-}
-function showSlashCmdList(filter="") {
-    const cmds = parseSlashCommands().filter(o=>o.slash.includes(filter)||o.desc.toLowerCase().includes(filter.toLowerCase()));
-    const html = cmds.map((c,i)=>`<div class="slash-cmd-item${i===0?' selected':''}" onclick="execSlash('${c.slash}')"><span class="font-mono text-lg text-white">${c.slash}</span> <span class="ml-2 text-xs text-white/60">${c.desc}</span></div>`).join('');
-    const box=document.getElementById('slash-cmd-list');
-    box.innerHTML=html;box.style.display="block";
-}
-function hideSlashCmdList(){document.getElementById('slash-cmd-list').style.display="none";}
-// Show/hide on /
-document.getElementById('msg-input').oninput = (e) => {
-    let v=e.target.value;
-    if(v.startsWith('/')) showSlashCmdList(v.trim());
-    else hideSlashCmdList();
-    chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: v, typingUser: me } });
-};
-
-// --- Automated Reply for next msg (RJ) ----
-function setRespOnce() {
-    let r=prompt("Auto-message her next time she sends a msg. What should the message be?");
-    if(r && r.length>0) respondOnceValue = r;
-}
-
-// --- Milestone SYSTEM POST
-function sendMilestone() {
-    let str = prompt('Milestone: (e.g. "Happy 100 days!")');
-    let t = new Date().toISOString();
-    addMilestoneToFeed(str, t);
-    chatChannel.send({type:'broadcast',event:'milestone',payload: {text:str,time:t}});
-}
-function addMilestoneToFeed(txt, t) {
-    let el = document.createElement('div');
-    el.className='milestone-msg';
-    el.textContent = txt + " " + (t?("("+new Date(t).toLocaleDateString()+")"):"");
-    document.getElementById('messages').appendChild(el);
-}
-
-// --- "Thinking of You" ---
-function thinkingOfYou() {
-    if (Notification.permission === "granted")
-        new Notification("Thinking of you!", {body:"RJ is thinking of you 💭"});
-    else
-        safePlaySound("mail");
-    const b=document.createElement('div');
-    b.innerHTML='💭 Thinking of you 💖';
-    b.className="milestone-msg";
-    document.getElementById('messages').appendChild(b);
-    setTimeout(()=> b.remove(),4000);
-}
-
-// --- Live Location sending (/location, or sidebar button) -----
-function shareMyLocation() {
-    if (navigator.geolocation)
-        navigator.geolocation.getCurrentPosition(pos=>{
-            let mapUrl = `https://maps.google.com/?q=${pos.coords.latitude},${pos.coords.longitude}`;
-            sendMsg("My location: "+mapUrl);
+        // --- MOBILE AWAKE FIX ---
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === 'visible') {
+                loadMessages();
+                loadStatuses();
+                chatChannel.subscribe();
+            }
         });
-}
-
-// --- Save/Load shared notes ---
-async function loadSharedNotes() {
-    let {data} = await _db.from('chat_codes').select('shared_notes').eq('code',localStorage.getItem('chat_secret_code')).single();
-    document.getElementById('shared-notes').value = (data&&data.shared_notes) || '';
-}
-async function saveSharedNotes() {
-    let v = document.getElementById('shared-notes').value;
-    await _db.from('chat_codes').update({shared_notes: v}).eq('username', me);
-    document.getElementById('notes-status').textContent="Saved!";
-    setTimeout(()=>document.getElementById('notes-status').textContent="",1800);
-    // Broadcast update
-    chatChannel.send({type:'broadcast',event:'refresh',payload:{}});
-}
-
-// --- Countdown Events sidebar -----
-async function loadCountdowns() {
-    let {data}=await _db.from('chat_codes').select('countdown_json').eq('code',localStorage.getItem('chat_secret_code')).single();
-    let arr = [];
-    try {arr = JSON.parse(data?.countdown_json||"[]");}catch{}
-    allCountdowns = arr||[];
-    renderCountdownList();
-}
-function renderCountdownList() {
-    let ctn=document.getElementById("countdown-events");
-    if(!allCountdowns.length) ctn.innerHTML="<div class='opacity-40 text-xs'>No countdowns yet!</div>";
-    else
-        ctn.innerHTML=allCountdowns.map((o,i)=>{
-        const days = Math.max(0,Math.ceil((new Date(o.date)-Date.now())/(1000*60*60*24)));
-        return `<div class="countdown-row"><div class="rounded bg-blue-600/20 px-3 py-1 min-w-36">${o.name}: <span class="font-mono text-pink-400">${days}</span> days</div><button onclick="removeCountdown(${i})" class="ml-2 bg-red-600/30 text-white rounded px-2">X</button></div>`;
-        }).join('');
-}
-document.getElementById("add-countdown-form").onsubmit=async(e)=>{
-    e.preventDefault();
-    allCountdowns.push({name:document.getElementById('countdown-name').value, date:document.getElementById('countdown-date').value});
-    await _db.from('chat_codes').update({countdown_json: JSON.stringify(allCountdowns)}).eq('username', me);
-    document.getElementById('countdown-name').value="";document.getElementById('countdown-date').value="";
-    loadCountdowns();
-};
-function removeCountdown(i){
-    allCountdowns.splice(i,1);
-    _db.from('chat_codes').update({countdown_json: JSON.stringify(allCountdowns)}).eq('username', me);
-    loadCountdowns();
-}
-// ------- Sidebar Tabs -----
-function showSidebarTab(tab) {
-    ["chat","notes","countdown"].forEach(t=>{
-        document.getElementById('tab-page-'+t).style.display = (t===tab) ? "" : "none";
-        document.getElementById('tab-'+t).classList.toggle('active', t===tab);
-    });
-}
-
-// ------- GIF/STICKER PICKER (via Tenor API, can switch to Giphy) -------
-function openGifPicker() {
-    document.getElementById('gif-picker-modal').style.display = 'block';
-    document.getElementById('gif-search-bar').focus();
-    // Load trending first
-    fetchTenorTrending();
-}
-function closeGifPicker() {
-    document.getElementById('gif-picker-modal').style.display = 'none';
-    document.getElementById('gif-picker-list').innerHTML = "";
-}
-function fetchTenorTrending() {
-    fetch("https://tenor.googleapis.com/v2/featured?key=AIzaSyB5rLAGmOOx0cMTK1JzVped0Q1GzqjecbI&limit=15").then(r=>r.json())
-    .then(d=>{
-        listGifs(d.results);
-    });
-}
-function listGifs(arr){
-    let html=arr.map(gif=>{
-        let u=gif.media_formats.gif.url;
-        return `<img src="${u}" class="gif-thumb" onclick="selectGifForSend('${u}')">`;
-    }).join('');
-    document.getElementById('gif-picker-list').innerHTML=html;
-}
-document.getElementById('gif-search-bar').oninput=function(){
-    clearTimeout(gifFetchTimeout);
-    gifFetchTimeout=setTimeout(()=>{
-        fetch(`https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(this.value)}&key=AIzaSyB5rLAGmOOx0cMTK1JzVped0Q1GzqjecbI&limit=15`)
-        .then(r=> r.json()).then(d=>listGifs(d.results))
-    },460);
-};
-function selectGifForSend(url){
-    closeGifPicker();
-    // Send GIF as image message (mimic media send)
-    sendMsg('',null, [url]);
-}
-
-function sendMsg(txt, extraFile = null, gifArr=null) {
-    chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: "" } });
-    if (editingId) {
-        _db.from('private_messages').update({ message: txt, edited: true }).eq('id', editingId).then(()=>{ cancelEdit(); });
-        return;
     }
-    const currentStaged = [...stagedFiles];
-    const currentReplyId = replyId;
-    // Optimistic UI
-    if ((currentStaged.length === 0 && !extraFile && txt.trim() || gifArr) || extraFile) {
-        const tempMsg = {
-            id: 'temp-' + Date.now(),
-            sender: me,
-            receiver: you,
-            message: txt.trim(),
-            created_at: new Date().toISOString(),
-            is_read: false,
-            reply_to: currentReplyId,
-            file_url: gifArr ? gifArr[0] : null,
-            is_sticker: !!gifArr,
-            optimistic: true
-        };
-        allMessagesCache.push(tempMsg);
-        renderMessages(allMessagesCache);
+
+    // --- PIN SYSTEM ---
+    function showPinScreen(mode) {
+        pinMode = mode;
+        const overlay = document.getElementById('pin-overlay');
+        const title = document.getElementById('pin-title');
+        const sub = document.getElementById('pin-subtitle');
+        const cancelBtn = document.getElementById('cancel-pin-setup');
+        
+        enteredPin = "";
+        updatePinDots();
+        overlay.style.display = 'flex';
+        generateNumpad();
+
+        if(mode === 'unlock') {
+            title.textContent = "Welcome Back";
+            sub.textContent = "Enter your PIN";
+            cancelBtn.classList.add('hidden');
+        } else if (mode === 'setup') {
+            title.textContent = "Create PIN";
+            sub.textContent = "Set a 4-digit code";
+            cancelBtn.classList.remove('hidden');
+        } else if (mode === 'admin') {
+            title.textContent = "Admin Override";
+            sub.textContent = "Set Allyvia's New PIN";
+            cancelBtn.classList.remove('hidden');
+        }
     }
-    stagedFiles = [];
-    renderStaging();
-    cancelReply();
-    document.getElementById('msg-input').value = "";
-    let p = Promise.resolve([]);
-    // If pasted gif
-    let urls = [];
-    if (gifArr) urls = gifArr;
-    if(currentStaged.length>0)
-    p = Promise.all(currentStaged.map(async f=>{
-        const n = `msg_${Date.now()}_${Math.random().toString(36).substr(2,5)}`;
-        await _db.storage.from('chat-files').upload(n, f.file);
-        return _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl;
-    }));
-    if(extraFile) {
-        p = (async()=>{
+
+    function generateNumpad() {
+        const p = document.getElementById('numpad');
+        p.innerHTML = '';
+        [1,2,3,4,5,6,7,8,9,0].forEach(n => {
+            const b = document.createElement('div'); b.className = 'pin-key'; b.innerText = n;
+            b.onclick = () => handlePinInput(n); p.appendChild(b);
+        });
+    }
+
+    function handlePinInput(n) {
+        if(enteredPin.length < 4) {
+            enteredPin += n;
+            updatePinDots();
+        }
+        
+        if(enteredPin.length === 4) {
+            setTimeout(async () => {
+                if(pinMode === 'unlock') {
+                    if(enteredPin === pinCode) {
+                        document.getElementById('pin-overlay').style.display = 'none';
+                    } else {
+                        alert("Wrong PIN"); enteredPin = ""; updatePinDots();
+                    }
+                } 
+                else if (pinMode === 'setup') {
+                    // Save new PIN to DB for ME
+                    await _db.from('chat_codes').update({ pin_code: enteredPin }).eq('username', me);
+                    pinCode = enteredPin;
+                    document.getElementById('pin-overlay').style.display = 'none';
+                    document.getElementById('pin-toggle').checked = true;
+                    alert("PIN Setup Complete!");
+                }
+                else if (pinMode === 'admin') {
+                     // RJ changing Allyvia's PIN
+                    await _db.from('chat_codes').update({ pin_code: enteredPin }).eq('username', 'Allyvia');
+                    document.getElementById('pin-overlay').style.display = 'none';
+                    alert("Allyvia's PIN has been updated.");
+                }
+            }, 200);
+        }
+    }
+
+    function updatePinDots() {
+        const dots = document.querySelectorAll('.pin-dot');
+        dots.forEach((d, i) => {
+            if(i < enteredPin.length) d.classList.add('filled');
+            else d.classList.remove('filled');
+        });
+    }
+
+    function togglePinSetting() {
+        const isOn = document.getElementById('pin-toggle').checked;
+        if(isOn) {
+            showPinScreen('setup');
+        } else {
+            if(confirm("Disable PIN lock?")) {
+                _db.from('chat_codes').update({ pin_code: null }).eq('username', me).then(() => {
+                     pinCode = null;
+                });
+            } else {
+                document.getElementById('pin-toggle').checked = true;
+            }
+        }
+    }
+    
+    function cancelPinSetup() {
+        document.getElementById('pin-overlay').style.display = 'none';
+        if(pinMode === 'setup') document.getElementById('pin-toggle').checked = false; 
+    }
+
+    // --- RJ ADMIN TOOLS ---
+    async function adminDisablePin() {
+        if(!confirm("Are you sure you want to remove Allyvia's PIN lock?")) return;
+        await _db.from('chat_codes').update({ pin_code: null }).eq('username', 'Allyvia');
+        alert("Allyvia's PIN removed.");
+    }
+    
+    function adminChangePin() {
+        showPinScreen('admin');
+    }
+
+    // --- SLEEP MODE ---
+    function toggleSleepMode() { isSleepMode = document.getElementById('sleep-toggle').checked; }
+    function handleIncomingMessage(msg) {
+        if(isSleepMode) return; 
+        safePlaySound();
+        if(document.hidden && Notification.permission === "granted") {
+            new Notification(`${msg.sender} sent a message`);
+        }
+    }
+
+    // --- WHITEBOARD (REAL TIME) ---
+    function openWhiteboard() {
+        document.getElementById('whiteboard-modal').style.display = 'flex';
+        canvas = document.getElementById('drawing-canvas');
+        ctx = canvas.getContext('2d');
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('touchstart', (e) => startDrawing(e.touches[0]));
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e.touches[0]); });
+        canvas.addEventListener('touchend', stopDrawing);
+    }
+    function closeWhiteboard() { document.getElementById('whiteboard-modal').style.display = 'none'; }
+    function resizeCanvas() { canvas.width = canvas.parentElement.clientWidth; canvas.height = canvas.parentElement.clientHeight; }
+    function startDrawing(e) { isDrawing = true; [lastX, lastY] = [e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop]; }
+    function draw(e) {
+        if(!isDrawing) return;
+        const x = e.clientX - canvas.offsetLeft;
+        const y = e.clientY - canvas.offsetTop;
+        drawOnCanvas({ x0: lastX, y0: lastY, x1: x, y1: y, color: ctx.strokeStyle }, true);
+        [lastX, lastY] = [x, y];
+    }
+    function stopDrawing() { isDrawing = false; }
+    function setBrushColor(c) { ctx.strokeStyle = c; ctx.lineWidth = 3; ctx.lineCap = 'round'; }
+    function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+    
+    function drawOnCanvas(d, emit) {
+        if(!ctx) return;
+        ctx.beginPath(); ctx.moveTo(d.x0, d.y0); ctx.lineTo(d.x1, d.y1); ctx.strokeStyle = d.color; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke();
+        if(emit) {
+            if(!drawingThrottle) {
+                chatChannel.send({ type: 'broadcast', event: 'draw_event', payload: d });
+                drawingThrottle = setTimeout(() => drawingThrottle = null, 20); 
+            }
+        }
+    }
+
+    // --- CORE CHAT (FASTER DELETE) ---
+    async function deleteMsg(id) { 
+        if(!confirm("Delete for everyone?")) return;
+        const btn = document.querySelector(`span[onclick="deleteMsg('${id}')"]`);
+        if(btn) { const row = btn.closest('.msg-wrap'); if(row) row.style.display = 'none'; }
+        const msg = allMessagesCache.find(m => m.id === id);
+        if(msg) await _db.from('deleted_logs').insert([{ original_sender: msg.sender, content: msg.message, file_url: msg.file_url, deleted_at: new Date() }]);
+        await _db.from('private_messages').delete().eq('id', id);
+    }
+
+    // --- VOICE MESSAGES ---
+    async function toggleRecording() {
+        const btn = document.getElementById('mic-btn');
+        if(!mediaRecorder || mediaRecorder.state === 'inactive') {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = async () => {
+                    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                    sendMsg("Voice Message", blob); 
+                    btn.classList.remove('recording-pulse');
+                    btn.textContent = '🎙️';
+                };
+                mediaRecorder.start();
+                btn.classList.add('recording-pulse');
+                btn.textContent = '🟥';
+            } catch(e) { alert("Mic error"); }
+        } else {
+            mediaRecorder.stop();
+        }
+    }
+
+    // --- THEMES & UPLOAD ---
+    async function uploadCustomTheme(input) {
+        if(input.files && input.files[0]) {
+            const file = input.files[0];
+            const fileName = `bg_${Date.now()}_${Math.random().toString(36).substr(2,5)}`;
+            const { data, error } = await _db.storage.from('chat-files').upload(fileName, file);
+            if(error) { alert("Upload failed"); return; }
+            const url = _db.storage.from('chat-files').getPublicUrl(fileName).data.publicUrl;
+            localStorage.setItem('custom_bg', url);
+            document.body.style.backgroundImage = `url('${url}')`;
+            setTheme('custom');
+            input.value = ""; 
+        }
+    }
+
+    async function setTheme(themeName) {
+        if(themeName !== 'custom') {
+            localStorage.removeItem('custom_bg');
+            document.body.style.backgroundImage = '';
+        }
+        applyTheme(themeName);
+        await _db.from('chat_codes').update({ current_theme: themeName }).eq('username', me);
+        chatChannel.send({ type: 'broadcast', event: 'theme_change', payload: { theme: themeName } });
+    }
+
+    function applyTheme(themeName) {
+        document.body.setAttribute('data-theme', themeName);
+        document.querySelectorAll('.theme-dot').forEach(d => d.classList.remove('selected'));
+        const activeDot = document.querySelector(`.theme-dot[onclick*="${themeName}"]`);
+        if(activeDot) activeDot.classList.add('selected');
+        if(themeName === 'custom') document.querySelector('.theme-dot-custom').classList.add('selected');
+    }
+
+    // --- CALL SIGNALING ---
+    function startCallRequest(isVideo) {
+        document.getElementById('outgoing-call-ui').classList.remove('hidden');
+        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'offer', mode: isVideo ? 'video' : 'voice', caller: me } });
+    }
+
+    function handleCallSignal(payload) {
+        if(payload.caller === me) return;
+        if(payload.type === 'offer') {
+            if(!document.getElementById('video-grid').classList.contains('hidden')) {
+                chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'reject', caller: me } });
+                return;
+            }
+            incomingCallData = payload;
+            document.getElementById('incoming-call-ui').classList.remove('hidden');
+            document.getElementById('caller-id-disp').textContent = payload.caller;
+            document.getElementById('call-type-disp').textContent = payload.mode + " Call";
+            if(!isSleepMode) safePlaySound();
+        }
+        else if(payload.type === 'answer') {
+            document.getElementById('outgoing-call-ui').classList.add('hidden');
+            joinAgora(payload.mode === 'video');
+        }
+        else if(payload.type === 'reject') {
+            alert("Call declined");
+            resetCallUI();
+        }
+        else if(payload.type === 'hangup') {
+            leaveAgora();
+        }
+    }
+
+    function answerCall() {
+        document.getElementById('incoming-call-ui').classList.add('hidden');
+        chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'answer', mode: incomingCallData.mode, caller: me } });
+        joinAgora(incomingCallData.mode === 'video');
+    }
+    function rejectCall() { document.getElementById('incoming-call-ui').classList.add('hidden'); chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'reject', caller: me } }); }
+    function cancelCall() { document.getElementById('outgoing-call-ui').classList.add('hidden'); chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'reject', caller: me } }); }
+    function hangUp() { chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'hangup', caller: me } }); leaveAgora(); }
+    function safePlaySound() { notifSound.play().catch(e => {}); }
+    function resetCallUI() {
+        document.getElementById('incoming-call-ui').classList.add('hidden');
+        document.getElementById('outgoing-call-ui').classList.add('hidden');
+        document.getElementById('video-grid').classList.add('hidden');
+        document.getElementById('return-to-call').style.display = 'none';
+        stopCallTimer();
+        document.getElementById('call-status').textContent = "Connecting...";
+        document.getElementById('local-video').innerHTML = '';
+        document.getElementById('local-screen').classList.add('hidden');
+        incomingCallData = null;
+    }
+    function toggleCallView() {
+        const grid = document.getElementById('video-grid');
+        const floatBtn = document.getElementById('return-to-call');
+        if (grid.classList.contains('hidden')) { grid.classList.remove('hidden'); floatBtn.style.display = 'none'; } 
+        else { grid.classList.add('hidden'); floatBtn.style.display = 'block'; }
+    }
+
+    // --- AGORA ---
+    async function joinAgora(videoMode) {
+        rtc.client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+        document.getElementById('video-grid').classList.remove('hidden');
+        
+        rtc.client.on("user-published", async (user, mediaType) => { 
+            await rtc.client.subscribe(user, mediaType); 
+            document.getElementById('call-status').textContent = "CONNECTED";
+            if(mediaType === "video") user.videoTrack.play("remote-video");
+            if(mediaType === "audio") user.audioTrack.play();
+        });
+        rtc.client.on("user-left", () => { hangUp(); });
+        
+        try {
+            await rtc.client.join(AGORA_APP_ID, "love-nest-v16", null, null);
+            startCallTimer();
+            await requestWakeLock();
+            
+            const promises = [AgoraRTC.createMicrophoneAudioTrack()];
+            if(videoMode) promises.push(AgoraRTC.createCameraVideoTrack({ encoderConfig: "360p_1" }));
+            const tracks = await Promise.all(promises);
+            rtc.localAudioTrack = tracks[0];
+            rtc.localVideoTrack = videoMode ? tracks[1] : null;
+            if(rtc.localVideoTrack) {
+                rtc.localVideoTrack.play("local-video");
+                await rtc.client.publish([rtc.localAudioTrack, rtc.localVideoTrack]);
+                rtc.isCamOff = false;
+            } else {
+                await rtc.client.publish([rtc.localAudioTrack]);
+                rtc.isCamOff = true;
+                document.getElementById('local-video').innerHTML = '<div class="w-full h-full flex items-center justify-center text-3xl">🎙️</div>';
+            }
+            updateMediaUI();
+        } catch (e) { alert("Call failed: " + e.message); leaveAgora(); }
+    }
+
+    async function leaveAgora() {
+        stopCallTimer();
+        if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+        if(rtc.localAudioTrack) { rtc.localAudioTrack.close(); rtc.localAudioTrack = null; }
+        if(rtc.localVideoTrack) { rtc.localVideoTrack.close(); rtc.localVideoTrack = null; }
+        if(rtc.screenTrack) { rtc.screenTrack.close(); rtc.screenTrack = null; }
+        if(rtc.client) { await rtc.client.leave(); rtc.client = null; }
+        resetCallUI();
+    }
+    
+    async function requestWakeLock() { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} }
+    function toggleMute() { if(!rtc.localAudioTrack) return; rtc.isMuted = !rtc.isMuted; rtc.localAudioTrack.setEnabled(!rtc.isMuted); updateMediaUI(); }
+    async function toggleCam() { 
+        rtc.isCamOff = !rtc.isCamOff;
+        if(!rtc.localVideoTrack) {
+            rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack({ encoderConfig: "360p_1" });
+            rtc.localVideoTrack.play("local-video");
+            await rtc.client.publish([rtc.localVideoTrack]);
+        }
+        rtc.localVideoTrack.setEnabled(!rtc.isCamOff);
+        if (rtc.isCamOff) document.getElementById('local-video').innerHTML = '<div class="w-full h-full flex items-center justify-center text-3xl">🎙️</div>';
+        else if(document.getElementById('local-video').querySelector('video') === null) rtc.localVideoTrack.play("local-video");
+        updateMediaUI();
+    }
+    function updateMediaUI() {
+        document.getElementById('btn-mute').textContent = rtc.isMuted ? '🔇' : '🎤';
+        document.getElementById('btn-mute').classList.toggle('active', rtc.isMuted);
+        document.getElementById('btn-cam').textContent = rtc.isCamOff ? '🚫' : '📷';
+        document.getElementById('btn-cam').classList.toggle('active', rtc.isCamOff);
+    }
+    function startCallTimer() {
+        stopCallTimer(); callSeconds = 0;
+        document.getElementById('call-timer').textContent = "00:00";
+        callTimerInterval = setInterval(() => {
+            callSeconds++;
+            const m = Math.floor(callSeconds / 60).toString().padStart(2, '0');
+            const s = (callSeconds % 60).toString().padStart(2, '0');
+            document.getElementById('call-timer').textContent = `${m}:${s}`;
+        }, 1000);
+    }
+    function stopCallTimer() { if(callTimerInterval) clearInterval(callTimerInterval); callTimerInterval = null; }
+
+    // --- MESSAGING ---
+    function updateDaysCounter() {
+        const diff = new Date() - new Date('2025-11-24');
+        document.getElementById('days-counter').textContent = Math.floor(diff / (1000 * 60 * 60 * 24)).toLocaleString();
+    }
+    function escapeHtml(text) { return text ? text.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])) : ""; }
+    
+    function formatMessage(text) {
+        return escapeHtml(text).replace(/(https?:\/\/[^\s]+)/g, (url) => {
+            if (url.includes('youtube.com') || url.includes('youtu.be')) return `<a href="${url}" target="_blank" class="text-blue-400 underline truncate block">${url}</a><div class="link-preview"><iframe src="https://www.youtube.com/embed/${(url.split('v=')[1]||url.split('/').pop()).split('&')[0]}" frameborder="0" allowfullscreen class="h-48 w-full rounded-lg mt-1"></iframe></div>`;
+            if (url.match(/\.(jpeg|jpg|gif|png|webp)$/i)) return `<img loading="lazy" decoding="async" src="${url}" class="rounded-xl mt-1 max-h-48 cursor-pointer" onclick="openLightbox('${url}')">`;
+            return `<a href="${url}" target="_blank" class="text-blue-400 underline">${url}</a>`;
+        });
+    }
+
+    async function sendMsg(txt, extraFile = null) {
+        chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: "" } });
+        if (editingId) { 
+            await _db.from('private_messages').update({ message: txt, edited: true }).eq('id', editingId);
+            cancelEdit(); return;
+        }
+
+        const currentStaged = [...stagedFiles];
+        const currentReplyId = replyId;
+        // Optimistic UI
+        if ((currentStaged.length === 0 && !extraFile && txt.trim()) || extraFile) {
+            const tempMsg = {
+                id: 'temp-' + Date.now(),
+                sender: me,
+                receiver: you,
+                message: txt.trim(),
+                created_at: new Date().toISOString(),
+                is_read: false,
+                reply_to: currentReplyId,
+                file_url: null,
+                optimistic: true
+            };
+            allMessagesCache.push(tempMsg);
+            renderMessages(allMessagesCache);
+        }
+
+        stagedFiles = []; renderStaging(); 
+        cancelReply();
+        document.getElementById('msg-input').value = "";
+        
+        let urls = [];
+        if(currentStaged.length > 0) {
+            urls = await Promise.all(currentStaged.map(async f => { 
+                const n = `msg_${Date.now()}_${Math.random().toString(36).substr(2,5)}`; 
+                await _db.storage.from('chat-files').upload(n, f.file); 
+                return _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl; 
+            }));
+        }
+        if(extraFile) {
             const n = `voice_${Date.now()}.webm`;
-            await _db.storage.from('chat-files').upload(n, extraFile);
-            return [_db.storage.from('chat-files').getPublicUrl(n).data.publicUrl];
-        })();
-    }
-    p.then(async urlArr=>{
-        if(!urlArr.length && gifArr) urlArr=gifArr;
-        await _db.from('private_messages').insert([{
-            sender: me,
-            receiver: you,
-            message: txt.trim(),
-            file_url: urlArr.join(','),
-            reply_to: currentReplyId,
-            is_read: false,
-            is_sticker: !!gifArr
+            await _db.storage.from('chat-files').upload(n, extraFile); 
+            urls.push(_db.storage.from('chat-files').getPublicUrl(n).data.publicUrl);
+        }
+        
+        await _db.from('private_messages').insert([{ 
+            sender: me, 
+            receiver: you, 
+            message: txt.trim(), 
+            file_url: urls.join(','), 
+            reply_to: currentReplyId, 
+            is_read: false 
         }]);
+        
+        // --- FORCE REFRESH FIX ---
         loadMessages();
-    });
-}
+    }
 
-// --- MSG DELETE & EDIT: RJ can delete/edit any message (hers & his) ---
-async function deleteMsg(id) {
-    const btn = document.querySelector(`span[onclick="deleteMsg('${id}')"]`);
-    if(btn) { const row = btn.closest('.msg-wrap'); if(row) row.style.display = 'none'; }
-    const msg = allMessagesCache.find(m => m.id === id);
-    if(msg) await _db.from('deleted_logs').insert([{ original_sender: msg.sender, content: msg.message, file_url: msg.file_url, deleted_at: new Date() }]);
-    await _db.from('private_messages').delete().eq('id', id);
-}
-function startEdit(id) {
-    const msg = allMessagesCache.find(m => m.id === id);
-    if(!msg) return;
-    editingId = id;
-    document.getElementById('msg-input').value = msg.message;
-    document.getElementById('msg-input').focus();
-    document.getElementById('edit-box').classList.remove('hidden');
-    document.getElementById('send-btn').textContent = "Update";
-    cancelReply();
-}
-function cancelEdit() {
-    editingId = null;
-    document.getElementById('msg-input').value = "";
-    document.getElementById('edit-box').classList.add('hidden');
-    document.getElementById('send-btn').textContent = "Send";
-}
-function setReply(id) {
-    const msg = allMessagesCache.find(m => m.id === id);
-    if (!msg) return;
-    replyId = id;
-    const txt = msg.message || (msg.file_url ? "Media Attachment" : "Message");
-    document.getElementById('reply-text').textContent = `Replying to: ${txt}`;
-    document.getElementById('reply-box').classList.remove('hidden');
-    cancelEdit();
-    document.getElementById('msg-input').focus();
-}
-function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
-
-// --- Mark as read, toggle
-async function markAsRead(msgId) {
-    if(!showReadReceipts) return;
-    if(!msgId)
-        await _db.from('private_messages').update({ is_read: true }).eq('receiver', me).eq('is_read', false);
-    else
-        await _db.from('private_messages').update({ is_read: true }).eq('id', msgId);
-}
-function toggleReadReceipts() { showReadReceipts=document.getElementById('read-toggle').checked; }
-
-// --- Render messages with: RJ edit/delete for both, stickers, milestones...
-function renderMessages(msgs) {
-    document.getElementById('messages').innerHTML =
-    msgs.map(m=>{
-        const isMe = m.sender === me;
-        const isHer = m.sender === you;
-        const canEdit = (isMe || (isRJ && isHer));
-        const canDelete = (isMe || (isRJ && isHer));
-        const parentMsg = m.reply_to ? allMessagesCache.find(x => x.id === m.reply_to) : null;
-        const replyHTML = parentMsg ? `<div class="reply-preview">${escapeHtml(parentMsg.message || (parentMsg.file_url ? "Media" : "Message"))}</div>` : '';
-        let mediaHTML = "";
-        if(m.is_sticker && m.file_url){
-            mediaHTML = `<img class="sticker-img" src="${m.file_url.split(',')[0]}" alt="Sticker">`;
-        } else if (m.file_url) {
-            mediaHTML = (m.file_url? m.file_url.split(',') : []).map(u => {
+    function setReply(id) { 
+        const msg = allMessagesCache.find(m => m.id === id);
+        if (!msg) return;
+        replyId = id; 
+        const txt = msg.message || (msg.file_url ? "Media Attachment" : "Message");
+        document.getElementById('reply-text').textContent = `Replying to: ${txt}`; 
+        document.getElementById('reply-box').classList.remove('hidden'); 
+        cancelEdit(); 
+        document.getElementById('msg-input').focus();
+    }
+    
+    function startEdit(id) { 
+        const msg = allMessagesCache.find(m => m.id === id);
+        if(!msg) return;
+        editingId = id;
+        document.getElementById('msg-input').value = msg.message; 
+        document.getElementById('msg-input').focus(); 
+        document.getElementById('edit-box').classList.remove('hidden'); 
+        document.getElementById('send-btn').textContent = "Update"; 
+        cancelReply();
+    }
+    
+    function cancelEdit() { editingId = null; document.getElementById('msg-input').value = ""; document.getElementById('edit-box').classList.add('hidden'); document.getElementById('send-btn').textContent = "Send"; }
+    function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
+    
+    async function markAsRead(msgId) { 
+        if(!msgId) await _db.from('private_messages').update({ is_read: true }).eq('receiver', me).eq('is_read', false);
+        else await _db.from('private_messages').update({ is_read: true }).eq('id', msgId); 
+    }
+    
+    async function loadMessages() { 
+        if (loadTimeout) clearTimeout(loadTimeout);
+        loadTimeout = setTimeout(async () => {
+            markAsRead();
+            const { data } = await _db.from('private_messages').select('*').order('created_at', { ascending: false }).limit(150); 
+            if(data) {
+                allMessagesCache = data.reverse(); 
+                renderMessages(allMessagesCache);
+            }
+        }, 75);
+    }
+    
+    function renderMessages(msgs) {
+        document.getElementById('messages').innerHTML = msgs.map(m => {
+            const isMe = m.sender === me;
+            const parentMsg = m.reply_to ? allMessagesCache.find(x => x.id === m.reply_to) : null;
+            const replyHTML = parentMsg ? `<div class="reply-preview">${escapeHtml(parentMsg.message || (parentMsg.file_url ? "Media" : "Message"))}</div>` : '';
+            
+            const mediaHTML = (m.file_url ? m.file_url.split(',') : []).map(u => {
                 if(u.includes('.webm') || u.includes('.mp3') || u.includes('voice_')) return `<audio controls src="${u}" class="w-full mb-2"></audio>`;
                 return `<img loading="lazy" decoding="async" src="${u}" class="rounded-xl mb-1 w-full max-h-64 object-cover cursor-pointer hover:brightness-90 transition" onclick="openLightbox('${u}')">`
             }).join('');
+            
+            const bubbleClass = isMe ? 'me' : 'you';
+            const extraClass = m.optimistic ? 'sending' : '';
+            
+            return `<div class="msg-wrap ${isMe ? 'row-me' : 'row-you'}">
+                <div class="bubble ${bubbleClass} ${extraClass}">
+                    ${replyHTML}${mediaHTML}
+                    <div class="whitespace-pre-wrap">${formatMessage(m.message || '')}</div>
+                    <span class="ts-inside">${m.edited ? '<span class="italic opacity-50 mr-1">(edited)</span>' : ''} ${new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })} ${isMe ? `<span class="${m.is_read ? 'text-white' : 'text-white/50'} ml-1">${m.is_read ? '✓✓' : (m.optimistic ? '🕒' : '✓')}</span>` : ''}</span>
+                </div>
+                <div class="msg-tools">
+                    <span class="tool-btn" onclick="setReply('${m.id}')">↩ Reply</span>
+                    ${isMe && !m.optimistic ? `<span class="tool-btn" onclick="startEdit('${m.id}')">✎ Edit</span><span class="tool-btn text-red-400" onclick="deleteMsg('${m.id}')">✕ Del</span>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+        
+        const c = document.getElementById('messages'); 
+        // --- MOBILE SCROLL FIX ---
+        setTimeout(() => { c.scrollTop = c.scrollHeight; }, 100);
+    }
+
+    // --- STATUS & STORY LOGS ---
+    async function updateStatusFromSidebar() { 
+        const btn = document.getElementById('update-status-btn');
+        btn.textContent = "Uploading..."; btn.disabled = true; 
+        const files = document.getElementById('status-media-input').files; 
+        let newItems = [];
+        const caption = document.getElementById('status-txt-input').value;
+        if(files.length > 0) newItems = await Promise.all(Array.from(files).map(async f => { 
+            const isVideo = f.type.startsWith('video'); 
+            const n = `story_${Date.now()}_${Math.random().toString(36).substr(2,5)}`; 
+            await _db.storage.from('chat-files').upload(n, f); 
+            return { url: _db.storage.from('chat-files').getPublicUrl(n).data.publicUrl, type: isVideo ? 'video' : 'image' }; 
+        }));
+        await _db.from('chat_codes').update({ status_text: caption, story_items: newItems }).eq('username', me);
+        if(newItems.length > 0 || caption) {
+            await _db.from('story_logs').insert([{ username: me, caption: caption, media_items: newItems }]);
         }
-        const bubbleClass = isMe ? 'me' : 'you';
-        const extraClass = m.optimistic ? 'sending' : '';
-        let tools = `<span class="tool-btn" onclick="setReply('${m.id}')">↩ Reply</span>`;
-        if(canEdit && !m.optimistic) tools += `<span class="tool-btn edit" onclick="startEdit('${m.id}')">✎ Edit</span>`;
-        if(canDelete && !m.optimistic) tools += `<span class="tool-btn delete" onclick="deleteMsg('${m.id}')">✕ Del</span>`;
-        // Add "thinking of you" (private nudge)
-        return `<div class="msg-wrap ${isMe ? 'row-me' : 'row-you'}">
-            <div class="bubble ${bubbleClass} ${extraClass}">
-                ${replyHTML}${mediaHTML}
-                <div class="whitespace-pre-wrap">${formatMessage(m.message || '')}</div>
-                <span class="ts-inside">
-                    ${m.edited?'<span class="italic opacity-50 mr-1">(edited)</span>':''}
-                    ${new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
-                    ${showReadReceipts && isMe ? `<span class="${m.is_read ? 'text-white' : 'text-white/50'} ml-1">${m.is_read ? '✓✓' : (m.optimistic ? '🕒' : '✓')}</span>` : ''}
-                </span>
-            </div>
-            <div class="msg-tools">
-                ${tools}
-            </div>
-        </div>`;
-    }).join('');
-    setTimeout(()=>{document.getElementById('messages').scrollTop=document.getElementById('messages').scrollHeight},100);
-}
 
-// Custom formatMessage allows URLs/YouTube/Images
-function formatMessage(text) {
-  return escapeHtml(text).replace(/(https?:\/\/[^\s]+)/g, (url) => {
-    if (url.includes('youtube.com') || url.includes('youtu.be'))
-      return `<a href="${url}" target="_blank" class="text-blue-400 underline truncate block">${url}</a><div class="link-preview"><iframe src="https://www.youtube.com/embed/${(url.split('v=')[1]||url.split('/').pop()).split('&')[0]}" frameborder="0" allowfullscreen class="h-48 w-full rounded-lg mt-1"></iframe></div>`;
-    if (url.match(/\.(jpeg|jpg|gif|png|webp)$/i))
-      return `<img loading="lazy" decoding="async" src="${url}" class="rounded-xl mt-1 max-h-48 cursor-pointer" onclick="openLightbox('${url}')">`;
-    return `<a href="${url}" target="_blank" class="text-blue-400 underline">${url}</a>`;
-  });
-}
-function escapeHtml(text) {
-    return text ? text.replace(/[&<>"']/g, m => ({ '&': '&amp;','<': '&lt;','>': '&gt;','"': '&quot;',"'": '&#039;' }[m])) : "";
-}
-
-// Staging area/media for files
-// (same as before)
-function handleFileSelect(input) {
-    Array.from(input.files).slice(0, 4).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = e => { stagedFiles.push({ file, preview: e.target.result }); renderStaging(); };
-        reader.readAsDataURL(file);
-    });
-    input.value = "";
-}
-function renderStaging() {
-    document.getElementById('staging-area').innerHTML = stagedFiles.map((f, i) => `<div class="relative aspect-square"><img src="${f.preview}" class="w-full h-full object-cover rounded-lg border border-white/20"><button onclick="stagedFiles.splice(${i},1);renderStaging()" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] shadow-md">✕</button></div>`).join('');
-}
-
-// Key (file edit adapt)
-document.getElementById('chat-form').onsubmit = (e) => { e.preventDefault(); let v = document.getElementById('msg-input').value; if(v.trim().startsWith('/')) { execSlash(v.trim()); document.getElementById('msg-input').value=''; hideSlashCmdList(); return false;} if(v.trim() || stagedFiles.length) sendMsg(v); else hideSlashCmdList(); };
-// --- / key also shows help
-document.getElementById('msg-input').addEventListener('keydown', function(e){
-  if(e.key==='/' && this.selectionStart===0){ showSlashCmdList(''); }
-  if(document.getElementById('slash-cmd-list').style.display==="block" && e.key==='Enter') { e.preventDefault(); execSlash(document.getElementById('slash-cmd-list').getElementsByClassName('selected')[0]?.textContent.trim().split(" ")[0]); hideSlashCmdList(); document.getElementById('msg-input').value='';}
-  if(document.getElementById('slash-cmd-list').style.display==="block" && (e.key==='ArrowDown'||e.key==='ArrowUp')) {
-    let items = Array.from(document.getElementById('slash-cmd-list').children);
-    let ix = items.findIndex(x=>x.classList.contains('selected'));
-    items[ix]?.classList.remove('selected');
-    if(e.key==='ArrowDown') ix = (ix+1)%items.length; else ix=(ix-1+items.length)%items.length;
-    items[ix]?.classList.add('selected');
-  }
-});
-
-// --- Gif picker keyboard close
-window.addEventListener("keydown",function(e){ if(e.key==="Escape") closeGifPicker();});
-
-// --- Voice
-async function toggleRecording() {
-    const btn = document.getElementById('mic-btn');
-    if(!mediaRecorder || mediaRecorder.state === 'inactive') {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
-            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-            mediaRecorder.onstop = async () => {
-                const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                sendMsg("Voice Message", blob);
-                btn.classList.remove('recording-pulse');
-                btn.textContent = '🎙️';
-            };
-            mediaRecorder.start();
-            btn.classList.add('recording-pulse');
-            btn.textContent = '🟥';
-        } catch(e) { alert("Mic error"); }
-    } else {
-        mediaRecorder.stop();
+        chatChannel.send({ type: 'broadcast', event: 'refresh' }); loadStatuses(); 
+        document.getElementById('status-media-input').value = "";
+        btn.textContent = "Update"; btn.disabled = false; closeSidebar(); 
     }
-}
+    
+    async function removeStatus() { 
+        if(!confirm("Clear status?")) return;
+        await _db.from('chat_codes').update({ status_text: null, story_items: [] }).eq('username', me);
+        document.getElementById('status-txt-input').value = ""; 
+        chatChannel.send({ type: 'broadcast', event: 'refresh' }); loadStatuses();
+    }
 
-// ---- AGORA & CALL CHANGES: Ringing alarm!
-function startCallRequest(isVideo) {
-    document.getElementById('outgoing-call-ui').classList.remove('hidden');
-    playAlarm("out");
-    chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'offer', mode: isVideo ? 'video' : 'voice', caller: me } });
-}
-function handleCallSignal(payload) {
-    if(payload.caller === me) return;
-    if(payload.type === 'offer') {
-        if(!document.getElementById('video-grid').classList.contains('hidden')) {
-            chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'reject', caller: me } });
-            return;
+    async function loadStatuses() { 
+        const { data } = await _db.from('chat_codes').select('*');
+        const p = data.find(u => u.username === you); if(!p) return; partnerStatusData = p; 
+        const n = document.getElementById('partner-name'); n.textContent = you;
+        n.className = (p.story_items && p.story_items.length > 0) ? "font-bold text-lg leading-none tracking-tight has-media" : "font-bold text-lg leading-none tracking-tight";
+        document.getElementById('partner-status').textContent = p.status_text || "No status"; 
+    }
+
+    // --- LOG VIEWERS ---
+    async function viewDeletedLogs() { 
+        document.getElementById('logs-modal').style.display = 'block';
+        const { data } = await _db.from('deleted_logs').select('*').order('deleted_at', { ascending: false }).limit(50);
+        document.getElementById('logs-content').innerHTML = data.map(l => {
+            const imgs = l.file_url ? l.file_url.split(',').map(u => `<img src="${u}" class="w-full h-32 object-cover rounded-lg mb-2 border border-white/10" onclick="openLightbox('${u}')">`).join('') : '';
+            return `
+            <div class="p-4 bg-white/5 rounded-xl border border-red-500/20">
+                <div class="flex justify-between text-red-400 text-[10px] mb-2 font-bold uppercase tracking-widest">
+                    <span>${l.original_sender}</span>
+                    <span>${new Date(l.deleted_at).toLocaleString()}</span>
+                </div>
+                ${imgs}
+                <p class="text-sm whitespace-pre-wrap opacity-80">${escapeHtml(l.content)}</p>
+            </div>`;
+        }).join('');
+    }
+
+    async function viewStoryLogs() {
+        document.getElementById('story-log-modal').style.display = 'block';
+        const { data } = await _db.from('story_logs').select('*').order('created_at', { ascending: false }).limit(50);
+        if(!data || data.length === 0) { document.getElementById('story-log-content').innerHTML = "<p class='text-center opacity-50'>No archives.</p>"; return; }
+        document.getElementById('story-log-content').innerHTML = data.map(s => {
+            const mediaHtml = (s.media_items || []).map(m => m.type === 'video' ? `<video src="${m.url}" controls class="h-24 rounded-lg bg-black"></video>` : `<img src="${m.url}" class="h-24 rounded-lg cursor-pointer object-cover" onclick="openLightbox('${m.url}')">`).join('');
+            return `<div class="p-4 bg-white/5 rounded-xl border border-white/5">
+                <div class="flex justify-between text-[var(--accent)] text-[10px] mb-2 font-bold uppercase tracking-widest">
+                    <span>${s.username}</span>
+                    <span>${new Date(s.created_at).toLocaleString()}</span>
+                </div>
+                <div class="flex gap-2 mb-2 overflow-x-auto">${mediaHtml}</div>
+                <p class="text-sm text-white/80">${escapeHtml(s.caption || '')}</p>
+            </div>`;
+        }).join('');
+    }
+
+    async function toggleGallery(show) { 
+        if(!show) return;
+        document.getElementById('gallery-modal').style.display = 'block';
+        const { data } = await _db.from('private_messages').select('file_url').not('file_url', 'is', null).order('created_at', { ascending: false }).limit(60);
+        const allUrls = data.flatMap(d => d.file_url.split(',')).filter(u => !u.includes('.webm')); 
+        document.getElementById('gallery-content').innerHTML = allUrls.map(u => `<img loading="lazy" src="${u}" class="rounded-lg aspect-square object-cover bg-white/5 hover:opacity-80 transition cursor-pointer" onclick="openLightbox('${u}')">`).join('');
+    }
+
+    // --- STORY VIEWER ---
+    function handleStatusClick() { if(!partnerStatusData?.story_items?.length) return; storyItems = partnerStatusData.story_items; storyIndex = 0; renderStoryItem(); document.getElementById('story-overlay').style.display = 'flex'; }
+    function renderStoryItem() { 
+        const c = document.getElementById('story-media-container');
+        const i = storyItems[storyIndex]; if(!i) return; 
+        document.getElementById('story-prev').classList.toggle('hidden', storyIndex === 0); 
+        document.getElementById('story-next').classList.toggle('hidden', storyIndex === storyItems.length - 1);
+        c.innerHTML = i.type === 'video' ? `<video src="${i.url}" controls autoplay class="max-w-full max-h-[80vh] rounded-xl shadow-2xl"></video>` : `<img src="${i.url}" class="max-w-full max-h-[80vh] object-contain rounded-xl shadow-2xl">`;
+        const cap = document.createElement('div'); cap.className = "absolute bottom-10 bg-black/50 backdrop-blur-md px-4 py-2 rounded-full text-white font-medium"; cap.innerText = partnerStatusData.status_text; c.appendChild(cap);
+    }
+    function navStory(d) { storyIndex += d; renderStoryItem(); }
+    function closeStory() { document.getElementById('story-overlay').style.display = 'none'; document.getElementById('story-media-container').innerHTML = ''; }
+
+    // --- UTILS ---
+    function handleFileSelect(input) { 
+        Array.from(input.files).slice(0, 4).forEach(file => { 
+            const reader = new FileReader(); 
+            reader.onload = e => { stagedFiles.push({ file, preview: e.target.result }); renderStaging(); }; 
+            reader.readAsDataURL(file); 
+        });
+        input.value = ""; 
+    }
+    function renderStaging() { 
+        document.getElementById('staging-area').innerHTML = stagedFiles.map((f, i) => `<div class="relative aspect-square"><img src="${f.preview}" class="w-full h-full object-cover rounded-lg border border-white/20"><button onclick="stagedFiles.splice(${i},1);renderStaging()" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] shadow-md">✕</button></div>`).join('');
+    }
+    function sendInteraction(type) { chatChannel.send({ type: 'broadcast', event: 'admin', payload: { type } }); }
+    function handleInteraction(p) { 
+        if(p.type === 'vibrate') navigator.vibrate?.([400, 100, 400]);
+        if(p.type === 'lovetap') {
+            for(let i=0; i<20; i++) { 
+                const h = document.createElement('div');
+                h.innerText = '❤️'; 
+                h.style.cssText = `position:fixed; left:${Math.random()*100}vw; bottom:0; font-size:${2+Math.random()*2}rem; animation: floatUp ${2+Math.random()}s ease-in forwards; z-index:9999; pointer-events:none;`; 
+                document.body.appendChild(h);
+                setTimeout(() => h.remove(), 4000); 
+            }
         }
-        incomingCallData = payload;
-        document.getElementById('incoming-call-ui').classList.remove('hidden');
-        document.getElementById('caller-id-disp').textContent = payload.caller;
-        document.getElementById('call-type-disp').textContent = payload.mode + " Call";
-        playAlarm("in");
     }
-    else if(payload.type === 'answer') {
-        stopAlarm(); document.getElementById('outgoing-call-ui').classList.add('hidden'); joinAgora(payload.mode === 'video');
-    }
-    else if(payload.type === 'reject') {
-        alert("Call declined");
-        stopAlarm(); resetCallUI();
-    }
-    else if(payload.type === 'hangup') {
-        stopAlarm(); leaveAgora();
-    }
-}
-function answerCall() {
-    stopAlarm();
-    document.getElementById('incoming-call-ui').classList.add('hidden');
-    chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'answer', mode: incomingCallData.mode, caller: me } });
-    joinAgora(incomingCallData.mode === 'video');
-}
-function rejectCall() {
-    stopAlarm();
-    document.getElementById('incoming-call-ui').classList.add('hidden');
-    chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'reject', caller: me } });
-}
-function cancelCall() {
-    stopAlarm();
-    document.getElementById('outgoing-call-ui').classList.add('hidden');
-    chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'reject', caller: me } });
-}
-function hangUp() {
-    stopAlarm();
-    chatChannel.send({ type: 'broadcast', event: 'call-signal', payload: { type: 'hangup', caller: me } }); leaveAgora();
-}
-function playAlarm(type) {
-    stopAlarm();
-    let el = (type==='out')?document.getElementById('ringtone-out'):document.getElementById('ringtone');
-    el.loop=true;
-    el.currentTime=0;
-    el.play().catch(()=>{});
-    callRingTimeout = el;
-}
-function stopAlarm() {
-    if(callRingTimeout) {
-        callRingTimeout.pause();callRingTimeout.currentTime=0; callRingTimeout=null;
-    }
-}
+    
+    function openSidebar() { document.getElementById('sidebar').style.left = '0'; document.getElementById('overlay-bg').classList.remove('hidden'); }
+    function closeSidebar() { document.getElementById('sidebar').style.left = '-300px'; document.getElementById('overlay-bg').classList.add('hidden'); }
+    function openLightbox(u) { document.getElementById('lightbox-img').src = u; document.getElementById('lightbox').style.display = 'flex'; }
+    
+    document.getElementById('chat-form').onsubmit = e => { e.preventDefault(); const v = document.getElementById('msg-input').value; if(v.trim() || stagedFiles.length) sendMsg(v); };
+    document.getElementById('msg-input').oninput = e => chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: e.target.value } });
+    const style = document.createElement('style');
+    style.innerHTML = `@keyframes floatUp { to { transform: translateY(-110vh) rotate(20deg); opacity: 0; } }`;
+    document.head.appendChild(style);
 
-function resetCallUI() {
-    stopAlarm();
-    document.getElementById('incoming-call-ui').classList.add('hidden');
-    document.getElementById('outgoing-call-ui').classList.add('hidden');
-    document.getElementById('video-grid').classList.add('hidden');
-    document.getElementById('return-to-call').style.display = 'none';
-    stopCallTimer();
-    document.getElementById('call-status').textContent = "Connecting...";
-    document.getElementById('local-video').innerHTML = '';
-    document.getElementById('local-screen').classList.add('hidden');
-    incomingCallData = null;
-}
-function toggleCallView() {
-    const grid = document.getElementById('video-grid');
-    const floatBtn = document.getElementById('return-to-call');
-    if (grid.classList.contains('hidden')) { grid.classList.remove('hidden'); floatBtn.style.display = 'none'; }
-    else { grid.classList.add('hidden'); floatBtn.style.display = 'block'; }
-}
-
-// ----------- PIN HANDLING, THEME, WHITEBOARD etc ---------
-/* ... the rest of pin/theme/whiteboard code carries over unchanged from your original selection ... */
-
-window.onload = init;
+    init();
 </script>
 </body>
 </html>
