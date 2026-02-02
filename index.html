@@ -3,10 +3,11 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <title>Us v21 (Ultimate)</title>
+    <title>Us v21 (Ultimate+)</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gif.js.optimized/dist/gif.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -102,6 +103,16 @@
         .theme-dot { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: 0.2s; position: relative; }
         .theme-dot.selected { border-color: white; transform: scale(1.1); }
         .theme-dot-custom { background: linear-gradient(45deg, #333, #999); display: flex; align-items: center; justify-content: center; font-size: 8px; color: white; font-weight: bold; }
+
+        /* TYPING BUBBLE */
+        .bouncing-dots { display:inline-block; height:1em; }
+        .bouncing-dots span { display:inline-block; width:0.45em; height:0.45em; margin:0 .09em; background:#aaa; border-radius:50%; animation:bounce 1s infinite; opacity:0.8; }
+        .bouncing-dots span:nth-child(2){animation-delay:.2s;}
+        .bouncing-dots span:nth-child(3){animation-delay:.4s;}
+        @keyframes bounce {
+            0%, 80%, 100% { transform:scale(1); opacity:0.7 }
+            30% { transform:scale(1.7) translateY(-10%); opacity:1; }
+        }
     </style>
 </head>
 <body data-theme="midnight">
@@ -118,19 +129,47 @@
     <button id="cancel-pin-setup" onclick="cancelPinSetup()" class="hidden mt-8 text-sm text-red-400 font-bold">CANCEL</button>
 </div>
 
-<div id="whiteboard-modal">
-    <div class="p-2 flex justify-between items-center bg-gray-900">
-        <div class="flex gap-2">
-            <button onclick="setBrushColor('#000000')" class="w-8 h-8 rounded-full bg-black border border-white/20"></button>
-            <button onclick="setBrushColor('#ef4444')" class="w-8 h-8 rounded-full bg-red-500"></button>
-            <button onclick="setBrushColor('#3b82f6')" class="w-8 h-8 rounded-full bg-blue-500"></button>
-            <button onclick="clearCanvas()" class="text-xs uppercase font-bold text-red-500 ml-2">Clear</button>
-        </div>
-        <button onclick="closeWhiteboard()" class="text-white font-bold px-4">Done</button>
+<!-- Shared Notes Modal -->
+<div id="shared-notes-modal" class="modal-view" style="z-index:30000;">
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-xl font-bold">Shared Notes</h2>
+    <button onclick="document.getElementById('shared-notes-modal').style.display = 'none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button>
+  </div>
+  <textarea id="shared-notes-area" class="w-full h-60 rounded-xl p-4 bg-white/10 border border-white/10 text-base text-white font-mono focus:outline-none" oninput="saveSharedNotes(this.value)"></textarea>
+  <div class="flex items-center justify-end pt-2">
+    <span id="shared-notes-status" class="text-xs opacity-60"></span>
+  </div>
+</div>
+
+<!-- Gif/Sticker Picker Modal -->
+<div id="gif-picker-modal" class="modal-view" style="z-index:12000;padding:0;display:none;">
+  <div class="flex items-center px-3 bg-black/70 border-b border-black/20">
+    <input id="gif-search" placeholder="Search stickers/gifs..." class="flex-1 bg-transparent py-2 px-2 text-sm outline-none text-white" oninput="searchGIFs(this.value)">
+    <button onclick="closeGifPicker()" class="ml-2 text-white font-bold text-2xl px-3">×</button>
+  </div>
+  <div id="gif-results" class="p-3 grid grid-cols-3 gap-2 overflow-y-auto" style="max-height:55vh;"></div>
+</div>
+
+<!-- Screenshot Alert -->
+<div id="screenshot-toast" style="display:none;position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:#ef4444;color:white;font-weight:bold;padding:10px 18px;border-radius:20px;z-index:8000;font-size:15px;box-shadow:0 5px 15px #0008;">⚠️ Screenshot detected!</div>
+
+<!-- Nickname Changer Modal -->
+<div id="nickname-modal" class="modal-view" style="z-index:29990;">
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-xl font-bold">Set Nicknames</h2>
+    <button onclick="document.getElementById('nickname-modal').style.display = 'none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button>
+  </div>
+  <div class="space-y-4">
+    <div>
+      <label class="text-xs font-bold mb-1 block">Your Display Name for Allyvia:</label>
+      <input id="nickname-input" class="p-2 rounded bg-white/15 w-full text-base" placeholder="E.g. Princess, Honey">
     </div>
-    <div id="canvas-container">
-        <canvas id="drawing-canvas"></canvas>
+    <div>
+      <label class="text-xs font-bold mb-1 block">How She Sees You:</label>
+      <input id="mynickname-input" class="p-2 rounded bg-white/10 w-full text-base" placeholder="E.g. Sir, King">
     </div>
+    <button onclick="saveNicknames()" class="mt-3 bg-[var(--accent)] text-white rounded-full py-2 px-6 font-bold uppercase">Save</button>
+  </div>
 </div>
 
 <div id="story-overlay" style="display:none; position: fixed; inset: 0; background: black; z-index: 6000; align-items: center; justify-content: center; flex-direction: column;">
@@ -155,6 +194,8 @@
         <button onclick="answerCall()" class="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-3xl shadow-2xl hover:scale-110 transition">📞</button>
         <button onclick="rejectCall()" class="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center text-3xl shadow-2xl hover:scale-110 transition">✕</button>
     </div>
+    <!-- Ringing sound element (hidden so it can loop) -->
+    <audio id="call-ringtone" style="display:none;" src="https://cdn.pixabay.com/audio/2022/10/16/audio_12c8d5e4bb.mp3" preload="auto"></audio>
 </div>
 
 <div id="outgoing-call-ui" class="hidden fixed inset-0 bg-black/95 z-[7000] flex flex-col items-center justify-center space-y-8">
@@ -164,6 +205,7 @@
         <p class="text-white/50 text-sm uppercase tracking-widest mt-2">Waiting for answer</p>
     </div>
     <button onclick="cancelCall()" class="w-16 h-16 bg-red-500/20 text-red-500 border border-red-500 rounded-full flex items-center justify-center text-2xl mt-8 hover:bg-red-500 hover:text-white transition">✕</button>
+    <audio id="call-ringtone-out" style="display:none;" src="https://cdn.pixabay.com/audio/2022/10/16/audio_12c8d5e4bb.mp3" preload="auto"></audio>
 </div>
 
 <div id="video-grid" class="hidden fixed inset-0 bg-[#03050a] z-[3000]">
@@ -193,21 +235,43 @@
 
 <div id="story-log-modal" class="modal-view"><div class="flex justify-between items-center mb-6"><h2 class="text-xl font-bold text-pink-400">Story Archives</h2><button onclick="document.getElementById('story-log-modal').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button></div><div id="story-log-content" class="space-y-4 pb-20"></div></div>
 
+<!-- COUNTDOWN EVENTS MODAL -->
+<div id="countdown-modal" class="modal-view" style="z-index:20010;">
+  <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-bold">Countdown Events</h2>
+      <button onclick="document.getElementById('countdown-modal').style.display='none'" class="bg-white/10 px-4 py-1 rounded-full text-sm">Close</button>
+  </div>
+  <div id="countdown-list"></div>
+  <div class="mt-3 border-t border-white/10 pt-3">
+      <input id="cd-label-input" placeholder="Event (e.g. Next Visit)" class="px-3 py-2 rounded bg-white/10 text-white/90 w-1/2">
+      <input id="cd-date-input" type="date" class="px-3 py-2 rounded bg-white/10 text-white/80 ml-2 w-1/3">
+      <button onclick="addCountdown()" class="ml-2 bg-[var(--accent)] text-white font-bold px-4 py-2 rounded">Add</button>
+  </div>
+</div>
+
 <div id="return-to-call" onclick="toggleCallView()" style="display:none; position: absolute; top: 85px; left: 50%; transform: translateX(-50%); background: #10b981; color: white; padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; cursor: pointer; z-index: 9000; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); animation: pulseGreen 2s infinite;">🟢 Return to Call</div>
 
 <div id="chat-main">
     <header class="p-4 flex items-center justify-between glass-panel z-[50]">
         <div class="flex items-center gap-4">
             <button onclick="openSidebar()" class="text-2xl opacity-80 hover:opacity-100 transition">☰</button>
-            <div onclick="handleStatusClick()" class="cursor-pointer">
-                <div class="font-bold text-lg leading-none tracking-tight" id="partner-name">...</div>
-                <div class="flex items-center gap-2">
-                    <div id="partner-status" class="text-[11px] opacity-60 mt-0.5 font-medium">No status</div>
-                    <div id="time-display" class="text-[10px] bg-white/10 px-2 rounded text-blue-300">--:--</div>
+            <div class="relative flex flex-col" style="min-width:150px">
+                <div id="battery-row" class="absolute -left-16 flex flex-col gap-1 items-end text-xs text-gray-300 font-semibold" style="top:0;">
+                    <span id="my-battery"></span>
+                    <span id="their-battery"></span>
                 </div>
-                <div id="live-preview" class="text-[10px] text-[var(--accent)] italic h-3 transition-all"></div>
+                <div onclick="handleStatusClick()" class="cursor-pointer">
+                    <div class="font-bold text-lg leading-none tracking-tight" id="partner-name">...</div>
+                    <div class="flex items-center gap-2">
+                        <div id="partner-status" class="text-[11px] opacity-60 mt-0.5 font-medium">No status</div>
+                        <div id="time-display" class="text-[10px] bg-white/10 px-2 rounded text-blue-300">--:--</div>
+                    </div>
+                    <div id="live-preview" class="text-[10px] text-[var(--accent)] italic h-3 transition-all"></div>
+                </div>
+                <div id="countdown-row" class="hidden mt-1"></div>
             </div>
         </div>
+        <div class="flex gap-2 items-center">
         <div class="flex gap-2">
             <button onclick="startCallRequest(false)" class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-sm hover:bg-white/10">📞</button>
             <button onclick="startCallRequest(true)" class="w-8 h-8 rounded-full bg-[var(--accent)] flex items-center justify-center text-sm shadow-lg shadow-blue-500/20">🎥</button>
