@@ -30,7 +30,8 @@
         [data-theme="retro"] { --bg-color: #1c1917; --sidebar-bg: #292524; --msg-me: #d97706; --msg-you: #292524; --accent: #fcd34d; }
         [data-theme="custom"] { --bg-color: #000000; --sidebar-bg: rgba(0,0,0,0.8); --msg-me: rgba(59, 130, 246, 0.8); --msg-you: rgba(30, 41, 59, 0.7); --accent: #3b82f6; --glass: rgba(0, 0, 0, 0.4); }
 
-        body { background: var(--bg-color); background-size: cover; background-position: center; background-attachment: fixed; color: var(--text-color); font-family: 'Outfit', sans-serif; height: 100vh; overflow: hidden; margin: 0; transition: background-color 0.5s ease; }
+        body { background: var(--bg-color); background-size: cover; background-position: center; background-attachment: fixed; color: var(--text-color);
+        font-family: 'Outfit', sans-serif; height: 100vh; overflow: hidden; margin: 0; transition: background-color 0.5s ease; }
         
         #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; position: relative; z-index: 10; background: radial-gradient(circle at top, rgba(255,255,255,0.03), transparent 70%); backdrop-filter: blur(0px); }
         [data-theme="custom"] #chat-main { backdrop-filter: blur(5px); }
@@ -181,6 +182,7 @@
     <div class="absolute bottom-10 left-0 right-0 flex justify-center items-center gap-4 z-[3002] px-4">
         <button id="btn-mute" onclick="toggleMute()" class="call-btn">🎤</button>
         <button id="btn-cam" onclick="toggleCam()" class="call-btn">📷</button>
+        <button id="btn-screen" onclick="toggleScreenShare()" class="call-btn bg-blue-500/20 text-blue-400">🖥️</button>
         <button id="btn-draw" onclick="openWhiteboard()" class="call-btn bg-purple-500/20 text-purple-400">✏️</button>
         <button id="btn-chat" onclick="toggleCallView()" class="call-btn bg-white/10">💬</button>
         <button onclick="hangUp()" class="call-btn !bg-red-600 hover:!bg-red-700">📞</button>
@@ -359,7 +361,7 @@
         localStorage.setItem('chat_secret_code', code);
         document.getElementById('me-name').textContent = me;
         if(me === 'RJ') document.getElementById('rj-suite').classList.remove('hidden');
-
+        
         const savedBg = localStorage.getItem('custom_bg');
         if(savedBg) {
              document.body.style.backgroundImage = `url('${savedBg}')`;
@@ -368,7 +370,7 @@
              applyTheme(data.current_theme);
         }
 
-        const prompts = ["Who would secretly make a great spy?s", "Which one of us would get lost first on a hike?", "Genre you’d binge together first", "If you could have sex with any celebrity, who would it be—and what do you think it would it be like?", "What's your definition of amazing sex?", "Favorite memory together?", "Dream vacation spot?", "One thing you love about me?", "Song that reminds you of us?", "Ideal date night?", "First and current impression of me? and deffrence", "Hottest thing I've done and said?", "First and current impression of me? and deffrence", "whats your dreams and goals?"];
+        const prompts = ["Who would secretly make a great spy?", "Which one of us would get lost first on a hike?", "Genre you’d binge together first", "If you could have sex with any celebrity, who would it be—and what do you think it would it be like?", "What's your definition of amazing sex?", "Favorite memory together?", "Dream vacation spot?", "One thing you love about me?", "Song that reminds you of us?", "Ideal date night?", "First and current impression of me? and deffrence", "Hottest thing I've done and said?", "First and current impression of me? and deffrence", "whats your dreams and goals?"];
         const dayIndex = new Date().getDay(); 
         document.getElementById('daily-prompt').textContent = prompts[dayIndex];
 
@@ -391,7 +393,7 @@
             })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'private_messages' }, () => loadMessages())
             .subscribe();
-            
+
         loadMessages(); loadStatuses();
         updateDaysCounter();
         
@@ -474,7 +476,7 @@
                     alert("PIN Setup Complete!");
                 }
                 else if (pinMode === 'admin') {
-                     // RJ changing Allyvia's PIN
+                    // RJ changing Allyvia's PIN
                     await _db.from('chat_codes').update({ pin_code: enteredPin }).eq('username', 'Allyvia');
                     document.getElementById('pin-overlay').style.display = 'none';
                     alert("Allyvia's PIN has been updated.");
@@ -745,8 +747,83 @@
     }
     
     async function requestWakeLock() { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} }
+    
     function toggleMute() { if(!rtc.localAudioTrack) return; rtc.isMuted = !rtc.isMuted; rtc.localAudioTrack.setEnabled(!rtc.isMuted); updateMediaUI(); }
+    
+    // --- SCREEN SHARE & CAMERA LOGIC ---
+    async function toggleScreenShare() {
+        if (rtc.screenTrack) {
+            // STOP SHARING
+            await stopScreenShare();
+        } else {
+            // START SHARING
+            try {
+                // Create screen track
+                rtc.screenTrack = await AgoraRTC.createScreenVideoTrack({
+                    encoderConfig: "1080p_1",
+                    optimizationMode: "detail"
+                });
+
+                // If camera is on, unpublish it temporarily
+                if (rtc.localVideoTrack) {
+                     await rtc.client.unpublish(rtc.localVideoTrack);
+                }
+
+                // Publish screen
+                await rtc.client.publish(rtc.screenTrack);
+                
+                // Show local preview
+                rtc.screenTrack.play("local-video");
+
+                // Handle native stop button
+                rtc.screenTrack.on("track-ended", () => {
+                    stopScreenShare();
+                });
+
+                updateMediaUI();
+            } catch (e) {
+                console.error("Screen share failed or cancelled", e);
+            }
+        }
+    }
+
+    async function stopScreenShare() {
+        if (!rtc.screenTrack) return;
+
+        await rtc.client.unpublish(rtc.screenTrack);
+        rtc.screenTrack.close();
+        rtc.screenTrack = null;
+
+        // Switch back to camera if desired, or leave it off
+        if (!rtc.isCamOff) {
+             if (!rtc.localVideoTrack) {
+                 rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack({ encoderConfig: "360p_1" });
+             }
+             await rtc.client.publish(rtc.localVideoTrack);
+             rtc.localVideoTrack.play("local-video");
+        } else {
+            document.getElementById('local-video').innerHTML = '<div class="w-full h-full flex items-center justify-center text-3xl">🎙️</div>';
+        }
+        
+        updateMediaUI();
+    }
+
     async function toggleCam() { 
+        // If screen sharing is active, stop it and switch to cam
+        if (rtc.screenTrack) {
+            await stopScreenShare();
+            rtc.isCamOff = false; // Force cam on
+            // The stopScreenShare logic handles turning the cam back on if !rtc.isCamOff
+            // But we need to ensure it turns on:
+            if (!rtc.localVideoTrack) {
+                 rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack({ encoderConfig: "360p_1" });
+                 await rtc.client.publish(rtc.localVideoTrack);
+                 rtc.localVideoTrack.play("local-video");
+            }
+            updateMediaUI();
+            return;
+        }
+
         rtc.isCamOff = !rtc.isCamOff;
         if(!rtc.localVideoTrack) {
             rtc.localVideoTrack = await AgoraRTC.createCameraVideoTrack({ encoderConfig: "360p_1" });
@@ -758,12 +835,25 @@
         else if(document.getElementById('local-video').querySelector('video') === null) rtc.localVideoTrack.play("local-video");
         updateMediaUI();
     }
+
     function updateMediaUI() {
         document.getElementById('btn-mute').textContent = rtc.isMuted ? '🔇' : '🎤';
         document.getElementById('btn-mute').classList.toggle('active', rtc.isMuted);
+        
         document.getElementById('btn-cam').textContent = rtc.isCamOff ? '🚫' : '📷';
         document.getElementById('btn-cam').classList.toggle('active', rtc.isCamOff);
+        
+        // Screen share button state
+        const screenBtn = document.getElementById('btn-screen');
+        if (rtc.screenTrack) {
+            screenBtn.classList.add('screen-active');
+            screenBtn.classList.remove('bg-blue-500/20', 'text-blue-400');
+        } else {
+            screenBtn.classList.remove('screen-active');
+            screenBtn.classList.add('bg-blue-500/20', 'text-blue-400');
+        }
     }
+
     function startCallTimer() {
         stopCallTimer(); callSeconds = 0;
         document.getElementById('call-timer').textContent = "00:00";
@@ -843,7 +933,6 @@
             reply_to: currentReplyId, 
             is_read: false 
         }]);
-        
         // --- FORCE REFRESH FIX ---
         loadMessages();
     }
@@ -870,7 +959,8 @@
         cancelReply();
     }
     
-    function cancelEdit() { editingId = null; document.getElementById('msg-input').value = ""; document.getElementById('edit-box').classList.add('hidden'); document.getElementById('send-btn').textContent = "Send"; }
+    function cancelEdit() { editingId = null; document.getElementById('msg-input').value = ""; document.getElementById('edit-box').classList.add('hidden');
+    document.getElementById('send-btn').textContent = "Send"; }
     function cancelReply() { replyId = null; document.getElementById('reply-box').classList.add('hidden'); }
     
     async function markAsRead(msgId) { 
@@ -895,12 +985,12 @@
             const isMe = m.sender === me;
             const parentMsg = m.reply_to ? allMessagesCache.find(x => x.id === m.reply_to) : null;
             const replyHTML = parentMsg ? `<div class="reply-preview">${escapeHtml(parentMsg.message || (parentMsg.file_url ? "Media" : "Message"))}</div>` : '';
-            
+
             const mediaHTML = (m.file_url ? m.file_url.split(',') : []).map(u => {
                 if(u.includes('.webm') || u.includes('.mp3') || u.includes('voice_')) return `<audio controls src="${u}" class="w-full mb-2"></audio>`;
                 return `<img loading="lazy" decoding="async" src="${u}" class="rounded-xl mb-1 w-full max-h-64 object-cover cursor-pointer hover:brightness-90 transition" onclick="openLightbox('${u}')">`
             }).join('');
-            
+
             const bubbleClass = isMe ? 'me' : 'you';
             const extraClass = m.optimistic ? 'sending' : '';
             
@@ -981,7 +1071,8 @@
     async function viewStoryLogs() {
         document.getElementById('story-log-modal').style.display = 'block';
         const { data } = await _db.from('story_logs').select('*').order('created_at', { ascending: false }).limit(50);
-        if(!data || data.length === 0) { document.getElementById('story-log-content').innerHTML = "<p class='text-center opacity-50'>No archives.</p>"; return; }
+        if(!data || data.length === 0) { document.getElementById('story-log-content').innerHTML = "<p class='text-center opacity-50'>No archives.</p>"; return;
+        }
         document.getElementById('story-log-content').innerHTML = data.map(s => {
             const mediaHtml = (s.media_items || []).map(m => m.type === 'video' ? `<video src="${m.url}" controls class="h-24 rounded-lg bg-black"></video>` : `<img src="${m.url}" class="h-24 rounded-lg cursor-pointer object-cover" onclick="openLightbox('${m.url}')">`).join('');
             return `<div class="p-4 bg-white/5 rounded-xl border border-white/5">
@@ -1004,7 +1095,8 @@
     }
 
     // --- STORY VIEWER ---
-    function handleStatusClick() { if(!partnerStatusData?.story_items?.length) return; storyItems = partnerStatusData.story_items; storyIndex = 0; renderStoryItem(); document.getElementById('story-overlay').style.display = 'flex'; }
+    function handleStatusClick() { if(!partnerStatusData?.story_items?.length) return; storyItems = partnerStatusData.story_items;
+    storyIndex = 0; renderStoryItem(); document.getElementById('story-overlay').style.display = 'flex'; }
     function renderStoryItem() { 
         const c = document.getElementById('story-media-container');
         const i = storyItems[storyIndex]; if(!i) return; 
@@ -1042,11 +1134,13 @@
         }
     }
     
-    function openSidebar() { document.getElementById('sidebar').style.left = '0'; document.getElementById('overlay-bg').classList.remove('hidden'); }
+    function openSidebar() { document.getElementById('sidebar').style.left = '0';
+    document.getElementById('overlay-bg').classList.remove('hidden'); }
     function closeSidebar() { document.getElementById('sidebar').style.left = '-300px'; document.getElementById('overlay-bg').classList.add('hidden'); }
     function openLightbox(u) { document.getElementById('lightbox-img').src = u; document.getElementById('lightbox').style.display = 'flex'; }
     
-    document.getElementById('chat-form').onsubmit = e => { e.preventDefault(); const v = document.getElementById('msg-input').value; if(v.trim() || stagedFiles.length) sendMsg(v); };
+    document.getElementById('chat-form').onsubmit = e => { e.preventDefault(); const v = document.getElementById('msg-input').value;
+    if(v.trim() || stagedFiles.length) sendMsg(v); };
     document.getElementById('msg-input').oninput = e => chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: e.target.value } });
     const style = document.createElement('style');
     style.innerHTML = `@keyframes floatUp { to { transform: translateY(-110vh) rotate(20deg); opacity: 0; } }`;
