@@ -3,15 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover"/>
-    <meta name="apple-mobile-web-app-capable" content="yes"/>
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-    <meta name="theme-color" content="#3b82f6"/>
     <title>Us v21 (Ultimate)</title>
-    
-    <!-- PWA Essentials -->
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="icon-192.png">
-    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
@@ -38,12 +30,13 @@
         [data-theme="retro"] { --bg-color: #1c1917; --sidebar-bg: #292524; --msg-me: #d97706; --msg-you: #292524; --accent: #fcd34d; }
         [data-theme="custom"] { --bg-color: #000000; --sidebar-bg: rgba(0,0,0,0.8); --msg-me: rgba(59, 130, 246, 0.8); --msg-you: rgba(30, 41, 59, 0.7); --accent: #3b82f6; --glass: rgba(0, 0, 0, 0.4); }
 
-        body { background: var(--bg-color); background-size: cover; background-position: center; background-attachment: fixed; color: var(--text-color); font-family: 'Outfit', sans-serif; height: 100dvh; overflow: hidden; margin: 0; transition: background-color 0.5s ease; }
+        body { background: var(--bg-color); background-size: cover; background-position: center; background-attachment: fixed; color: var(--text-color);
+        font-family: 'Outfit', sans-serif; height: 100vh; overflow: hidden; margin: 0; transition: background-color 0.5s ease; }
         
-        #chat-main { display: flex; flex-direction: column; height: 100dvh; max-width: 600px; margin: 0 auto; position: relative; z-index: 10; background: radial-gradient(circle at top, rgba(255,255,255,0.03), transparent 70%); backdrop-filter: blur(0px); }
+        #chat-main { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; position: relative; z-index: 10; background: radial-gradient(circle at top, rgba(255,255,255,0.03), transparent 70%); backdrop-filter: blur(0px); }
         [data-theme="custom"] #chat-main { backdrop-filter: blur(5px); }
 
-        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; padding-bottom: 80px; -webkit-overflow-scrolling: touch; will-change: scroll-position; }
+        #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; padding-bottom: 40px; will-change: scroll-position; }
         
         .msg-wrap { display: flex; flex-direction: column; width: 100%; position: relative; animation: slideIn 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; opacity: 0; transform: translateY(10px); }
         @keyframes slideIn { to { opacity: 1; transform: translateY(0); } }
@@ -136,7 +129,7 @@
         </div>
         <button onclick="closeWhiteboard()" class="text-white font-bold px-4">Done</button>
     </div>
-    <div id=" RANK-canvas-container">
+    <div id="canvas-container">
         <canvas id="drawing-canvas"></canvas>
     </div>
 </div>
@@ -144,7 +137,7 @@
 <div id="story-overlay" style="display:none; position: fixed; inset: 0; background: black; z-index: 6000; align-items: center; justify-content: center; flex-direction: column;">
     <div id="story-prev" class="story-nav-btn absolute left-0 top-1/2 -translate-y-1/2 p-6 text-4xl opacity-50 hover:opacity-100 cursor-pointer z-[6010]" onclick="navStory(-1)">‹</div>
     <div id="story-media-container" class="relative w-full h-full flex items-center justify-center p-4"></div>
-    <div id="story-next" class="story-nav-btn absolute right-0 top-1/2 Header- translate-y-1/2 p-6 text-4xl opacity-50 hover:opacity-100 cursor-pointer z-[6010]" onclick="navStory(1)">›</div>
+    <div id="story-next" class="story-nav-btn absolute right-0 top-1/2 -translate-y-1/2 p-6 text-4xl opacity-50 hover:opacity-100 cursor-pointer z-[6010]" onclick="navStory(1)">›</div>
     <button onclick="closeStory()" class="absolute top-6 right-6 text-white text-3xl z-[6020] opacity-70 hover:opacity-100">✕</button>
 </div>
 
@@ -189,6 +182,7 @@
     <div class="absolute bottom-10 left-0 right-0 flex justify-center items-center gap-4 z-[3002] px-4">
         <button id="btn-mute" onclick="toggleMute()" class="call-btn">🎤</button>
         <button id="btn-cam" onclick="toggleCam()" class="call-btn">📷</button>
+        <button id="btn-screen" onclick="toggleScreenShare()" class="call-btn bg-blue-500/20 text-blue-400">🖥️</button>
         <button id="btn-draw" onclick="openWhiteboard()" class="call-btn bg-purple-500/20 text-purple-400">✏️</button>
         <button id="btn-chat" onclick="toggleCallView()" class="call-btn bg-white/10">💬</button>
         <button onclick="hangUp()" class="call-btn !bg-red-600 hover:!bg-red-700">📞</button>
@@ -225,7 +219,7 @@
     <main id="messages"></main>
     
     <footer class="p-4 glass-panel">
-        <div id="staging-area" class="grid grid-cols-4 gap-2 mb-2 empty: hidden"></div>
+        <div id="staging-area" class="grid grid-cols-4 gap-2 mb-2 empty:hidden"></div>
         
         <div id="reply-box" class="hidden bg-[var(--accent)]/10 p-3 rounded-t-2xl border-l-4 border-[var(--accent)] flex justify-between items-center mb-[-10px] pb-5">
             <span id="reply-text" class="text-[11px] text-[var(--accent)] italic truncate pr-2"></span>
@@ -325,138 +319,6 @@
 <div id="overlay-bg" onclick="closeSidebar()" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[900]"></div>
 
 <script>
-    // Haptic feedback helper (mobile only)
-    function haptic(type = 'light') {
-        if ('vibrate' in navigator) {
-            const patterns = {
-                light: [30],
-                medium: [50],
-                heavy: [100, 50, 100],
-                heartbeat: [100, 50, 100, 50, 200]
-            };
-            navigator.vibrate(patterns[type] || patterns.light);
-        }
-    }
-    // STATE
-    let me, you, chatChannel, stagedFiles = [], replyId = null, editingId = null;
-    let partnerStatusData = null, allMessagesCache = [];
-    let storyItems = [], storyIndex = 0;
-    let loadTimeout = null;
-    let mediaRecorder = null, audioChunks = [];
-    let isSleepMode = false;
-    // PIN STATES
-    let pinCode = null, enteredPin = "", pinMode = "unlock";
-    // DRAWING
-    let canvas, ctx, isDrawing = false, lastX = 0, lastY = 0;
-    let drawingThrottle = null;
-
-    const notifSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-    notifSound.volume = 0.05;
-    const AGORA_APP_ID = "4f6c6c2002784152a8366dec12f1b4c0";
-    let rtc = { client: null, localVideoTrack: null, localAudioTrack: null, screenTrack: null, isMuted: false, isCamOff: false };
-    let incomingCallData = null, callTimerInterval = null, callSeconds = 0, wakeLock = null;
-
-    async function init() {
-        // Service Worker Registration for PWA
-        if ('serviceWorker' in navigator) {
-            try {
-                const reg = await navigator.serviceWorker.register('sw.js');
-                console.log('SW registered', reg);
-            } catch (err) {
-                console.log('SW registration failed', err);
-            }
-        }
-
-        const code = localStorage.getItem('chat_secret_code') || prompt("Access Code:");
-        const { data } = await _db.from('chat_codes').select('*').eq('code', code).single();
-        if(!data) return;
-        
-        me = data.username;
-        you = (me === 'RJ' ? 'Allyvia' : 'RJ');
-        
-        if(data.pin_code) {
-            pinCode = data.pin_code;
-            showPinScreen("unlock");
-            document.getElementById('pin-toggle').checked = true;
-        } else {
-            document.getElementById('pin-toggle').checked = false;
-        }
-
-        localStorage.setItem('chat_secret_code', code);
-        document.getElementById('me-name').textContent = me;
-        if(me === 'RJ') document.getElementById('rj-suite').classList.remove('hidden');
-
-        const savedBg = localStorage.getItem('custom_bg');
-        if(savedBg) {
-             document.body.style.backgroundImage = `url('${savedBg}')`;
-             applyTheme('custom');
-        } else if(data.current_theme) {
-             applyTheme(data.current_theme);
-        }
-
-        const prompts = ["Who would secretly make a great spy?", "Which one of us would get lost first on a hike?", "Genre you’d binge together first", "If you could have sex with any celebrity, who would it be—and what do you think it would it be like?", "What's your definition of amazing sex?", "Favorite memory together?", "Dream vacation spot?", "One thing you love about me?", "Song that reminds you of us?", "Ideal date night?", "First and current impression of me? and deffrence", "Hottest thing I've done and said?", "First and current impression of me? and deffrence", "whats your dreams and goals?"];
-        const dayIndex = new Date().getDay(); 
-        document.getElementById('daily-prompt').textContent = prompts[dayIndex];
-
-        chatChannel = _db.channel('chat-ultra');
-        chatChannel
-            .on('broadcast', { event: 'admin' }, p => handleInteraction(p.payload))
-            .on('broadcast', { event: 'refresh' }, () => { loadMessages(); loadStatuses(); })
-            .on('broadcast', { event: 'theme_change' }, p => applyTheme(p.payload.theme))
-            .on('broadcast', { event: 'draw_event' }, p => drawOnCanvas(p.payload, false))
-            .on('broadcast', { event: 'typing' }, p => {
-                const el = document.getElementById('live-preview');
-                el.textContent = p.payload.text ? (me === 'RJ' ? `Typing: ${p.payload.text}` : `${you} is typing...`) : "";
-                el.style.opacity = p.payload.text ? 1 : 0;
-                if(p.payload.localTime) document.getElementById('time-display').textContent = p.payload.localTime;
-            })
-            .on('broadcast', { event: 'call-signal' }, p => handleCallSignal(p.payload))
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'private_messages' }, (p) => {
-                if(p.new.receiver === me) { handleIncomingMessage(p.new); markAsRead(p.new.id); }
-                loadMessages();
-            })
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'private_messages' }, () => loadMessages())
-            .subscribe();
-            
-        loadMessages(); loadStatuses();
-        updateDaysCounter();
-        
-        if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-            document.body.addEventListener('click', () => Notification.requestPermission(), { once: true });
-        }
-
-        setInterval(() => {
-             chatChannel.send({ type: 'broadcast', event: 'typing', payload: { text: document.getElementById('msg-input').value, localTime: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) } });
-        }, 30000);
-
-        document.addEventListener("visibilitychange", () => {
-            if (document.visibilityState === 'visible') {
-                loadMessages();
-                loadStatuses();
-                chatChannel.subscribe();
-            }
-        });
-
-        // Auto-focus input after unlock
-        document.getElementById('msg-input')?.focus();
-    }
-
-    // Add haptics to interactions
-    function sendInteraction(type) {
-        haptic(type === 'lovetap' ? 'heartbeat' : 'medium');
-        chatChannel.send({ type: 'broadcast', event: 'admin', payload: { type } });
-    }
-
-    // Haptic on send (in form submit)
-    document.getElementById('chat-form').onsubmit = e => {
-        e.preventDefault();
-        haptic('light');
-        const v = document.getElementById('msg-input').value;
-        if(v.trim() || stagedFiles.length) sendMsg(v);
-    };
-
-    // ALL YOUR ORIGINAL FUNCTIONS BELOW (unchanged - pin, whiteboard, calls, messaging, themes, etc.)
-    // ... [all the rest of your original script exactly as you had it] ...
     const SB_URL = 'https://jwfgaulakwiwextmqbov.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZmdhdWxha3dpd2V4dG1xYm92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NzU1MTYsImV4cCI6MjA4MjI1MTUxNn0.DBOoI_wLNGyB1LLfXzyAbVvEkVMj9XcCJie-HAZ0_d4';
     const _db = supabase.createClient(SB_URL, SB_KEY);
